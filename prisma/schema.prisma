@@ -378,6 +378,18 @@ model ShopSetting {
   bankAccountHolder          String  @default("")
   refundAllowedAfterDownload Boolean @default(false)
   noticeMessage              String?
+
+  // 디스코드 연동 - 구매 로그 채널 / 실시간 통계 음성채널
+  discordPurchaseLogChannelId String?
+  discordMemberCountChannelId String?
+  discordBuyerCountChannelId  String?
+
+  // 디스코드 연동 - 누적 구매금액 등급별 자동 지급 역할 (역할 ID는 관리자가 Discord에서 직접 만든 뒤 등록)
+  discordRoleTier150k String? // 150,000원 이상 - 10% 할인
+  discordRoleTier100k String? // 100,000원 이상 - 8% 할인
+  discordRoleTier50k  String? // 50,000원 이상 - 5% 할인
+  discordRoleTier10k  String? // 10,000원 이상 - 할인 없음, 표시 전용
+  discordRoleBuyer    String? // 1원 이상 구매한 모든 회원
 }
 
 model Notification {

@@ -51,25 +51,30 @@ export async function GET(req: NextRequest) {
   if (!userRes.ok) return adminLoginError(req, "Discord 사용자 정보를 가져오지 못했습니다.");
   const discordUser = (await userRes.json()) as { id: string; username: string; global_name: string | null };
 
-  const isServerAdmin = await isDiscordGuildAdmin(discordUser.id);
-  if (!isServerAdmin) {
-    return adminLoginError(req, "디스코드 서버 관리자 권한이 없어 로그인할 수 없습니다.");
-  }
-
   const { ip, userAgent } = await getClientInfo();
+
+  // 이미 연동된 관리자 계정이 있다면, 지금 이 순간의 디스코드 서버 권한과 무관하게 로그인시킨다.
+  // (예: 관리자 계정 생성 후 /관리자연동으로 연결한 STAFF/MANAGER는 서버 Administrator 권한이 없을 수 있다.)
   let admin = await prisma.adminUser.findUnique({ where: { discordId: discordUser.id } });
 
   if (!admin) {
-    // 서버 관리자 권한은 있지만 아직 자비샵 관리자 계정이 없는 경우, 최소 권한(STAFF)으로 자동 발급한다.
-    // 비밀번호는 본인이 알 수 없는 무작위 값으로 채워두며, 이후로도 Discord 로그인만 사용하게 된다.
-    // 필요 시 SUPER 관리자가 /admin/security/admins 에서 권한을 올려줄 수 있다.
+    // 아직 연동된 계정이 없는 경우에만, 실제 디스코드 서버 관리자 권한을 확인해 최초 부트스트랩으로 발급한다.
+    // 로그인 수단이 Discord뿐이므로 이 경로가 유일한 관리자 발급 경로이며, 서버 최고 권한자이므로 SUPER로 발급한다.
+    const isServerAdmin = await isDiscordGuildAdmin(discordUser.id);
+    if (!isServerAdmin) {
+      return adminLoginError(req, "디스코드 서버 관리자 권한이 없어 로그인할 수 없습니다.");
+    }
+
+    // 비밀번호는 본인이 알 수 없는 무작위 값으로 채워두며(로그인은 Discord로만 함),
+    // 다른 관리자를 초대할 때는 SUPER가 /admin/security/admins에서 계정을 만든 뒤
+    // 그 비밀번호를 알려주면 초대받은 사람이 봇의 /관리자연동으로 자기 Discord 계정과 연결하면 된다.
     const randomPassword = randomBytes(24).toString("hex");
     admin = await prisma.adminUser.create({
       data: {
         loginId: `discord_${discordUser.id}`,
         passwordHash: await hashPassword(randomPassword),
         name: discordUser.global_name || discordUser.username,
-        role: "STAFF",
+        role: "SUPER",
         discordId: discordUser.id,
       },
     });

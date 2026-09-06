@@ -1,8 +1,14 @@
 import { prisma } from "@/lib/prisma";
 import { generateOrderNo } from "@/lib/orderNo";
 import { computeDiscount, CouponError } from "@/lib/coupon";
-import { ORDER_STATUS, ARTWORK_STATUS, POINT_TX_TYPE, TIER_STATUS } from "@/lib/constants";
-import { notifyPurchaseByDM, notifyLowStockIfNeeded } from "@/lib/discordNotify";
+import { ORDER_STATUS, ARTWORK_STATUS, POINT_TX_TYPE, TIER_STATUS, getPurchaseTierDiscountPercent } from "@/lib/constants";
+import {
+  notifyPurchaseByDM,
+  notifyLowStockIfNeeded,
+  announcePurchaseInChannel,
+  getCumulativeSpend,
+  syncPurchaseTierRoles,
+} from "@/lib/discordNotify";
 
 export class OrderError extends Error {
   code: string;
@@ -74,6 +80,17 @@ export async function purchaseTier(params: {
         throw new OrderError("COUPON_EXHAUSTED", "이미 사용한 쿠폰입니다.");
 
       couponId = coupon.id;
+    }
+
+    // 누적 구매금액(이 주문 이전 기준) 등급에 따른 자동 할인. 쿠폰 할인 이후 금액에 추가로 적용된다.
+    const priorSpend = await tx.order.aggregate({
+      where: { userId, status: ORDER_STATUS.COMPLETED },
+      _sum: { finalAmount: true },
+    });
+    const tierDiscountPercent = getPurchaseTierDiscountPercent(priorSpend._sum.finalAmount ?? 0);
+    if (tierDiscountPercent > 0) {
+      const afterCoupon = baseAmount - discountAmount;
+      discountAmount += Math.floor((afterCoupon * tierDiscountPercent) / 100);
     }
 
     const finalAmount = Math.max(baseAmount - discountAmount, 0);
@@ -179,6 +196,15 @@ export async function purchaseTier(params: {
     .count({ where: { tierId, status: ARTWORK_STATUS.AVAILABLE } })
     .then((remaining) => notifyLowStockIfNeeded(tierId, remaining))
     .catch(() => {});
+
+  // 구매 로그 채널 공개 알림 + 누적 구매금액 등급 역할 동기화 (둘 다 실패해도 구매엔 영향 없음).
+  announcePurchaseInChannel(userId, completedOrder.id).catch(() => {});
+  (async () => {
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user?.discordId) return;
+    const spend = await getCumulativeSpend(userId);
+    await syncPurchaseTierRoles(user.discordId, spend);
+  })().catch(() => {});
 
   return completedOrder;
 }

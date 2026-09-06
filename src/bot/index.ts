@@ -13,11 +13,13 @@ import {
 import { handleButtonInteraction } from "@/bot/interactions/buttons";
 import { handleSelectMenuInteraction } from "@/bot/interactions/selects";
 import { errorEmbed } from "@/bot/format";
+import { startStatsChannelLoop } from "@/bot/statsChannels";
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 client.once(Events.ClientReady, (c) => {
   console.log(`✅ 자비샵 봇 로그인 완료: ${c.user.tag}`);
+  startStatsChannelLoop(client);
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {

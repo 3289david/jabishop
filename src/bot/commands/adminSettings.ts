@@ -1,4 +1,4 @@
-import { SlashCommandBuilder } from "discord.js";
+import { SlashCommandBuilder, ChannelType } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { requireLinkedAdmin, requireSuperRole } from "@/bot/discordAuth";
 import { baseEmbed, errorEmbed, successEmbed } from "@/bot/format";
@@ -14,7 +14,18 @@ export const settingsViewCommand: BotCommand = {
       { name: "쇼핑몰 이름", value: s?.shopName ?? "-" },
       { name: "입금 계좌", value: `${s?.bankName ?? "-"} ${s?.bankAccountNumber ?? ""} (${s?.bankAccountHolder ?? "-"})` },
       { name: "다운로드 후 환불", value: s?.refundAllowedAfterDownload ? "허용" : "불허" },
-      { name: "안내 문구", value: s?.noticeMessage ?? "-" }
+      { name: "안내 문구", value: s?.noticeMessage ?? "-" },
+      { name: "구매 로그 채널", value: s?.discordPurchaseLogChannelId ? `<#${s.discordPurchaseLogChannelId}>` : "미설정" },
+      {
+        name: "누적 구매금액 등급 역할",
+        value: [
+          `150,000원↑(10%): ${s?.discordRoleTier150k ? `<@&${s.discordRoleTier150k}>` : "미설정"}`,
+          `100,000원↑(8%): ${s?.discordRoleTier100k ? `<@&${s.discordRoleTier100k}>` : "미설정"}`,
+          `50,000원↑(5%): ${s?.discordRoleTier50k ? `<@&${s.discordRoleTier50k}>` : "미설정"}`,
+          `10,000원↑: ${s?.discordRoleTier10k ? `<@&${s.discordRoleTier10k}>` : "미설정"}`,
+          `구매자: ${s?.discordRoleBuyer ? `<@&${s.discordRoleBuyer}>` : "미설정"}`,
+        ].join("\n"),
+      }
     );
     await interaction.reply({ embeds: [embed], ephemeral: true });
   },
@@ -28,7 +39,15 @@ export const settingsUpdateCommand: BotCommand = {
     .addStringOption((o) => o.setName("계좌번호").setDescription("입금 계좌번호"))
     .addStringOption((o) => o.setName("예금주").setDescription("예금주명"))
     .addBooleanOption((o) => o.setName("다운로드후환불허용").setDescription("다운로드한 상품도 환불 허용할지"))
-    .addStringOption((o) => o.setName("안내문구").setDescription("사용자에게 보여줄 안내 문구")),
+    .addStringOption((o) => o.setName("안내문구").setDescription("사용자에게 보여줄 안내 문구"))
+    .addChannelOption((o) =>
+      o.setName("구매로그채널").setDescription("구매 발생 시 공지할 채널").addChannelTypes(ChannelType.GuildText)
+    )
+    .addRoleOption((o) => o.setName("역할150k").setDescription("누적 150,000원 이상 (10% 할인) 역할"))
+    .addRoleOption((o) => o.setName("역할100k").setDescription("누적 100,000원 이상 (8% 할인) 역할"))
+    .addRoleOption((o) => o.setName("역할50k").setDescription("누적 50,000원 이상 (5% 할인) 역할"))
+    .addRoleOption((o) => o.setName("역할10k").setDescription("누적 10,000원 이상 (표시 전용) 역할"))
+    .addRoleOption((o) => o.setName("역할구매자").setDescription("1원 이상 구매자 전원에게 줄 역할")),
   async execute(interaction) {
     const admin = await requireLinkedAdmin(interaction.user.id);
     requireSuperRole(admin.role);
@@ -38,6 +57,12 @@ export const settingsUpdateCommand: BotCommand = {
     const bankAccountHolder = interaction.options.getString("예금주");
     const refundAllowedAfterDownload = interaction.options.getBoolean("다운로드후환불허용");
     const noticeMessage = interaction.options.getString("안내문구");
+    const purchaseLogChannel = interaction.options.getChannel("구매로그채널");
+    const roleTier150k = interaction.options.getRole("역할150k");
+    const roleTier100k = interaction.options.getRole("역할100k");
+    const roleTier50k = interaction.options.getRole("역할50k");
+    const roleTier10k = interaction.options.getRole("역할10k");
+    const roleBuyer = interaction.options.getRole("역할구매자");
 
     await prisma.shopSetting.upsert({
       where: { id: "singleton" },
@@ -47,6 +72,12 @@ export const settingsUpdateCommand: BotCommand = {
         ...(bankAccountHolder != null ? { bankAccountHolder } : {}),
         ...(refundAllowedAfterDownload != null ? { refundAllowedAfterDownload } : {}),
         ...(noticeMessage != null ? { noticeMessage } : {}),
+        ...(purchaseLogChannel ? { discordPurchaseLogChannelId: purchaseLogChannel.id } : {}),
+        ...(roleTier150k ? { discordRoleTier150k: roleTier150k.id } : {}),
+        ...(roleTier100k ? { discordRoleTier100k: roleTier100k.id } : {}),
+        ...(roleTier50k ? { discordRoleTier50k: roleTier50k.id } : {}),
+        ...(roleTier10k ? { discordRoleTier10k: roleTier10k.id } : {}),
+        ...(roleBuyer ? { discordRoleBuyer: roleBuyer.id } : {}),
       },
       create: {
         id: "singleton",
@@ -55,6 +86,12 @@ export const settingsUpdateCommand: BotCommand = {
         bankAccountHolder: bankAccountHolder ?? "",
         refundAllowedAfterDownload: refundAllowedAfterDownload ?? false,
         noticeMessage,
+        discordPurchaseLogChannelId: purchaseLogChannel?.id,
+        discordRoleTier150k: roleTier150k?.id,
+        discordRoleTier100k: roleTier100k?.id,
+        discordRoleTier50k: roleTier50k?.id,
+        discordRoleTier10k: roleTier10k?.id,
+        discordRoleBuyer: roleBuyer?.id,
       },
     });
     await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "SETTINGS_UPDATE" } });

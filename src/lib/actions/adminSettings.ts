@@ -17,9 +17,23 @@ export async function updateSettingsAction(_prev: ActionState, formData: FormDat
   const refundAllowedAfterDownload = formData.get("refundAllowedAfterDownload") === "on";
   const noticeMessage = String(formData.get("noticeMessage") || "").trim() || null;
 
+  const discordFields = [
+    "discordPurchaseLogChannelId",
+    "discordMemberCountChannelId",
+    "discordBuyerCountChannelId",
+    "discordRoleTier150k",
+    "discordRoleTier100k",
+    "discordRoleTier50k",
+    "discordRoleTier10k",
+    "discordRoleBuyer",
+  ] as const;
+  const discordData = Object.fromEntries(
+    discordFields.map((key) => [key, String(formData.get(key) || "").trim() || null])
+  );
+
   await prisma.shopSetting.upsert({
     where: { id: "singleton" },
-    update: { shopName, bankName, bankAccountNumber, bankAccountHolder, refundAllowedAfterDownload, noticeMessage },
+    update: { shopName, bankName, bankAccountNumber, bankAccountHolder, refundAllowedAfterDownload, noticeMessage, ...discordData },
     create: {
       id: "singleton",
       shopName,
@@ -28,6 +42,7 @@ export async function updateSettingsAction(_prev: ActionState, formData: FormDat
       bankAccountHolder,
       refundAllowedAfterDownload,
       noticeMessage,
+      ...discordData,
     },
   });
   await logAdminActivity(admin.id, "SETTINGS_UPDATE");

@@ -108,3 +108,20 @@ export const ARTWORK_CATEGORIES = [
   "일러스트",
   "기타",
 ];
+
+// 누적 구매금액(포인트 결제 완료 기준) 등급별 자동 할인율과, 해당 등급의
+// 디스코드 역할 ID가 저장된 ShopSetting 필드명. 높은 금액대부터 순서대로 검사한다.
+export const PURCHASE_TIER_ROLES = [
+  { threshold: 150000, discountPercent: 10, settingKey: "discordRoleTier150k", label: "150,000원 이상" },
+  { threshold: 100000, discountPercent: 8, settingKey: "discordRoleTier100k", label: "100,000원 이상" },
+  { threshold: 50000, discountPercent: 5, settingKey: "discordRoleTier50k", label: "50,000원 이상" },
+  { threshold: 10000, discountPercent: 0, settingKey: "discordRoleTier10k", label: "10,000원 이상" },
+  { threshold: 1, discountPercent: 0, settingKey: "discordRoleBuyer", label: "구매자 (1원 이상)" },
+] as const;
+
+export function getPurchaseTierDiscountPercent(cumulativeSpend: number): number {
+  for (const tier of PURCHASE_TIER_ROLES) {
+    if (cumulativeSpend >= tier.threshold) return tier.discountPercent;
+  }
+  return 0;
+}

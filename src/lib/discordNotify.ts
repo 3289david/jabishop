@@ -5,6 +5,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { readUploadedFile } from "@/lib/storage";
+import { PURCHASE_TIER_ROLES, ORDER_STATUS } from "@/lib/constants";
 
 const API_BASE = "https://discord.com/api/v10";
 
@@ -64,7 +65,82 @@ export async function sendDiscordDM(
   }
 }
 
+/** 특정 채널에 임베드를 직접 게시한다 (DM이 아니라 서버 채널용). */
+export async function sendChannelMessage(channelId: string, payload: { content?: string; embeds?: SimpleEmbed[] }) {
+  const token = process.env.DISCORD_BOT_TOKEN;
+  if (!token) return;
+  try {
+    await fetch(`${API_BASE}/channels/${channelId}/messages`, {
+      method: "POST",
+      headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+  } catch {
+    // 채널이 삭제됐거나 권한이 없는 경우 등 - 구매 자체는 계속 진행돼야 하므로 무시한다.
+  }
+}
+
 const BRAND_COLOR = 0x6366f1;
+
+/** 구매 완료 시 관리자가 설정한 "구매 로그" 채널에 공개적으로 알린다. */
+export async function announcePurchaseInChannel(userId: string, orderId: string) {
+  const settings = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
+  if (!settings?.discordPurchaseLogChannelId) return;
+
+  const [user, order] = await Promise.all([
+    prisma.user.findUnique({ where: { id: userId } }),
+    prisma.order.findUnique({ where: { id: orderId }, include: { tier: true } }),
+  ]);
+  if (!order) return;
+
+  const name = user?.name ?? "익명";
+  await sendChannelMessage(settings.discordPurchaseLogChannelId, {
+    embeds: [
+      {
+        description: `🎉 **${name}**님이 **${order.tier.name}**을(를) 구매했습니다!`,
+        color: BRAND_COLOR,
+        timestamp: new Date().toISOString(),
+      },
+    ],
+  });
+}
+
+/** 해당 사용자의 누적 구매금액(환불 제외, 포인트 결제 완료 기준)을 계산한다. */
+export async function getCumulativeSpend(userId: string): Promise<number> {
+  const result = await prisma.order.aggregate({
+    where: { userId, status: ORDER_STATUS.COMPLETED },
+    _sum: { finalAmount: true },
+  });
+  return result._sum.finalAmount ?? 0;
+}
+
+/**
+ * 누적 구매금액 등급에 해당하는 디스코드 역할을 부여한다. 상위 등급을 달성해도
+ * 이전 등급 역할은 "달성 배지"로 유지하고 제거하지 않는다 (10,000원 이상 배지 등).
+ */
+export async function syncPurchaseTierRoles(discordId: string, cumulativeSpend: number) {
+  const token = process.env.DISCORD_BOT_TOKEN;
+  const guildId = process.env.DISCORD_GUILD_ID;
+  if (!token || !guildId) return;
+
+  const settings = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
+  if (!settings) return;
+
+  for (const tier of PURCHASE_TIER_ROLES) {
+    if (cumulativeSpend < tier.threshold) continue;
+    const roleId = settings[tier.settingKey as keyof typeof settings] as string | null;
+    if (!roleId) continue;
+
+    try {
+      await fetch(`${API_BASE}/guilds/${guildId}/members/${discordId}/roles/${roleId}`, {
+        method: "PUT",
+        headers: { Authorization: `Bot ${token}` },
+      });
+    } catch {
+      // 권한 부족(봇 역할이 대상 역할보다 낮음) 등은 조용히 무시 - 구매 자체엔 영향 없음.
+    }
+  }
+}
 
 /** 구매(랜덤 지급) 완료 시, 연동된 디스코드 계정으로 결과를 DM으로 보낸다. */
 export async function notifyPurchaseByDM(userId: string) {
