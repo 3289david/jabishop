@@ -1,0 +1,395 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// NOTE: SQLite has no native enum support in Prisma, so all "enum-like"
+// fields below are plain String columns. Allowed values are documented
+// as constants in src/lib/constants.ts — treat that file as the source
+// of truth and validate against it at the application layer.
+
+// ─────────────────────────────────────────────────────────────
+// 사용자 / 인증
+// ─────────────────────────────────────────────────────────────
+
+model User {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  passwordHash    String?
+  name            String
+  phone           String?
+  discordId       String?  @unique
+  isSeedData      Boolean  @default(false)
+  points          Int      @default(0)
+  status          String   @default("ACTIVE") // ACTIVE | SUSPENDED | WITHDRAWN
+  suspendedReason String?
+  adminMemo       String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  orders         Order[]
+  pointTx        PointTransaction[]
+  topUpRequests  PointTopUpRequest[]
+  couponUsages   CouponUsage[]
+  userCoupons    UserCoupon[]
+  reviews        Review[]
+  inquiries      Inquiry[]
+  reports        Report[]        @relation("ReporterUser")
+  notifications  Notification[]
+  refundRequests RefundRequest[]
+  sessions       UserSession[]
+  cartItems      CartItem[]
+}
+
+model UserSession {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String   @unique
+  ip        String?
+  userAgent String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+// ─────────────────────────────────────────────────────────────
+// 관리자
+// ─────────────────────────────────────────────────────────────
+
+model AdminUser {
+  id           String   @id @default(cuid())
+  loginId      String   @unique
+  passwordHash String
+  name         String
+  role         String   @default("STAFF") // SUPER | MANAGER | STAFF
+  status       String   @default("ACTIVE") // ACTIVE | DISABLED
+  totpSecret   String?
+  totpEnabled  Boolean  @default(false)
+  discordId    String?  @unique
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  loginLogs    AdminLoginLog[]
+  activityLogs AdminActivityLog[]
+  sessions     AdminSession[]
+}
+
+model AdminSession {
+  id        String    @id @default(cuid())
+  adminId   String
+  admin     AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  ip        String?
+  userAgent String?
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+}
+
+model AdminLoginLog {
+  id        String     @id @default(cuid())
+  adminId   String?
+  admin     AdminUser? @relation(fields: [adminId], references: [id], onDelete: SetNull)
+  loginId   String
+  ip        String?
+  userAgent String?
+  success   Boolean
+  reason    String?
+  createdAt DateTime   @default(now())
+}
+
+model AdminActivityLog {
+  id        String    @id @default(cuid())
+  adminId   String
+  admin     AdminUser @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  action    String
+  target    String?
+  detail    String?
+  ip        String?
+  createdAt DateTime  @default(now())
+}
+
+// ─────────────────────────────────────────────────────────────
+// 상품 등급 (랜덤 티어) / 재고(그림)
+// ─────────────────────────────────────────────────────────────
+
+model Tier {
+  id                   String   @id @default(cuid())
+  slug                 String   @unique
+  name                 String
+  price                Int
+  minCount             Int
+  maxCount             Int
+  description          String?
+  status               String   @default("ON_SALE") // ON_SALE | HIDDEN | SOLD_OUT
+  purchaseLimitPerUser Int?
+  sortOrder            Int      @default(0)
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  artworks  Artwork[]
+  orders    Order[]
+  cartItems CartItem[]
+}
+
+model Artwork {
+  id              String    @id @default(cuid())
+  code            String    @unique
+  tierId          String
+  tier            Tier      @relation(fields: [tierId], references: [id])
+  title           String
+  category        String // 유화 | 수채화 | 디지털아트 | 스케치 | 기타 (관리자 자유 등록)
+  quality         String?
+  widthPx         Int?
+  heightPx        Int?
+  fileFormat      String?
+  series          String?
+  character       String?
+  madeYear        Int?
+  rarityStars     Int       @default(1)
+  limitedEdition  Boolean   @default(false)
+  isSeedData      Boolean   @default(false)
+  fileKey         String
+  previewKey      String?
+  status          String    @default("AVAILABLE") // AVAILABLE | RESERVED | SOLD | HIDDEN
+  reservedOrderId String?   @unique
+  reservedAt      DateTime?
+  soldAt          DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  order Order? @relation("ArtworkOrder", fields: [reservedOrderId], references: [id])
+}
+
+// ─────────────────────────────────────────────────────────────
+// 주문 / 결제(포인트) / 환불
+// ─────────────────────────────────────────────────────────────
+
+model Order {
+  id                   String    @id @default(cuid())
+  orderNo              String    @unique
+  userId               String?
+  user                 User?     @relation(fields: [userId], references: [id])
+  guestEmail           String?
+  guestPhone           String?
+  tierId               String
+  tier                 Tier      @relation(fields: [tierId], references: [id])
+  priceAtPurchase      Int
+  couponId             String?
+  coupon               Coupon?   @relation(fields: [couponId], references: [id])
+  discountAmount       Int       @default(0)
+  pointsUsed           Int       @default(0)
+  finalAmount          Int
+  status               String    @default("PENDING_PAYMENT")
+  // PENDING_PAYMENT | RESERVED | PAID | COMPLETED | CANCELLED | EXPIRED | REFUND_REQUESTED | REFUNDED
+  reservationExpiresAt DateTime?
+  paidAt               DateTime?
+  drawnAt              DateTime?
+  completedAt          DateTime?
+  cancelledAt          DateTime?
+  cancelReason         String?
+  firstDownloadedAt    DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  artwork       Artwork?           @relation("ArtworkOrder")
+  couponUsage   CouponUsage?
+  pointTx       PointTransaction[]
+  review        Review?
+  refundRequest RefundRequest?
+  notifications Notification[]
+  downloadLogs  DownloadLog[]
+}
+
+model DownloadLog {
+  id        String   @id @default(cuid())
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id])
+  ip        String?
+  userAgent String?
+  createdAt DateTime @default(now())
+}
+
+model PointTransaction {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id])
+  type           String // CHARGE | USE | REFUND | ADMIN_ADJUST | EXPIRE
+  amount         Int
+  balanceAfter   Int
+  relatedOrderId String?
+  relatedOrder   Order?   @relation(fields: [relatedOrderId], references: [id])
+  relatedTopUpId String?
+  memo           String?
+  createdAt      DateTime @default(now())
+}
+
+model PointTopUpRequest {
+  id                 String    @id @default(cuid())
+  userId             String
+  user               User      @relation(fields: [userId], references: [id])
+  amount             Int
+  depositorName      String
+  bankName           String?
+  status             String    @default("PENDING") // PENDING | CONFIRMED | REJECTED
+  adminNote          String?
+  confirmedByAdminId String?
+  confirmedAt        DateTime?
+  createdAt          DateTime  @default(now())
+}
+
+model RefundRequest {
+  id                 String    @id @default(cuid())
+  orderId            String    @unique
+  order              Order     @relation(fields: [orderId], references: [id])
+  userId             String
+  user               User      @relation(fields: [userId], references: [id])
+  reason             String
+  status             String    @default("PENDING") // PENDING | APPROVED | REJECTED | COMPLETED
+  adminNote          String?
+  refundAmount       Int?
+  processedByAdminId String?
+  processedAt        DateTime?
+  createdAt          DateTime  @default(now())
+}
+
+// ─────────────────────────────────────────────────────────────
+// 쿠폰
+// ─────────────────────────────────────────────────────────────
+
+model Coupon {
+  id                String   @id @default(cuid())
+  code              String   @unique
+  name              String
+  discountType      String // AMOUNT | RATE
+  discountValue     Int
+  minOrderAmount    Int      @default(0)
+  maxDiscountAmount Int?
+  validFrom         DateTime
+  validTo           DateTime
+  usageLimitTotal   Int?
+  usageLimitPerUser Int      @default(1)
+  applicableTierIds String? // JSON array of Tier ids, null = 전체 적용
+  active            Boolean  @default(true)
+  createdAt         DateTime @default(now())
+
+  usages      CouponUsage[]
+  userCoupons UserCoupon[]
+  orders      Order[]
+}
+
+model UserCoupon {
+  id       String    @id @default(cuid())
+  userId   String
+  user     User      @relation(fields: [userId], references: [id])
+  couponId String
+  coupon   Coupon    @relation(fields: [couponId], references: [id])
+  issuedAt DateTime  @default(now())
+  usedAt   DateTime?
+
+  @@unique([userId, couponId])
+}
+
+model CouponUsage {
+  id        String   @id @default(cuid())
+  couponId  String
+  coupon    Coupon   @relation(fields: [couponId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  orderId   String   @unique
+  order     Order    @relation(fields: [orderId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+// ─────────────────────────────────────────────────────────────
+// 리뷰 / 문의 / 신고 / 알림
+// ─────────────────────────────────────────────────────────────
+
+model Review {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id])
+  orderId          String   @unique
+  order            Order    @relation(fields: [orderId], references: [id])
+  rating           Int
+  content          String
+  images           String? // JSON array of file keys
+  status           String   @default("VISIBLE") // VISIBLE | HIDDEN
+  purchaseVerified Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  reports Report[] @relation("ReportedReview")
+}
+
+model Inquiry {
+  id                String    @id @default(cuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id])
+  title             String
+  content           String
+  images            String? // JSON array of file keys
+  status            String    @default("WAITING") // WAITING | PROCESSING | ANSWERED | CLOSED
+  answer            String?
+  answeredByAdminId String?
+  answeredAt        DateTime?
+  adminNote         String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
+model Report {
+  id                 String    @id @default(cuid())
+  reporterId         String
+  reporter           User      @relation("ReporterUser", fields: [reporterId], references: [id])
+  targetType         String // PRODUCT | REVIEW | USER | OTHER
+  targetId           String
+  reviewTarget       Review?   @relation("ReportedReview", fields: [reviewTargetId], references: [id])
+  reviewTargetId     String?
+  reason             String
+  detail             String?
+  status             String    @default("PENDING") // PENDING | PROCESSING | RESOLVED | REJECTED
+  processedByAdminId String?
+  processResult      String?
+  createdAt          DateTime  @default(now())
+  processedAt        DateTime?
+}
+
+model CartItem {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tierId    String
+  tier      Tier     @relation(fields: [tierId], references: [id], onDelete: Cascade)
+  quantity  Int      @default(1)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, tierId])
+}
+
+model ShopSetting {
+  id                         String  @id @default("singleton")
+  shopName                   String  @default("자비샵")
+  bankName                   String  @default("")
+  bankAccountNumber          String  @default("")
+  bankAccountHolder          String  @default("")
+  refundAllowedAfterDownload Boolean @default(false)
+  noticeMessage              String?
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  orderId   String?
+  order     Order?   @relation(fields: [orderId], references: [id])
+  type      String
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  broadcast Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
