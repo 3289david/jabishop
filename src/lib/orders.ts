@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { generateOrderNo } from "@/lib/orderNo";
 import { computeDiscount, CouponError } from "@/lib/coupon";
 import { ORDER_STATUS, ARTWORK_STATUS, POINT_TX_TYPE, TIER_STATUS } from "@/lib/constants";
-import { notifyPurchaseByDM } from "@/lib/discordNotify";
+import { notifyPurchaseByDM, notifyLowStockIfNeeded } from "@/lib/discordNotify";
 
 export class OrderError extends Error {
   code: string;
@@ -173,6 +173,12 @@ export async function purchaseTier(params: {
   // 웹/봇 어느 쪽에서 구매하든, 디스코드 계정이 연동되어 있으면 결과를 DM으로도 보낸다.
   // 실패해도(DM 차단 등) 구매 자체는 이미 완료된 상태이므로 조용히 무시한다.
   notifyPurchaseByDM(userId).catch(() => {});
+
+  // 재고 부족/품절 임박 시 관리자에게 알림 (핵심 요구사항: 재고 부족 방지).
+  prisma.artwork
+    .count({ where: { tierId, status: ARTWORK_STATUS.AVAILABLE } })
+    .then((remaining) => notifyLowStockIfNeeded(tierId, remaining))
+    .catch(() => {});
 
   return completedOrder;
 }

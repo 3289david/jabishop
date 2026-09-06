@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from "discord.js";
-import { prisma } from "@/lib/prisma";
 import { assertActiveShopUser } from "@/bot/discordAuth";
 import { successEmbed } from "@/bot/format";
+import { createReport } from "@/lib/reports";
 import type { BotCommand } from "@/bot/types";
 
 export const reportCreateCommand: BotCommand = {
@@ -30,16 +30,7 @@ export const reportCreateCommand: BotCommand = {
     const detail = interaction.options.getString("상세") ?? null;
     const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
 
-    await prisma.report.create({
-      data: {
-        reporterId: user.id,
-        targetType,
-        targetId,
-        reviewTargetId: targetType === "REVIEW" ? targetId : null,
-        reason,
-        detail,
-      },
-    });
+    await createReport(user.id, targetType, targetId, reason, detail);
     await interaction.reply({ embeds: [successEmbed("신고가 접수되었습니다.")], ephemeral: true });
   },
 };

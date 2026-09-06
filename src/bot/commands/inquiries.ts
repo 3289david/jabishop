@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { assertActiveShopUser } from "@/bot/discordAuth";
 import { baseEmbed, successEmbed } from "@/bot/format";
 import { saveBufferToUploads } from "@/bot/fileStorage";
+import { createInquiry } from "@/lib/inquiries";
 import type { BotCommand } from "@/bot/types";
 
 export const inquiryCreateCommand: BotCommand = {
@@ -27,9 +28,7 @@ export const inquiryCreateCommand: BotCommand = {
       images = [key];
     }
 
-    const inquiry = await prisma.inquiry.create({
-      data: { userId: user.id, title, content, images: images.length ? JSON.stringify(images) : null },
-    });
+    const inquiry = await createInquiry(user.id, title, content, images);
     await interaction.editReply({ embeds: [successEmbed(`문의가 등록되었습니다. (ID: ${inquiry.id.slice(-8)})`)] });
   },
 };

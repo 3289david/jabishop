@@ -1,10 +1,11 @@
 import { prisma } from "@/lib/prisma";
 import { ORDER_STATUS, REFUND_STATUS, ARTWORK_STATUS, POINT_TX_TYPE } from "@/lib/constants";
+import { notifyAdminsNewPendingItem } from "@/lib/discordNotify";
 
 export class RefundError extends Error {}
 
 export async function requestRefund(orderId: string, userId: string, reason: string) {
-  const order = await prisma.order.findUnique({ where: { id: orderId } });
+  const order = await prisma.order.findUnique({ where: { id: orderId }, include: { user: true, tier: true } });
   if (!order || order.userId !== userId) throw new RefundError("주문을 찾을 수 없습니다.");
   if (order.status !== ORDER_STATUS.COMPLETED)
     throw new RefundError("환불 요청이 가능한 주문 상태가 아닙니다.");
@@ -17,9 +18,16 @@ export async function requestRefund(orderId: string, userId: string, reason: str
     throw new RefundError("이미 다운로드한 상품은 환불이 불가능합니다.");
   }
 
-  return prisma.refundRequest.create({
+  const refund = await prisma.refundRequest.create({
     data: { orderId, userId, reason },
   });
+
+  notifyAdminsNewPendingItem(
+    "환불 요청",
+    `**${order.user?.name ?? "회원"}**: #${order.orderNo} · ${order.tier.name} · ${order.finalAmount.toLocaleString()}P\n사유: ${reason}`
+  ).catch(() => {});
+
+  return refund;
 }
 
 export async function approveRefund(refundId: string, adminId: string, refundAmount?: number) {

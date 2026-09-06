@@ -1,9 +1,9 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/actions/auth";
 import { saveUploadedFile } from "@/lib/storage";
+import { createInquiry } from "@/lib/inquiries";
 
 export type ActionState = { error?: string } | undefined;
 
@@ -21,8 +21,6 @@ export async function createInquiryAction(_prev: ActionState, formData: FormData
     images = [key];
   }
 
-  const inquiry = await prisma.inquiry.create({
-    data: { userId: user.id, title, content, images: images.length ? JSON.stringify(images) : null },
-  });
+  const inquiry = await createInquiry(user.id, title, content, images);
   redirect(`/mypage/inquiries/${inquiry.id}`);
 }

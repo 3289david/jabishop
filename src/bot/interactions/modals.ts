@@ -9,6 +9,8 @@ import {
 import { prisma } from "@/lib/prisma";
 import { assertActiveShopUser, requireLinkedAdmin } from "@/bot/discordAuth";
 import { errorEmbed, successEmbed } from "@/bot/format";
+import { createTopUpRequest } from "@/lib/points";
+import { createInquiry } from "@/lib/inquiries";
 
 export const TOPUP_MODAL_ID = "topup_modal";
 export const INQUIRY_MODAL_ID = "inquiry_modal";
@@ -37,7 +39,7 @@ export async function handleTopUpModalSubmit(interaction: ModalSubmitInteraction
 
   const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
   const settings = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
-  await prisma.pointTopUpRequest.create({ data: { userId: user.id, amount, depositorName } });
+  await createTopUpRequest(user.id, amount, depositorName);
 
   const embed = successEmbed("충전 신청이 접수되었습니다. 입금 확인 후 포인트가 지급됩니다.");
   if (settings) {
@@ -63,7 +65,7 @@ export async function handleInquiryModalSubmit(interaction: ModalSubmitInteracti
   await interaction.deferReply({ ephemeral: true });
 
   const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
-  const inquiry = await prisma.inquiry.create({ data: { userId: user.id, title, content } });
+  const inquiry = await createInquiry(user.id, title, content);
   await interaction.editReply({ embeds: [successEmbed(`문의가 등록되었습니다. (ID: ${inquiry.id.slice(-8)})`)] });
 }
 

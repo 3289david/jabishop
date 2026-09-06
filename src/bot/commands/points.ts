@@ -2,6 +2,7 @@ import { SlashCommandBuilder } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { assertActiveShopUser } from "@/bot/discordAuth";
 import { baseEmbed, errorEmbed, successEmbed, pt } from "@/bot/format";
+import { createTopUpRequest } from "@/lib/points";
 import type { BotCommand } from "@/bot/types";
 
 export const pointsCommand: BotCommand = {
@@ -33,7 +34,7 @@ export const topUpCommand: BotCommand = {
     const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
 
     const settings = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
-    await prisma.pointTopUpRequest.create({ data: { userId: user.id, amount, depositorName } });
+    await createTopUpRequest(user.id, amount, depositorName);
 
     const embed = successEmbed("충전 신청이 접수되었습니다. 입금 확인 후 포인트가 지급됩니다.");
     if (settings) {

@@ -1,7 +1,20 @@
 import { prisma } from "@/lib/prisma";
 import { POINT_TX_TYPE, TOPUP_STATUS } from "@/lib/constants";
+import { notifyAdminsNewPendingItem } from "@/lib/discordNotify";
 
 export class TopUpError extends Error {}
+
+export async function createTopUpRequest(userId: string, amount: number, depositorName: string) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  const request = await prisma.pointTopUpRequest.create({ data: { userId, amount, depositorName } });
+
+  notifyAdminsNewPendingItem(
+    "포인트 충전 신청",
+    `**${user?.name ?? "회원"}**: ${amount.toLocaleString()}원 (입금자: ${depositorName})`
+  ).catch(() => {});
+
+  return request;
+}
 
 export async function confirmTopUp(topUpId: string, adminId: string) {
   return prisma.$transaction(async (tx) => {

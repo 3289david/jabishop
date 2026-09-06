@@ -98,3 +98,55 @@ export async function notifyPurchaseByDM(userId: string) {
     await sendDiscordDM(user.discordId, { embeds: [embed] });
   }
 }
+
+/** 디스코드 계정이 연동된 모든 활성 관리자에게 DM을 보낸다 (승인 대기 항목 발생 등). */
+export async function notifyAllAdmins(embed: SimpleEmbed): Promise<void> {
+  const admins = await prisma.adminUser.findMany({
+    where: { discordId: { not: null }, status: "ACTIVE" },
+    select: { discordId: true },
+  });
+  await Promise.all(
+    admins.map((a) => (a.discordId ? sendDiscordDM(a.discordId, { embeds: [embed] }) : Promise.resolve()))
+  );
+}
+
+const LOW_STOCK_THRESHOLD = 3;
+
+/**
+ * 구매로 재고가 하나 줄어든 직후 호출한다. 남은 재고가 LOW_STOCK_THRESHOLD(품절 임박) 또는
+ * 0(품절)에 "정확히" 도달한 순간에만 관리자에게 알림을 보내, 낮은 재고 상태가 계속돼도
+ * 판매될 때마다 반복 알림이 오지 않게 한다.
+ */
+export async function notifyLowStockIfNeeded(tierId: string, remainingStock: number) {
+  if (remainingStock !== 0 && remainingStock !== LOW_STOCK_THRESHOLD) return;
+
+  const tier = await prisma.tier.findUnique({ where: { id: tierId } });
+  if (!tier) return;
+
+  const embed: SimpleEmbed =
+    remainingStock === 0
+      ? {
+          title: "🚨 재고 품절",
+          description: `**${tier.name}** 등급의 그림 재고가 모두 소진되었습니다. 새 재고를 등록하거나 등급을 숨김 처리해주세요.`,
+          color: 0xef4444,
+          timestamp: new Date().toISOString(),
+        }
+      : {
+          title: "⚠️ 재고 부족 임박",
+          description: `**${tier.name}** 등급의 남은 재고가 ${LOW_STOCK_THRESHOLD}개입니다. 미리 그림을 추가 등록해주세요.`,
+          color: 0xf59e0b,
+          timestamp: new Date().toISOString(),
+        };
+
+  await notifyAllAdmins(embed);
+}
+
+/** 관리자 처리가 필요한 새 항목(충전신청/환불신청/문의/신고)이 생겼을 때 알린다. */
+export async function notifyAdminsNewPendingItem(kind: string, summary: string) {
+  await notifyAllAdmins({
+    title: `📥 새 ${kind} 접수`,
+    description: summary,
+    color: BRAND_COLOR,
+    timestamp: new Date().toISOString(),
+  });
+}
