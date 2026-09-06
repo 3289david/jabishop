@@ -47,17 +47,12 @@ export async function Nav() {
               </form>
             </>
           ) : (
-            <>
-              <Link href="/login" className="text-neutral-700 hover:text-indigo-600">
-                로그인
-              </Link>
-              <Link
-                href="/signup"
-                className="bg-indigo-600 text-white px-3 py-1.5 rounded-md hover:bg-indigo-700"
-              >
-                회원가입
-              </Link>
-            </>
+            <Link
+              href="/login"
+              className="bg-[#5865F2] text-white px-3 py-1.5 rounded-md hover:bg-[#4752c4]"
+            >
+              💬 Discord로 시작하기
+            </Link>
           )}
         </div>
       </div>

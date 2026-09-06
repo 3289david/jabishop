@@ -1,63 +1,33 @@
 "use client";
 
-import { useActionState } from "react";
-import Link from "next/link";
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { loginAction, type ActionState } from "@/lib/actions/auth";
 
-export default function LoginPage() {
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(loginAction, undefined);
+function OAuthError() {
   const searchParams = useSearchParams();
   const oauthError = searchParams.get("error");
+  if (!oauthError) return null;
+  return <p className="text-sm text-red-600 mt-3 text-center">{oauthError}</p>;
+}
 
+export default function LoginPage() {
   return (
-    <div className="max-w-sm mx-auto bg-white border border-neutral-200 rounded-xl p-6 mt-8">
-      <h1 className="text-xl font-bold mb-4">로그인</h1>
-
+    <div className="max-w-sm mx-auto bg-white border border-neutral-200 rounded-xl p-6 mt-8 text-center">
+      <h1 className="text-xl font-bold mb-2">로그인 / 회원가입</h1>
+      <p className="text-sm text-neutral-500 mb-4">
+        자비샵은 Discord 계정으로만 이용할 수 있습니다.
+        <br />
+        버튼 하나로 로그인과 회원가입이 함께 처리됩니다.
+      </p>
       <a
         href="/api/auth/discord/start"
-        className="flex items-center justify-center gap-2 w-full bg-[#5865F2] text-white py-2 rounded-md text-sm font-medium hover:bg-[#4752c4] mb-4"
+        className="flex items-center justify-center gap-2 w-full bg-[#5865F2] text-white py-2.5 rounded-md text-sm font-medium hover:bg-[#4752c4]"
       >
-        <span>💬</span> Discord로 로그인
+        <span>💬</span> Discord로 계속하기
       </a>
-      {oauthError && <p className="text-sm text-red-600 mb-3 text-center">{oauthError}</p>}
-
-      <div className="flex items-center gap-3 my-4 text-xs text-neutral-400">
-        <div className="flex-1 h-px bg-neutral-200" />
-        또는 이메일로 로그인
-        <div className="flex-1 h-px bg-neutral-200" />
-      </div>
-
-      <form action={formAction} className="space-y-3">
-        <input
-          name="email"
-          type="email"
-          placeholder="이메일"
-          required
-          className="w-full border rounded-md px-3 py-2 text-sm"
-        />
-        <input
-          name="password"
-          type="password"
-          placeholder="비밀번호"
-          required
-          className="w-full border rounded-md px-3 py-2 text-sm"
-        />
-        {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
-        <button
-          type="submit"
-          disabled={pending}
-          className="w-full bg-indigo-600 text-white py-2 rounded-md text-sm font-medium hover:bg-indigo-700 disabled:opacity-50"
-        >
-          {pending ? "처리 중..." : "로그인"}
-        </button>
-      </form>
-      <p className="text-sm text-neutral-500 mt-4 text-center">
-        아직 계정이 없으신가요?{" "}
-        <Link href="/signup" className="text-indigo-600 hover:underline">
-          회원가입
-        </Link>
-      </p>
+      <Suspense fallback={null}>
+        <OAuthError />
+      </Suspense>
     </div>
   );
 }
