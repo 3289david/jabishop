@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { deleteUploadedFile } from "@/lib/storage";
+import { deleteUploadedFile, isUploadKey } from "@/lib/storage";
 
 /**
  * 시드 스크립트(prisma/seed.ts)가 만든 데모 계정/계정을 전부 지운다.
@@ -53,8 +53,8 @@ export async function purgeSeedData() {
 
   // DB 트랜잭션이 성공한 뒤 실제 업로드 파일도 정리한다 (실패해도 DB 정합성엔 영향 없음).
   for (const artwork of seedArtworks) {
-    await deleteUploadedFile(artwork.fileKey);
-    if (artwork.previewKey && artwork.previewKey !== artwork.fileKey) {
+    if (isUploadKey(artwork.fileKey)) await deleteUploadedFile(artwork.fileKey);
+    if (artwork.previewKey && artwork.previewKey !== artwork.fileKey && isUploadKey(artwork.previewKey)) {
       await deleteUploadedFile(artwork.previewKey);
     }
   }

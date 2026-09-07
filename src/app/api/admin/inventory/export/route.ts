@@ -19,38 +19,8 @@ export async function GET() {
     orderBy: { createdAt: "desc" },
   });
 
-  const header = [
-    "code",
-    "tierSlug",
-    "title",
-    "category",
-    "quality",
-    "widthPx",
-    "heightPx",
-    "fileFormat",
-    "series",
-    "character",
-    "rarityStars",
-    "status",
-  ];
-  const rows = artworks.map((a) =>
-    [
-      a.code,
-      a.tier.slug,
-      a.title,
-      a.category,
-      a.quality,
-      a.widthPx,
-      a.heightPx,
-      a.fileFormat,
-      a.series,
-      a.character,
-      a.rarityStars,
-      a.status,
-    ]
-      .map(csvEscape)
-      .join(",")
-  );
+  const header = ["code", "tierSlug", "title", "status"];
+  const rows = artworks.map((a) => [a.code, a.tier.slug, a.title, a.status].map(csvEscape).join(","));
 
   const csv = [header.join(","), ...rows].join("\n");
   return new NextResponse(csv, {

@@ -4,7 +4,7 @@
 // (예: 사용자가 DM을 막아둔 경우, 봇이 아직 설정되지 않은 경우).
 
 import { prisma } from "@/lib/prisma";
-import { readUploadedFile } from "@/lib/storage";
+import { readUploadedFile, isUploadKey } from "@/lib/storage";
 import { PURCHASE_TIER_ROLES, ORDER_STATUS } from "@/lib/constants";
 
 const API_BASE = "https://discord.com/api/v10";
@@ -161,10 +161,16 @@ export async function notifyPurchaseByDM(userId: string) {
     fields: [
       { name: "결제 금액", value: `${order.finalAmount.toLocaleString()}P`, inline: true },
       { name: "지급된 계정", value: order.artwork.title, inline: true },
-      { name: "희귀도", value: "★".repeat(order.artwork.rarityStars), inline: true },
     ],
     timestamp: new Date().toISOString(),
   };
+
+  if (!isUploadKey(order.artwork.fileKey)) {
+    // 파일 업로드가 아니라 텍스트/링크로 등록된 재고 - 그 내용 자체가 지급물이다.
+    embed.fields!.push({ name: "지급 내용", value: order.artwork.fileKey });
+    await sendDiscordDM(user.discordId, { embeds: [embed] });
+    return;
+  }
 
   try {
     const buffer = await readUploadedFile(order.artwork.fileKey);

@@ -1,20 +1,27 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { deleteArtworkAction } from "@/lib/actions/adminInventory";
-import { CsvImportForm } from "@/components/admin/CsvImportForm";
+import { TxtImportForm } from "@/components/admin/TxtImportForm";
 
 export default async function AdminInventoryPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tierId?: string; category?: string; status?: string; q?: string }>;
+  searchParams: Promise<{ tierId?: string; status?: string; q?: string }>;
 }) {
   const sp = await searchParams;
   const tiers = await prisma.tier.findMany({ orderBy: { sortOrder: "asc" } });
 
   const where: Record<string, unknown> = {};
   if (sp.tierId) where.tierId = sp.tierId;
-  if (sp.category) where.category = sp.category;
-  if (sp.status) where.status = sp.status;
+  // 판매완료(SOLD)된 재고는 이미 지급이 끝난 항목이라, 별도로 "판매완료" 필터를 고르지
+  // 않는 한 목록에서 자동으로 빠진다 (남은 재고만 보이도록).
+  if (sp.status === "ALL") {
+    // 필터 없음 - 전체 표시
+  } else if (sp.status) {
+    where.status = sp.status;
+  } else {
+    where.status = { not: "SOLD" };
+  }
   if (sp.q) where.OR = [{ title: { contains: sp.q } }, { code: { contains: sp.q } }];
 
   const artworks = await prisma.artwork.findMany({
@@ -23,8 +30,6 @@ export default async function AdminInventoryPage({
     orderBy: { createdAt: "desc" },
     take: 200,
   });
-
-  const categories = await prisma.artwork.findMany({ distinct: ["category"], select: { category: true } });
 
   return (
     <div className="space-y-4">
@@ -43,7 +48,7 @@ export default async function AdminInventoryPage({
         </div>
       </div>
 
-      <CsvImportForm />
+      <TxtImportForm tiers={tiers} />
 
       <form className="bg-white border border-neutral-200 rounded-xl p-4 flex flex-wrap gap-3 items-end text-sm">
         <div>
@@ -58,24 +63,14 @@ export default async function AdminInventoryPage({
           </select>
         </div>
         <div>
-          <label className="block text-xs text-neutral-500 mb-1">카테고리</label>
-          <select name="category" defaultValue={sp.category} className="border rounded-md px-2 py-1.5">
-            <option value="">전체</option>
-            {categories.map((c) => (
-              <option key={c.category} value={c.category}>
-                {c.category}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
           <label className="block text-xs text-neutral-500 mb-1">상태</label>
-          <select name="status" defaultValue={sp.status} className="border rounded-md px-2 py-1.5">
-            <option value="">전체</option>
+          <select name="status" defaultValue={sp.status ?? ""} className="border rounded-md px-2 py-1.5">
+            <option value="">남은 재고 (판매완료 제외)</option>
             <option value="AVAILABLE">판매가능</option>
             <option value="RESERVED">예약됨</option>
             <option value="SOLD">판매됨</option>
             <option value="HIDDEN">숨김</option>
+            <option value="ALL">전체보기</option>
           </select>
         </div>
         <div>
@@ -92,8 +87,6 @@ export default async function AdminInventoryPage({
               <th className="text-left px-4 py-2">코드</th>
               <th className="text-left px-4 py-2">등급</th>
               <th className="text-left px-4 py-2">제목</th>
-              <th className="text-left px-4 py-2">카테고리</th>
-              <th className="text-left px-4 py-2">희귀도</th>
               <th className="text-left px-4 py-2">상태</th>
               <th className="text-left px-4 py-2"></th>
             </tr>
@@ -108,8 +101,6 @@ export default async function AdminInventoryPage({
                     {a.title}
                   </Link>
                 </td>
-                <td className="px-4 py-2">{a.category}</td>
-                <td className="px-4 py-2">{"★".repeat(a.rarityStars)}</td>
                 <td className="px-4 py-2">{a.status}</td>
                 <td className="px-4 py-2 text-right">
                   <form action={deleteArtworkAction}>
@@ -121,7 +112,7 @@ export default async function AdminInventoryPage({
             ))}
             {artworks.length === 0 && (
               <tr>
-                <td colSpan={7} className="text-center text-neutral-400 py-10">
+                <td colSpan={5} className="text-center text-neutral-400 py-10">
                   조건에 맞는 재고가 없습니다.
                 </td>
               </tr>

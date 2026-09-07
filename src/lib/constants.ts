@@ -99,16 +99,6 @@ export const REPORT_STATUS = {
 // 이 시간이 지나면 예약이 자동 만료되어 재고가 풀린다.
 export const RESERVATION_HOLD_MINUTES = 30;
 
-export const ARTWORK_CATEGORIES = [
-  "유화",
-  "수채화",
-  "디지털아트",
-  "스케치",
-  "아크릴화",
-  "일러스트",
-  "기타",
-];
-
 // 누적 구매금액(포인트 결제 완료 기준) 등급별 자동 할인율과, 해당 등급의
 // 디스코드 역할 ID가 저장된 ShopSetting 필드명. 높은 금액대부터 순서대로 검사한다.
 export const PURCHASE_TIER_ROLES = [

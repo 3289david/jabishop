@@ -21,6 +21,12 @@ export async function saveUploadedFile(file: File, kind: UploadKind): Promise<st
   return key;
 }
 
+// 관리자가 파일 업로드 대신 텍스트(이미지 URL 또는 설명 글)로 미리보기를 등록한 경우,
+// 그 값은 uploads/ 하위 디렉터리 키 형식이 아니므로 디스크에서 읽지 않고 그대로 사용해야 한다.
+export function isUploadKey(key: string): boolean {
+  return /^(artworks|previews|attachments)\//.test(key);
+}
+
 export function resolveUploadPath(key: string): string {
   const normalized = path.normalize(key).replace(/^([.]{2}[/\\])+/, "");
   return path.join(UPLOAD_ROOT, normalized);

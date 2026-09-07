@@ -18,6 +18,12 @@ export async function saveBufferToUploads(buffer: Buffer, originalName: string, 
   return key;
 }
 
+// lib/storage.ts의 isUploadKey()와 동일 - 일괄 등록(TXT)으로 링크/텍스트를 그대로
+// fileKey에 넣은 재고는 디스크에 없으므로 파일로 읽으면 안 된다.
+export function isUploadKey(key: string): boolean {
+  return /^(artworks|previews|attachments)\//.test(key);
+}
+
 export function resolveUploadPath(key: string): string {
   const normalized = path.normalize(key).replace(/^([.]{2}[/\\])+/, "");
   return path.join(UPLOAD_ROOT, normalized);

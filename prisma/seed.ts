@@ -6,7 +6,6 @@ import path from "path";
 const prisma = new PrismaClient();
 
 const UPLOAD_ROOT = path.join(process.cwd(), "uploads");
-const CATEGORIES = ["유화", "수채화", "디지털아트", "스케치", "아크릴화", "일러스트"];
 
 function placeholderSvg(title: string, color: string) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800">
@@ -100,7 +99,6 @@ async function main() {
     const itemCount = 10;
     for (let i = 1; i <= itemCount; i++) {
       const code = `${t.slug.toUpperCase()}-${String(i).padStart(4, "0")}`;
-      const category = CATEGORIES[i % CATEGORIES.length];
       const fileKey = writePlaceholder("artworks", `${code}.svg`, `${t.name} #${i}`, t.color);
       const previewKey = writePlaceholder("previews", `${code}-preview.svg`, `${t.name} #${i} 미리보기`, t.color);
 
@@ -108,13 +106,7 @@ async function main() {
         data: {
           code,
           tierId: tier.id,
-          title: `${t.name} 작품 ${i}호`,
-          category,
-          quality: t.desc.replace(" 등급의 랜덤 상품입니다.", ""),
-          widthPx: 4096,
-          heightPx: 4096,
-          fileFormat: "SVG",
-          rarityStars: Math.min(5, Math.ceil((TIERS.indexOf(t) + 1) * (5 / TIERS.length))),
+          title: `${t.name} 계정 ${i}호`,
           fileKey,
           previewKey,
           status: "AVAILABLE",

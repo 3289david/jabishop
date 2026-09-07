@@ -141,17 +141,9 @@ model Artwork {
   tierId          String
   tier            Tier      @relation(fields: [tierId], references: [id])
   title           String
-  category        String // 유화 | 수채화 | 디지털아트 | 스케치 | 기타 (관리자 자유 등록)
-  quality         String?
-  widthPx         Int?
-  heightPx        Int?
-  fileFormat      String?
-  series          String?
-  character       String?
-  madeYear        Int?
-  rarityStars     Int       @default(1)
-  limitedEdition  Boolean   @default(false)
   isSeedData      Boolean   @default(false)
+  // 실제 판매 콘텐츠. 업로드된 파일 키(uploads/ 하위 경로) 또는 일괄 등록 시 입력한
+  // 링크/텍스트가 그대로 들어간다 - isUploadKey()로 둘을 구분한다.
   fileKey         String
   previewKey      String?
   status          String    @default("AVAILABLE") // AVAILABLE | RESERVED | SOLD | HIDDEN

@@ -4,7 +4,7 @@ import { purchaseTier, OrderError } from "@/lib/orders";
 import { assertActiveShopUser } from "@/bot/discordAuth";
 import { baseEmbed, errorEmbed, successEmbed, pt } from "@/bot/format";
 import { tierAutocomplete } from "@/bot/autocomplete";
-import { readUploadedFile } from "@/bot/fileStorage";
+import { readUploadedFile, isUploadKey } from "@/bot/fileStorage";
 import type { BotCommand } from "@/bot/types";
 
 export const purchaseCommand: BotCommand = {
@@ -36,14 +36,18 @@ export const purchaseCommand: BotCommand = {
 
       const files = [];
       if (artwork) {
-        try {
-          const buffer = await readUploadedFile(artwork.fileKey);
-          const ext = artwork.fileKey.split(".").pop() || "png";
-          const attachment = new AttachmentBuilder(buffer, { name: `${artwork.code}.${ext}` });
-          files.push(attachment);
-          embed.setImage(`attachment://${artwork.code}.${ext}`);
-        } catch {
-          // 파일을 찾을 수 없어도 주문 자체는 정상 처리된 것이므로 안내만 생략한다.
+        if (!isUploadKey(artwork.fileKey)) {
+          embed.addFields({ name: "지급 내용", value: artwork.fileKey });
+        } else {
+          try {
+            const buffer = await readUploadedFile(artwork.fileKey);
+            const ext = artwork.fileKey.split(".").pop() || "png";
+            const attachment = new AttachmentBuilder(buffer, { name: `${artwork.code}.${ext}` });
+            files.push(attachment);
+            embed.setImage(`attachment://${artwork.code}.${ext}`);
+          } catch {
+            // 파일을 찾을 수 없어도 주문 자체는 정상 처리된 것이므로 안내만 생략한다.
+          }
         }
       }
 

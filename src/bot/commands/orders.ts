@@ -2,7 +2,7 @@ import { SlashCommandBuilder, AttachmentBuilder } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { assertActiveShopUser } from "@/bot/discordAuth";
 import { baseEmbed, errorEmbed, pt } from "@/bot/format";
-import { readUploadedFile } from "@/bot/fileStorage";
+import { readUploadedFile, isUploadKey } from "@/bot/fileStorage";
 import { ORDER_STATUS } from "@/lib/constants";
 import type { BotCommand } from "@/bot/types";
 
@@ -57,13 +57,17 @@ export const orderDetailCommand: BotCommand = {
     const files = [];
     if (order.artwork && order.status === ORDER_STATUS.COMPLETED) {
       embed.addFields({ name: "지급된 계정", value: order.artwork.title });
-      try {
-        const buffer = await readUploadedFile(order.artwork.fileKey);
-        const ext = order.artwork.fileKey.split(".").pop() || "png";
-        files.push(new AttachmentBuilder(buffer, { name: `${order.artwork.code}.${ext}` }));
-        embed.setImage(`attachment://${order.artwork.code}.${ext}`);
-      } catch {
-        // 파일 없음 - 무시
+      if (!isUploadKey(order.artwork.fileKey)) {
+        embed.addFields({ name: "지급 내용", value: order.artwork.fileKey });
+      } else {
+        try {
+          const buffer = await readUploadedFile(order.artwork.fileKey);
+          const ext = order.artwork.fileKey.split(".").pop() || "png";
+          files.push(new AttachmentBuilder(buffer, { name: `${order.artwork.code}.${ext}` }));
+          embed.setImage(`attachment://${order.artwork.code}.${ext}`);
+        } catch {
+          // 파일 없음 - 무시
+        }
       }
     }
 

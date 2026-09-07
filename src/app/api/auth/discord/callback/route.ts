@@ -5,9 +5,10 @@ import { createUserSession } from "@/lib/session";
 import { USER_STATUS } from "@/lib/constants";
 // bot/discordAuth.ts는 prisma/constants에만 의존하는 순수 로직이라 봇과 웹사이트 양쪽에서 그대로 재사용한다.
 import { getOrCreateShopUser } from "@/bot/discordAuth";
+import { getAppOrigin } from "@/lib/appUrl";
 
-function loginError(req: NextRequest, message: string) {
-  const url = new URL("/login", req.url);
+function loginError(_req: NextRequest, message: string) {
+  const url = new URL("/login", getAppOrigin());
   url.searchParams.set("error", message);
   return NextResponse.redirect(url);
 }
@@ -62,5 +63,5 @@ export async function GET(req: NextRequest) {
   }
 
   await createUserSession(user.id);
-  return NextResponse.redirect(new URL("/mypage", req.url));
+  return NextResponse.redirect(new URL("/mypage", getAppOrigin()));
 }

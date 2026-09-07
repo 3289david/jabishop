@@ -40,14 +40,7 @@ export const productDetailCommand: BotCommand = {
     const tier = await prisma.tier.findUnique({ where: { slug } });
     if (!tier) return interaction.reply({ embeds: [errorEmbed("존재하지 않는 등급입니다.")], ephemeral: true });
 
-    const [stock, categories] = await Promise.all([
-      prisma.artwork.count({ where: { tierId: tier.id, status: ARTWORK_STATUS.AVAILABLE } }),
-      prisma.artwork.groupBy({
-        by: ["category"],
-        where: { tierId: tier.id, status: ARTWORK_STATUS.AVAILABLE },
-        _count: true,
-      }),
-    ]);
+    const stock = await prisma.artwork.count({ where: { tierId: tier.id, status: ARTWORK_STATUS.AVAILABLE } });
 
     const embed = baseEmbed(tier.name)
       .setDescription(tier.description || null)
@@ -55,11 +48,7 @@ export const productDetailCommand: BotCommand = {
         { name: "가격", value: won(tier.price), inline: true },
         { name: "스킨 개수", value: `${tier.minCount}~${tier.maxCount}개 `, inline: true },
         { name: "재고", value: `${stock}개`, inline: true },
-        { name: "구매 제한", value: tier.purchaseLimitPerUser ? `1인 ${tier.purchaseLimitPerUser}개` : "없음", inline: true },
-        {
-          name: "포함 가능 카테고리",
-          value: categories.length ? categories.map((c) => `${c.category}(${c._count})`).join(", ") : "-",
-        }
+        { name: "구매 제한", value: tier.purchaseLimitPerUser ? `1인 ${tier.purchaseLimitPerUser}개` : "없음", inline: true }
       );
     await interaction.reply({ embeds: [embed] });
   },

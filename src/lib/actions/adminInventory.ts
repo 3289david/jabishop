@@ -1,11 +1,12 @@
 "use server";
 
+import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/actions/adminAuth";
 import { logAdminActivity } from "@/lib/actions/adminSecurity";
-import { saveUploadedFile, deleteUploadedFile } from "@/lib/storage";
+import { saveUploadedFile, deleteUploadedFile, isUploadKey } from "@/lib/storage";
 import { ARTWORK_STATUS } from "@/lib/constants";
 
 export type ActionState = { error?: string } | undefined;
@@ -15,46 +16,20 @@ export async function createArtworkAction(_prev: ActionState, formData: FormData
   const tierId = String(formData.get("tierId") || "");
   const code = String(formData.get("code") || "").trim();
   const title = String(formData.get("title") || "").trim();
-  const category = String(formData.get("category") || "").trim();
-  const quality = String(formData.get("quality") || "").trim() || null;
-  const widthPx = formData.get("widthPx") ? Number(formData.get("widthPx")) : null;
-  const heightPx = formData.get("heightPx") ? Number(formData.get("heightPx")) : null;
-  const series = String(formData.get("series") || "").trim() || null;
-  const character = String(formData.get("character") || "").trim() || null;
-  const madeYear = formData.get("madeYear") ? Number(formData.get("madeYear")) : null;
-  const rarityStars = Number(formData.get("rarityStars") || 1);
-  const limitedEdition = formData.get("limitedEdition") === "on";
   const file = formData.get("file") as File | null;
-  const previewFile = formData.get("previewFile") as File | null;
+  const previewText = String(formData.get("previewText") || "").trim();
 
-  if (!tierId || !code || !title || !category) return { error: "필수 항목을 입력해주세요." };
+  if (!tierId || !code || !title) return { error: "필수 항목을 입력해주세요." };
   if (!file || file.size === 0) return { error: "계정 원본 파일을 업로드해주세요." };
 
   const existingCode = await prisma.artwork.findUnique({ where: { code } });
   if (existingCode) return { error: "이미 사용 중인 재고 코드입니다." };
 
   const fileKey = await saveUploadedFile(file, "artworks");
-  const previewKey = previewFile && previewFile.size > 0 ? await saveUploadedFile(previewFile, "previews") : fileKey;
-  const fileFormat = file.name.split(".").pop()?.toUpperCase() || null;
+  const previewKey = previewText || fileKey;
 
   const artwork = await prisma.artwork.create({
-    data: {
-      tierId,
-      code,
-      title,
-      category,
-      quality,
-      widthPx,
-      heightPx,
-      fileFormat,
-      series,
-      character,
-      madeYear,
-      rarityStars,
-      limitedEdition,
-      fileKey,
-      previewKey,
-    },
+    data: { tierId, code, title, fileKey, previewKey },
   });
   await logAdminActivity(admin.id, "ARTWORK_CREATE", artwork.id, `${code} / ${title}`);
   revalidatePath("/admin/inventory");
@@ -65,15 +40,11 @@ export async function updateArtworkAction(_prev: ActionState, formData: FormData
   const admin = await requireAdmin();
   const id = String(formData.get("id") || "");
   const title = String(formData.get("title") || "").trim();
-  const category = String(formData.get("category") || "").trim();
-  const quality = String(formData.get("quality") || "").trim() || null;
   const status = String(formData.get("status") || "AVAILABLE");
-  const rarityStars = Number(formData.get("rarityStars") || 1);
-  const limitedEdition = formData.get("limitedEdition") === "on";
   const file = formData.get("file") as File | null;
-  const previewFile = formData.get("previewFile") as File | null;
+  const previewText = String(formData.get("previewText") || "").trim();
 
-  if (!title || !category) return { error: "필수 항목을 입력해주세요." };
+  if (!title) return { error: "필수 항목을 입력해주세요." };
 
   const current = await prisma.artwork.findUnique({ where: { id } });
   if (!current) return { error: "존재하지 않는 재고입니다." };
@@ -81,12 +52,12 @@ export async function updateArtworkAction(_prev: ActionState, formData: FormData
   let fileKey = current.fileKey;
   let previewKey = current.previewKey;
   if (file && file.size > 0) {
-    if (fileKey) await deleteUploadedFile(fileKey);
+    if (fileKey && isUploadKey(fileKey)) await deleteUploadedFile(fileKey);
     fileKey = await saveUploadedFile(file, "artworks");
   }
-  if (previewFile && previewFile.size > 0) {
-    if (previewKey && previewKey !== current.fileKey) await deleteUploadedFile(previewKey);
-    previewKey = await saveUploadedFile(previewFile, "previews");
+  if (previewText) {
+    if (previewKey && previewKey !== current.fileKey && isUploadKey(previewKey)) await deleteUploadedFile(previewKey);
+    previewKey = previewText;
   }
 
   if (status === "AVAILABLE" && !fileKey) {
@@ -95,7 +66,7 @@ export async function updateArtworkAction(_prev: ActionState, formData: FormData
 
   await prisma.artwork.update({
     where: { id },
-    data: { title, category, quality, status, rarityStars, limitedEdition, fileKey, previewKey },
+    data: { title, status, fileKey, previewKey },
   });
   await logAdminActivity(admin.id, "ARTWORK_UPDATE", id, `${title} / ${status}`);
   revalidatePath("/admin/inventory");
@@ -112,8 +83,8 @@ export async function deleteArtworkAction(formData: FormData) {
     await prisma.artwork.update({ where: { id }, data: { status: ARTWORK_STATUS.HIDDEN } });
     await logAdminActivity(admin.id, "ARTWORK_HIDE", id, "판매/예약 상태라 숨김 처리");
   } else {
-    await deleteUploadedFile(artwork.fileKey);
-    if (artwork.previewKey && artwork.previewKey !== artwork.fileKey) {
+    if (isUploadKey(artwork.fileKey)) await deleteUploadedFile(artwork.fileKey);
+    if (artwork.previewKey && artwork.previewKey !== artwork.fileKey && isUploadKey(artwork.previewKey)) {
       await deleteUploadedFile(artwork.previewKey);
     }
     await prisma.artwork.delete({ where: { id } });
@@ -131,73 +102,41 @@ export async function bulkMarkSoldOutAction(formData: FormData) {
   revalidatePath("/admin/products");
 }
 
-export async function importArtworksCsvAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+// 한 줄 = 재고 1개. 그 줄 내용(링크 또는 텍스트)이 구매 즉시 지급되는 콘텐츠(fileKey)가
+// 되므로, 파일 업로드 없이 바로 판매가능 상태로 등록된다.
+export async function importArtworksTxtAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const admin = await requireAdmin();
-  const file = formData.get("csv") as File | null;
-  if (!file || file.size === 0) return { error: "CSV 파일을 선택해주세요." };
+  const tierId = String(formData.get("tierId") || "");
+  const file = formData.get("txt") as File | null;
+
+  if (!tierId) return { error: "등급을 선택해주세요." };
+  if (!file || file.size === 0) return { error: "TXT 파일을 선택해주세요." };
+
+  const tier = await prisma.tier.findUnique({ where: { id: tierId } });
+  if (!tier) return { error: "존재하지 않는 등급입니다." };
 
   const text = await file.text();
-  const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
-  if (lines.length < 2) return { error: "CSV에 데이터 행이 없습니다." };
-
-  const header = lines[0].split(",").map((h) => h.trim());
-  const required = ["code", "tierSlug", "title", "category"];
-  for (const col of required) {
-    if (!header.includes(col)) return { error: `CSV 헤더에 ${col} 컬럼이 필요합니다.` };
-  }
-
-  const tiers = await prisma.tier.findMany();
-  const tierBySlug = new Map(tiers.map((t) => [t.slug, t.id]));
+  const lines = text
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
+  if (lines.length === 0) return { error: "파일에 등록할 줄이 없습니다." };
 
   let created = 0;
-  const errors: string[] = [];
-
-  for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(",").map((c) => c.trim());
-    const row: Record<string, string> = {};
-    header.forEach((h, idx) => (row[h] = cols[idx] ?? ""));
-
-    const tierId = tierBySlug.get(row.tierSlug);
-    if (!tierId) {
-      errors.push(`${i + 1}행: 알 수 없는 등급 slug (${row.tierSlug})`);
-      continue;
-    }
-    if (!row.code || !row.title) {
-      errors.push(`${i + 1}행: code/title 누락`);
-      continue;
-    }
-    const exists = await prisma.artwork.findUnique({ where: { code: row.code } });
-    if (exists) {
-      errors.push(`${i + 1}행: 중복 코드 (${row.code})`);
-      continue;
-    }
-
+  for (const line of lines) {
+    created++;
     await prisma.artwork.create({
       data: {
-        code: row.code,
         tierId,
-        title: row.title,
-        category: row.category || "기타",
-        quality: row.quality || null,
-        widthPx: row.widthPx ? Number(row.widthPx) : null,
-        heightPx: row.heightPx ? Number(row.heightPx) : null,
-        fileFormat: row.fileFormat || null,
-        series: row.series || null,
-        character: row.character || null,
-        rarityStars: row.rarityStars ? Number(row.rarityStars) : 1,
-        // CSV 일괄 등록은 상품 데이터만 선등록하고, 실제 파일은 관리자가 개별 수정 화면에서
-        // 업로드해야 판매 가능 상태(AVAILABLE)로 전환되도록 HIDDEN으로 시작한다.
-        fileKey: "",
-        status: "HIDDEN",
+        code: `${tier.slug}-${randomUUID().slice(0, 8)}`,
+        title: `${tier.name} #${created}`,
+        fileKey: line,
+        status: "AVAILABLE",
       },
     });
-    created++;
   }
 
-  await logAdminActivity(admin.id, "ARTWORK_CSV_IMPORT", undefined, `${created}건 등록, 오류 ${errors.length}건`);
+  await logAdminActivity(admin.id, "ARTWORK_TXT_IMPORT", tierId, `${tier.name} ${created}건 등록`);
   revalidatePath("/admin/inventory");
-  if (errors.length > 0) {
-    return { error: `${created}건 등록 완료. 오류 ${errors.length}건: ${errors.slice(0, 5).join("; ")}` };
-  }
   return undefined;
 }

@@ -16,13 +16,8 @@ export default async function ProductDetailPage({
 
   const user = await getCurrentUser();
 
-  const [stock, categories, reviews] = await Promise.all([
+  const [stock, reviews] = await Promise.all([
     prisma.artwork.count({ where: { tierId: tier.id, status: ARTWORK_STATUS.AVAILABLE } }),
-    prisma.artwork.groupBy({
-      by: ["category"],
-      where: { tierId: tier.id, status: ARTWORK_STATUS.AVAILABLE },
-      _count: true,
-    }),
     prisma.review.findMany({
       where: { order: { tierId: tier.id }, status: REVIEW_STATUS.VISIBLE },
       include: { user: true },
@@ -61,19 +56,6 @@ export default async function ProductDetailPage({
             </div>
           </div>
         </div>
-
-        {categories.length > 0 && (
-          <div className="bg-white border border-neutral-200 rounded-xl p-4">
-            <h3 className="font-semibold text-sm mb-2">포함 가능 카테고리</h3>
-            <div className="flex flex-wrap gap-2 text-xs">
-              {categories.map((c) => (
-                <span key={c.category} className="bg-neutral-100 rounded-full px-3 py-1">
-                  {c.category} ({c._count})
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
 
         <div className="bg-white border border-neutral-200 rounded-xl p-4">
           <h3 className="font-semibold text-sm mb-3">구매자 리뷰 ({reviews.length})</h3>

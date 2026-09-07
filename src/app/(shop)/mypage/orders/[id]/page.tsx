@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { ORDER_STATUS } from "@/lib/constants";
 import { ReviewForm } from "@/components/ReviewForm";
 import { RefundRequestForm } from "@/components/RefundRequestForm";
+import { ArtworkPreview } from "@/components/ArtworkPreview";
 
 export default async function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -55,20 +56,15 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
         <div className="bg-white border border-neutral-200 rounded-xl p-5">
           <h2 className="font-semibold mb-3">지급된 계정</h2>
           <div className="flex gap-4">
-            <img
-              src={`/api/files/preview/${order.artwork.id}`}
-              alt={order.artwork.title}
-              className="w-40 h-40 object-cover rounded-lg border border-neutral-200"
+            <ArtworkPreview
+              artworkId={order.artwork.id}
+              previewKey={order.artwork.previewKey}
+              fileKey={order.artwork.fileKey}
+              title={order.artwork.title}
+              className="w-40 h-40"
             />
             <div className="text-sm space-y-1">
               <div className="font-medium">{order.artwork.title}</div>
-              <div className="text-neutral-500">카테고리: {order.artwork.category}</div>
-              {order.artwork.widthPx && order.artwork.heightPx && (
-                <div className="text-neutral-500">
-                  해상도: {order.artwork.widthPx}×{order.artwork.heightPx}
-                </div>
-              )}
-              <div className="text-neutral-500">희귀도: {"★".repeat(order.artwork.rarityStars)}</div>
               <a
                 href={`/api/files/download/${order.id}`}
                 className="inline-block mt-2 bg-indigo-600 text-white text-sm px-4 py-2 rounded-md hover:bg-indigo-700"

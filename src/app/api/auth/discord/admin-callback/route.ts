@@ -6,9 +6,10 @@ import { hashPassword } from "@/lib/password";
 import { createAdminSession, getClientInfo } from "@/lib/session";
 import { isDiscordGuildAdmin } from "@/bot/discordAuth";
 import { ADMIN_STATUS } from "@/lib/constants";
+import { getAppOrigin } from "@/lib/appUrl";
 
-function adminLoginError(req: NextRequest, message: string) {
-  const url = new URL("/admin/login", req.url);
+function adminLoginError(_req: NextRequest, message: string) {
+  const url = new URL("/admin/login", getAppOrigin());
   url.searchParams.set("error", message);
   return NextResponse.redirect(url);
 }
@@ -91,5 +92,5 @@ export async function GET(req: NextRequest) {
     data: { adminId: admin.id, loginId: admin.loginId, ip, userAgent, success: true, reason: "Discord 서버 관리자 로그인" },
   });
   await createAdminSession(admin.id);
-  return NextResponse.redirect(new URL("/admin", req.url));
+  return NextResponse.redirect(new URL("/admin", getAppOrigin()));
 }

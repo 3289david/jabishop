@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, getCurrentAdmin } from "@/lib/session";
-import { readUploadedFile, guessContentType } from "@/lib/storage";
+import { readUploadedFile, guessContentType, isUploadKey } from "@/lib/storage";
 
 export async function GET(
   _req: NextRequest,
@@ -23,6 +23,11 @@ export async function GET(
   }
 
   const key = artwork.previewKey || artwork.fileKey;
+  if (!isUploadKey(key)) {
+    // 텍스트/URL로 등록된 미리보기는 디스크에 없으므로, URL이면 그대로 리다이렉트한다.
+    if (/^https?:\/\//i.test(key)) return NextResponse.redirect(key);
+    return NextResponse.json({ error: "not a file" }, { status: 404 });
+  }
   try {
     const buffer = await readUploadedFile(key);
     return new NextResponse(new Uint8Array(buffer), {

@@ -4,7 +4,7 @@ import { purchaseTier, OrderError } from "@/lib/orders";
 import { confirmTopUp, rejectTopUp, TopUpError } from "@/lib/points";
 import { approveRefund, rejectRefund, RefundError } from "@/lib/refunds";
 import { assertActiveShopUser, requireLinkedAdmin } from "@/bot/discordAuth";
-import { readUploadedFile } from "@/bot/fileStorage";
+import { readUploadedFile, isUploadKey } from "@/bot/fileStorage";
 import { errorEmbed, successEmbed, pt } from "@/bot/format";
 import { showTopUpModal, showInquiryModal, showAnswerModal } from "@/bot/interactions/modals";
 import {
@@ -74,13 +74,17 @@ async function handleBuy(interaction: ButtonInteraction, slug: string) {
 
     const files = [];
     if (artwork) {
-      try {
-        const buffer = await readUploadedFile(artwork.fileKey);
-        const ext = artwork.fileKey.split(".").pop() || "png";
-        files.push(new AttachmentBuilder(buffer, { name: `${artwork.code}.${ext}` }));
-        embed.setImage(`attachment://${artwork.code}.${ext}`);
-      } catch {
-        // 파일 누락 시 이미지 없이 결과만 표시
+      if (!isUploadKey(artwork.fileKey)) {
+        embed.addFields({ name: "지급 내용", value: artwork.fileKey });
+      } else {
+        try {
+          const buffer = await readUploadedFile(artwork.fileKey);
+          const ext = artwork.fileKey.split(".").pop() || "png";
+          files.push(new AttachmentBuilder(buffer, { name: `${artwork.code}.${ext}` }));
+          embed.setImage(`attachment://${artwork.code}.${ext}`);
+        } catch {
+          // 파일 누락 시 이미지 없이 결과만 표시
+        }
       }
     }
     await interaction.editReply({ embeds: [embed], components: [], files });
