@@ -24,7 +24,7 @@ export default async function HomePage() {
       <section className="text-center py-10">
         <h1 className="text-3xl font-bold mb-2">🎨 자비샵</h1>
         <p className="text-neutral-500">
-          등급을 선택해 구매하면, 해당 등급의 그림 중 하나가 무작위로 지급됩니다.
+          등급을 선택해 구매하면, 해당 등급의 계정 중 하나가 무작위로 지급됩니다.
         </p>
         <div className="flex items-center justify-center gap-2 mt-4">
           <span className="inline-flex items-center gap-1.5 bg-[#2b2d31] text-[#949ba4] font-mono text-sm px-3 py-1.5 rounded-md">
@@ -57,7 +57,7 @@ export default async function HomePage() {
               <p className="text-sm text-neutral-500 mb-3 line-clamp-2">{tier.description}</p>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-neutral-500">
-                  그림 {tier.minCount}~{tier.maxCount}개 중 1개
+                  계정 {tier.minCount}~{tier.maxCount}개 
                 </span>
                 <span className="font-bold text-indigo-600">{tier.price.toLocaleString()}원</span>
               </div>

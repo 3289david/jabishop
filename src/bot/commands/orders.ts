@@ -32,7 +32,7 @@ export const orderListCommand: BotCommand = {
 export const orderDetailCommand: BotCommand = {
   data: new SlashCommandBuilder()
     .setName("주문상세")
-    .setDescription("주문번호로 상세 내역과 그림을 확인합니다.")
+    .setDescription("주문번호로 상세 내역과 계정을 확인합니다.")
     .addStringOption((o) => o.setName("주문번호").setDescription("예: 20260905000001").setRequired(true)),
   async execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
@@ -56,7 +56,7 @@ export const orderDetailCommand: BotCommand = {
 
     const files = [];
     if (order.artwork && order.status === ORDER_STATUS.COMPLETED) {
-      embed.addFields({ name: "지급된 그림", value: order.artwork.title });
+      embed.addFields({ name: "지급된 계정", value: order.artwork.title });
       try {
         const buffer = await readUploadedFile(order.artwork.fileKey);
         const ext = order.artwork.fileKey.split(".").pop() || "png";

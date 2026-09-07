@@ -12,7 +12,7 @@ export default async function EditArtworkPage({ params }: { params: Promise<{ id
 
   return (
     <div className="space-y-4">
-      <h1 className="text-xl font-bold">그림 수정 - {artwork.code}</h1>
+      <h1 className="text-xl font-bold">계정 수정 - {artwork.code}</h1>
       <div className="bg-white border border-neutral-200 rounded-xl p-5">
         <img
           src={`/api/files/preview/${artwork.id}`}

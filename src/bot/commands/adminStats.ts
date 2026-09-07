@@ -24,7 +24,7 @@ export async function statsEmbed() {
   return baseEmbed("📊 관리자 대시보드").addFields(
     { name: "오늘 매출", value: won(todayRevenue), inline: true },
     { name: "오늘 주문", value: `${todayOrders.length}건`, inline: true },
-    { name: "현재 그림 재고", value: `${stockCount}개`, inline: true },
+    { name: "현재 계정 재고", value: `${stockCount}개`, inline: true },
     { name: "회원 수", value: `${memberCount.toLocaleString()}명`, inline: true },
     { name: "환불 요청", value: `${pendingRefunds}건`, inline: true },
     { name: "문의", value: `${waitingInquiries}건`, inline: true }

@@ -102,7 +102,7 @@ export const settingsUpdateCommand: BotCommand = {
 export const purgeSeedDataCommand: BotCommand = {
   data: new SlashCommandBuilder()
     .setName("데모데이터삭제")
-    .setDescription("[관리자/SUPER] 시드 스크립트가 만든 테스트 회원/그림을 전부 삭제합니다.")
+    .setDescription("[관리자/SUPER] 시드 스크립트가 만든 테스트 회원/계정을 전부 삭제합니다.")
     .addStringOption((o) => o.setName("확인").setDescription('정말 삭제하려면 "삭제"를 입력하세요').setRequired(true)),
   async execute(interaction) {
     const admin = await requireLinkedAdmin(interaction.user.id);
@@ -118,12 +118,12 @@ export const purgeSeedDataCommand: BotCommand = {
       data: {
         adminId: admin.id,
         action: "PURGE_SEED_DATA",
-        detail: `회원 ${result.deletedUsers}명, 주문 ${result.deletedOrders}건, 그림 ${result.deletedArtworks}개 삭제`,
+        detail: `회원 ${result.deletedUsers}명, 주문 ${result.deletedOrders}건, 계정 ${result.deletedArtworks}개 삭제`,
       },
     });
     await interaction.editReply({
       embeds: [
-        successEmbed(`데모 데이터 삭제 완료: 회원 ${result.deletedUsers}명, 주문 ${result.deletedOrders}건, 그림 ${result.deletedArtworks}개`),
+        successEmbed(`데모 데이터 삭제 완료: 회원 ${result.deletedUsers}명, 주문 ${result.deletedOrders}건, 계정 ${result.deletedArtworks}개`),
       ],
     });
   },

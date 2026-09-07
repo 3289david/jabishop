@@ -28,7 +28,7 @@ export async function createArtworkAction(_prev: ActionState, formData: FormData
   const previewFile = formData.get("previewFile") as File | null;
 
   if (!tierId || !code || !title || !category) return { error: "필수 항목을 입력해주세요." };
-  if (!file || file.size === 0) return { error: "그림 원본 파일을 업로드해주세요." };
+  if (!file || file.size === 0) return { error: "계정 원본 파일을 업로드해주세요." };
 
   const existingCode = await prisma.artwork.findUnique({ where: { code } });
   if (existingCode) return { error: "이미 사용 중인 재고 코드입니다." };
@@ -90,7 +90,7 @@ export async function updateArtworkAction(_prev: ActionState, formData: FormData
   }
 
   if (status === "AVAILABLE" && !fileKey) {
-    return { error: "판매가능 상태로 전환하려면 먼저 그림 파일을 업로드해야 합니다." };
+    return { error: "판매가능 상태로 전환하려면 먼저 계정 파일을 업로드해야 합니다." };
   }
 
   await prisma.artwork.update({

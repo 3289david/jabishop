@@ -13,7 +13,7 @@ export function PurgeSeedDataForm({ userCount, artworkCount }: { userCount: numb
   return (
     <form action={formAction} className="space-y-2 max-w-md">
       <p className="text-sm text-neutral-500">
-        시드 스크립트가 만든 테스트 회원 {userCount}명, 데모 그림 재고 {artworkCount}개가 남아있습니다. 실제
+        시드 스크립트가 만든 테스트 회원 {userCount}명, 데모 계정 재고 {artworkCount}개가 남아있습니다. 실제
         서비스를 시작하기 전에 정리하세요. 실제 관리자 계정과 관리자가 직접 등록한 재고는 영향받지 않습니다.
       </p>
       <label className="block text-xs text-neutral-500">

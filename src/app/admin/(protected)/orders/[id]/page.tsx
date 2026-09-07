@@ -19,7 +19,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
       <div className="bg-white border border-neutral-200 rounded-xl p-5 text-sm space-y-2">
         <Row label="회원" value={`${order.user?.name} (${order.user?.email})`} />
         <Row label="상품" value={order.tier.name} />
-        <Row label="지급된 그림" value={order.artwork ? `${order.artwork.code} - ${order.artwork.title}` : "-"} />
+        <Row label="지급된 계정" value={order.artwork ? `${order.artwork.code} - ${order.artwork.title}` : "-"} />
         <Row label="정가" value={`${order.priceAtPurchase.toLocaleString()}P`} />
         <Row label="할인" value={`-${order.discountAmount.toLocaleString()}P ${order.coupon ? `(${order.coupon.name})` : ""}`} />
         <Row label="결제금액" value={`${order.finalAmount.toLocaleString()}P`} />

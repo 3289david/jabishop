@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { deleteUploadedFile } from "@/lib/storage";
 
 /**
- * 시드 스크립트(prisma/seed.ts)가 만든 데모 계정/그림을 전부 지운다.
+ * 시드 스크립트(prisma/seed.ts)가 만든 데모 계정/계정을 전부 지운다.
  * isSeedData=true로 표시된 행만 대상이며, 실제 관리자 계정이나 관리자가
  * 직접 등록한 재고는 건드리지 않는다.
  *
@@ -45,7 +45,7 @@ export async function purgeSeedData() {
 
     await tx.user.deleteMany({ where: { id: { in: seedUserIds } } });
 
-    // 주문에 묶여 있던 시드 그림은 위에서 참조가 끊겼으니, 남은 시드 그림 전부를 지운다.
+    // 주문에 묶여 있던 시드 계정은 위에서 참조가 끊겼으니, 남은 시드 계정 전부를 지운다.
     const deletedArtworks = await tx.artwork.deleteMany({ where: { isSeedData: true } });
 
     return { deletedUsers: seedUserIds.length, deletedOrders: seedOrderIds.length, deletedArtworks: deletedArtworks.count };

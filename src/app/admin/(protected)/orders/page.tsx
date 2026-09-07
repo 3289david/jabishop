@@ -55,7 +55,7 @@ export default async function AdminOrdersPage({
               <th className="text-left px-4 py-2">주문번호</th>
               <th className="text-left px-4 py-2">회원</th>
               <th className="text-left px-4 py-2">상품</th>
-              <th className="text-left px-4 py-2">지급된 그림</th>
+              <th className="text-left px-4 py-2">지급된 계정</th>
               <th className="text-left px-4 py-2">결제금액</th>
               <th className="text-left px-4 py-2">상태</th>
               <th className="text-left px-4 py-2">주문일</th>

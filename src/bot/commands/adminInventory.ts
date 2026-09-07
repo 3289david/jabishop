@@ -9,19 +9,19 @@ import type { BotCommand } from "@/bot/types";
 
 export const artworkCreateCommand: BotCommand = {
   data: new SlashCommandBuilder()
-    .setName("그림등록")
-    .setDescription("[관리자] 새 그림 재고를 등록합니다.")
+    .setName("계정등록")
+    .setDescription("[관리자] 새 계정 재고를 등록합니다.")
     .addStringOption((o) => o.setName("등급").setDescription("소속 등급").setRequired(true).setAutocomplete(true))
     .addStringOption((o) => o.setName("코드").setDescription("재고 코드 (예: GOLD-0011)").setRequired(true))
-    .addStringOption((o) => o.setName("제목").setDescription("그림 제목").setRequired(true))
+    .addStringOption((o) => o.setName("제목").setDescription("계정 제목").setRequired(true))
     .addStringOption((o) =>
       o
         .setName("카테고리")
-        .setDescription("그림 카테고리")
+        .setDescription("계정 카테고리")
         .setRequired(true)
         .addChoices(...ARTWORK_CATEGORIES.map((c) => ({ name: c, value: c })))
     )
-    .addAttachmentOption((o) => o.setName("파일").setDescription("그림 원본 파일").setRequired(true))
+    .addAttachmentOption((o) => o.setName("파일").setDescription("계정 원본 파일").setRequired(true))
     .addStringOption((o) => o.setName("품질").setDescription("품질/설명"))
     .addIntegerOption((o) => o.setName("가로").setDescription("가로(px)"))
     .addIntegerOption((o) => o.setName("세로").setDescription("세로(px)"))
@@ -68,14 +68,14 @@ export const artworkCreateCommand: BotCommand = {
       },
     });
     await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "ARTWORK_CREATE", target: artwork.id, detail: code } });
-    await interaction.editReply({ embeds: [successEmbed(`"${code}" 그림이 등록되었습니다.`)] });
+    await interaction.editReply({ embeds: [successEmbed(`"${code}" 계정이 등록되었습니다.`)] });
   },
 };
 
 export const artworkListCommand: BotCommand = {
   data: new SlashCommandBuilder()
-    .setName("그림목록")
-    .setDescription("[관리자] 등급별 그림 재고 목록을 봅니다.")
+    .setName("계정목록")
+    .setDescription("[관리자] 등급별 계정 재고 목록을 봅니다.")
     .addStringOption((o) => o.setName("등급").setDescription("필터할 등급").setAutocomplete(true))
     .addStringOption((o) =>
       o
@@ -102,7 +102,7 @@ export const artworkListCommand: BotCommand = {
       take: 25,
     });
 
-    const embed = baseEmbed("🖼️ 그림 재고 목록 (최근 25개)");
+    const embed = baseEmbed("🖼️ 계정 재고 목록 (최근 25개)");
     if (artworks.length === 0) embed.setDescription("조건에 맞는 재고가 없습니다.");
     for (const a of artworks) {
       embed.addFields({ name: `${a.code} · ${a.tier.name}`, value: `${a.title} · ${a.category} · ${a.status}` });
@@ -113,8 +113,8 @@ export const artworkListCommand: BotCommand = {
 
 export const artworkStatusCommand: BotCommand = {
   data: new SlashCommandBuilder()
-    .setName("그림상태변경")
-    .setDescription("[관리자] 그림 재고의 판매 상태를 변경합니다.")
+    .setName("계정상태변경")
+    .setDescription("[관리자] 계정 재고의 판매 상태를 변경합니다.")
     .addStringOption((o) => o.setName("코드").setDescription("재고 코드").setRequired(true))
     .addStringOption((o) =>
       o

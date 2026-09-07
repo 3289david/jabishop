@@ -41,7 +41,7 @@ export function TierForm({ tier }: { tier?: Tier }) {
           />
         </div>
         <div>
-          <label className="block text-xs text-neutral-500 mb-1">최소 그림 수</label>
+          <label className="block text-xs text-neutral-500 mb-1">최소 계정 수</label>
           <input
             name="minCount"
             type="number"
@@ -51,7 +51,7 @@ export function TierForm({ tier }: { tier?: Tier }) {
           />
         </div>
         <div>
-          <label className="block text-xs text-neutral-500 mb-1">최대 그림 수</label>
+          <label className="block text-xs text-neutral-500 mb-1">최대 계정 수</label>
           <input
             name="maxCount"
             type="number"

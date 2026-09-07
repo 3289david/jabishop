@@ -40,21 +40,21 @@ export const tierCreateCommand: BotCommand = {
     .setDescription("[관리자] 새 랜덤 등급 상품을 만듭니다.")
     .addStringOption((o) => o.setName("이름").setDescription("등급명").setRequired(true))
     .addIntegerOption((o) => o.setName("가격").setDescription("가격(포인트)").setRequired(true).setMinValue(1))
-    .addIntegerOption((o) => o.setName("최소그림수").setDescription("최소 그림 수").setRequired(true).setMinValue(1))
-    .addIntegerOption((o) => o.setName("최대그림수").setDescription("최대 그림 수").setRequired(true).setMinValue(1))
+    .addIntegerOption((o) => o.setName("최소계정수").setDescription("최소 계정 수").setRequired(true).setMinValue(1))
+    .addIntegerOption((o) => o.setName("최대계정수").setDescription("최대 계정 수").setRequired(true).setMinValue(1))
     .addStringOption((o) => o.setName("설명").setDescription("상품 설명"))
     .addIntegerOption((o) => o.setName("구매제한").setDescription("1인당 구매 제한 수량")),
   async execute(interaction) {
     const admin = await requireLinkedAdmin(interaction.user.id);
     const name = interaction.options.getString("이름", true);
     const price = interaction.options.getInteger("가격", true);
-    const minCount = interaction.options.getInteger("최소그림수", true);
-    const maxCount = interaction.options.getInteger("최대그림수", true);
+    const minCount = interaction.options.getInteger("최소계정수", true);
+    const maxCount = interaction.options.getInteger("최대계정수", true);
     const description = interaction.options.getString("설명");
     const purchaseLimitPerUser = interaction.options.getInteger("구매제한");
 
     if (maxCount < minCount) {
-      return interaction.reply({ embeds: [errorEmbed("최대 그림 수는 최소 그림 수보다 커야 합니다.")], ephemeral: true });
+      return interaction.reply({ embeds: [errorEmbed("최대 계정 수는 최소 계정 수보다 커야 합니다.")], ephemeral: true });
     }
 
     let slug = slugify(name);

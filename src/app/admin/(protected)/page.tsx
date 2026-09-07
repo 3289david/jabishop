@@ -39,7 +39,7 @@ export default async function AdminDashboardPage() {
   const cards = [
     { label: "오늘 매출", value: `₩${todayRevenue.toLocaleString()}` },
     { label: "오늘 주문", value: `${todayOrders.length}건` },
-    { label: "현재 그림 재고", value: `${stockCount}개` },
+    { label: "현재 계정 재고", value: `${stockCount}개` },
     { label: "회원 수", value: `${memberCount.toLocaleString()}명` },
     { label: "환불 요청", value: `${pendingRefunds}건`, href: "/admin/refunds" },
     { label: "문의", value: `${waitingInquiries}건`, href: "/admin/inquiries" },

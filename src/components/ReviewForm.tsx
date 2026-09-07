@@ -25,7 +25,7 @@ export function ReviewForm({ orderId }: { orderId: string }) {
       </div>
       <textarea
         name="content"
-        placeholder="구매한 그림에 대한 리뷰를 남겨주세요."
+        placeholder="구매한 계정에 대한 리뷰를 남겨주세요."
         required
         rows={3}
         className="w-full border rounded-md px-3 py-2 text-sm"

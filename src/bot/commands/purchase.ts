@@ -10,7 +10,7 @@ import type { BotCommand } from "@/bot/types";
 export const purchaseCommand: BotCommand = {
   data: new SlashCommandBuilder()
     .setName("구매")
-    .setDescription("등급을 선택해 랜덤 그림을 구매합니다 (포인트 결제).")
+    .setDescription("등급을 선택해 랜덤 계정을 구매합니다 (포인트 결제).")
     .addStringOption((o) => o.setName("등급").setDescription("구매할 등급").setRequired(true).setAutocomplete(true))
     .addStringOption((o) => o.setName("쿠폰코드").setDescription("적용할 쿠폰 코드 (선택)").setRequired(false)),
   autocomplete: tierAutocomplete,
@@ -31,7 +31,7 @@ export const purchaseCommand: BotCommand = {
         .setTitle(`주문 #${order.orderNo}`)
         .addFields(
           { name: "결제 금액", value: pt(order.finalAmount), inline: true },
-          { name: "지급된 그림", value: artwork?.title ?? "-", inline: true }
+          { name: "지급된 계정", value: artwork?.title ?? "-", inline: true }
         );
 
       const files = [];

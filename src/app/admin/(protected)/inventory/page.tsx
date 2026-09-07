@@ -29,7 +29,7 @@ export default async function AdminInventoryPage({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">그림 재고 관리</h1>
+        <h1 className="text-xl font-bold">계정 재고 관리</h1>
         <div className="flex gap-2">
           <a
             href="/api/admin/inventory/export"
@@ -38,7 +38,7 @@ export default async function AdminInventoryPage({
             CSV 내보내기
           </a>
           <Link href="/admin/inventory/new" className="bg-indigo-600 text-white text-sm px-3 py-2 rounded-md hover:bg-indigo-700">
-            그림 추가
+            계정 추가
           </Link>
         </div>
       </div>

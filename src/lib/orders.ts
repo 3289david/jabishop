@@ -19,7 +19,7 @@ export class OrderError extends Error {
 }
 
 /**
- * 랜덤 그림 구매의 핵심 로직.
+ * 랜덤 계정 구매의 핵심 로직.
  *
  * 포인트는 관리자가 계좌이체 입금을 수동 확인한 뒤에만 충전되므로(이미 확정된 잔액),
  * 구매 시점에는 결제 대기 없이 하나의 트랜잭션 안에서
@@ -116,9 +116,9 @@ export async function purchaseTier(params: {
       },
     });
 
-    // 원자적 재고 선점: 같은 등급 내 "판매가능" 그림 중 하나를 무작위로 골라
+    // 원자적 재고 선점: 같은 등급 내 "판매가능" 계정 중 하나를 무작위로 골라
     // 이 주문에 즉시 귀속시킨다. WHERE 절의 status='AVAILABLE' 재확인 덕분에
-    // 동시에 여러 주문이 들어와도 같은 그림이 두 번 선택될 수 없다.
+    // 동시에 여러 주문이 들어와도 같은 계정이 두 번 선택될 수 없다.
     const reserved = await tx.$executeRawUnsafe(
       `UPDATE Artwork
        SET status = 'RESERVED', reservedOrderId = ?, reservedAt = CURRENT_TIMESTAMP
@@ -179,8 +179,8 @@ export async function purchaseTier(params: {
         userId,
         orderId: order.id,
         type: "ORDER_COMPLETED",
-        title: "랜덤 그림 지급 완료",
-        message: `주문 #${orderNo}의 ${tier.name} 그림이 지급되었습니다.`,
+        title: "랜덤 계정 지급 완료",
+        message: `주문 #${orderNo}의 ${tier.name} 계정이 지급되었습니다.`,
       },
     });
 

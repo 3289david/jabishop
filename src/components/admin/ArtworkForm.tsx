@@ -111,7 +111,7 @@ export function ArtworkForm({ artwork, tiers }: { artwork?: Artwork; tiers: Tier
 
       <div>
         <label className="block text-xs text-neutral-500 mb-1">
-          그림 원본 파일 {artwork ? "(교체할 경우에만 선택)" : ""}
+          계정 원본 파일 {artwork ? "(교체할 경우에만 선택)" : ""}
         </label>
         <input name="file" type="file" accept="image/*" required={!artwork} className="text-sm" />
       </div>

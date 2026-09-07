@@ -13,7 +13,7 @@ export function CsvImportForm() {
         <p className="text-xs text-neutral-500">
           헤더: code,tierSlug,title,category,quality,widthPx,heightPx,fileFormat,series,character,rarityStars
           <br />
-          파일 없이 상품 데이터만 먼저 등록되며, 이후 각 항목을 열어 실제 그림 파일을 업로드해야 판매 가능 상태가 됩니다.
+          파일 없이 상품 데이터만 먼저 등록되며, 이후 각 항목을 열어 실제 계정 파일을 업로드해야 판매 가능 상태가 됩니다.
         </p>
         <input name="csv" type="file" accept=".csv,text/csv" required className="text-sm" />
         {state?.error && <p className="text-sm text-amber-600">{state.error}</p>}

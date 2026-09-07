@@ -16,7 +16,7 @@ export async function GET(
 
   const admin = await getCurrentAdmin();
   if (!admin) {
-    // 관리자가 아니라면, 이 그림을 실제로 구매/수령한 본인만 미리보기를 볼 수 있다.
+    // 관리자가 아니라면, 이 계정을 실제로 구매/수령한 본인만 미리보기를 볼 수 있다.
     const user = await getCurrentUser();
     const ownsIt = user && artwork.order?.userId === user.id;
     if (!ownsIt) return NextResponse.json({ error: "forbidden" }, { status: 403 });

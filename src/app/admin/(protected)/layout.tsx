@@ -7,7 +7,7 @@ import { REFUND_STATUS, INQUIRY_STATUS, TOPUP_STATUS } from "@/lib/constants";
 const NAV: { href: string; label: string }[] = [
   { href: "/admin", label: "대시보드" },
   { href: "/admin/products", label: "상품(등급) 관리" },
-  { href: "/admin/inventory", label: "그림 재고 관리" },
+  { href: "/admin/inventory", label: "계정 재고 관리" },
   { href: "/admin/orders", label: "주문 관리" },
   { href: "/admin/members", label: "회원 관리" },
   { href: "/admin/payments", label: "결제(충전) 관리" },

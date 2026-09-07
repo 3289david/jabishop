@@ -28,7 +28,7 @@ export async function createTierAction(_prev: ActionState, formData: FormData): 
     : null;
 
   if (!name || price <= 0 || minCount <= 0 || maxCount < minCount) {
-    return { error: "입력값을 확인해주세요 (이름 / 가격 / 최소·최대 그림 수)." };
+    return { error: "입력값을 확인해주세요 (이름 / 가격 / 최소·최대 계정 수)." };
   }
 
   let slug = slugify(name);
@@ -58,7 +58,7 @@ export async function updateTierAction(_prev: ActionState, formData: FormData): 
     : null;
 
   if (!name || price <= 0 || minCount <= 0 || maxCount < minCount) {
-    return { error: "입력값을 확인해주세요 (이름 / 가격 / 최소·최대 그림 수)." };
+    return { error: "입력값을 확인해주세요 (이름 / 가격 / 최소·최대 계정 수)." };
   }
 
   await prisma.tier.update({

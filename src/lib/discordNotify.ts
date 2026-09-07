@@ -156,11 +156,11 @@ export async function notifyPurchaseByDM(userId: string) {
 
   const embed: SimpleEmbed = {
     title: `🎉 주문 #${order.orderNo} 완료`,
-    description: `**${order.tier.name}** 구매가 완료되어 그림이 지급되었습니다.`,
+    description: `**${order.tier.name}** 구매가 완료되어 계정이 지급되었습니다.`,
     color: BRAND_COLOR,
     fields: [
       { name: "결제 금액", value: `${order.finalAmount.toLocaleString()}P`, inline: true },
-      { name: "지급된 그림", value: order.artwork.title, inline: true },
+      { name: "지급된 계정", value: order.artwork.title, inline: true },
       { name: "희귀도", value: "★".repeat(order.artwork.rarityStars), inline: true },
     ],
     timestamp: new Date().toISOString(),
@@ -203,13 +203,13 @@ export async function notifyLowStockIfNeeded(tierId: string, remainingStock: num
     remainingStock === 0
       ? {
           title: "🚨 재고 품절",
-          description: `**${tier.name}** 등급의 그림 재고가 모두 소진되었습니다. 새 재고를 등록하거나 등급을 숨김 처리해주세요.`,
+          description: `**${tier.name}** 등급의 계정 재고가 모두 소진되었습니다. 새 재고를 등록하거나 등급을 숨김 처리해주세요.`,
           color: 0xef4444,
           timestamp: new Date().toISOString(),
         }
       : {
           title: "⚠️ 재고 부족 임박",
-          description: `**${tier.name}** 등급의 남은 재고가 ${LOW_STOCK_THRESHOLD}개입니다. 미리 그림을 추가 등록해주세요.`,
+          description: `**${tier.name}** 등급의 남은 재고가 ${LOW_STOCK_THRESHOLD}개입니다. 미리 계정을 추가 등록해주세요.`,
           color: 0xf59e0b,
           timestamp: new Date().toISOString(),
         };

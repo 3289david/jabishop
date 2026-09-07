@@ -62,10 +62,10 @@ export async function purgeSeedDataAction(_prev: ActionState, formData: FormData
     admin.id,
     "PURGE_SEED_DATA",
     undefined,
-    `회원 ${result.deletedUsers}명, 주문 ${result.deletedOrders}건, 그림 ${result.deletedArtworks}개 삭제`
+    `회원 ${result.deletedUsers}명, 주문 ${result.deletedOrders}건, 계정 ${result.deletedArtworks}개 삭제`
   );
   revalidatePath("/", "layout");
   return {
-    success: `데모 데이터 삭제 완료: 회원 ${result.deletedUsers}명, 주문 ${result.deletedOrders}건, 그림 ${result.deletedArtworks}개`,
+    success: `데모 데이터 삭제 완료: 회원 ${result.deletedUsers}명, 주문 ${result.deletedOrders}건, 계정 ${result.deletedArtworks}개`,
   };
 }

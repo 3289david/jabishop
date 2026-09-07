@@ -24,7 +24,7 @@ export default async function AdminProductsPage() {
             <tr>
               <th className="text-left px-4 py-2">등급명</th>
               <th className="text-left px-4 py-2">가격</th>
-              <th className="text-left px-4 py-2">그림 수 범위</th>
+              <th className="text-left px-4 py-2">계정 수 범위</th>
               <th className="text-left px-4 py-2">재고</th>
               <th className="text-left px-4 py-2">구매제한</th>
               <th className="text-left px-4 py-2">상태</th>

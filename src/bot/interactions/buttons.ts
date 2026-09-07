@@ -70,7 +70,7 @@ async function handleBuy(interaction: ButtonInteraction, slug: string) {
 
     const embed = successEmbed(`${tier.name} 구매 완료!`)
       .setTitle(`주문 #${order.orderNo}`)
-      .addFields({ name: "결제 금액", value: pt(order.finalAmount), inline: true }, { name: "지급된 그림", value: artwork?.title ?? "-", inline: true });
+      .addFields({ name: "결제 금액", value: pt(order.finalAmount), inline: true }, { name: "지급된 계정", value: artwork?.title ?? "-", inline: true });
 
     const files = [];
     if (artwork) {
@@ -128,7 +128,7 @@ async function handleCartCheckout(interaction: ButtonInteraction) {
 
   const embed = firstError
     ? errorEmbed(successCount > 0 ? `${successCount}건 완료 후 중단 - ${firstError}` : firstError)
-    : successEmbed(`${successCount}건 결제가 완료되었습니다. 그림은 DM 또는 /주문내역에서 확인하세요.`);
+    : successEmbed(`${successCount}건 결제가 완료되었습니다. 계정은 DM 또는 /주문내역에서 확인하세요.`);
   await interaction.editReply({ embeds: [embed], components: [] });
 }
 

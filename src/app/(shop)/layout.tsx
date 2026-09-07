@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "자비샵 | 랜덤 그림 판매",
-  description: "등급별 랜덤 그림 상품을 판매하는 자비샵입니다.",
+  title: "자비샵 | 랜덤 계정 판매",
+  description: "등급별 랜덤 계정 상품을 판매하는 자비샵입니다.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

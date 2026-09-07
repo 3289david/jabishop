@@ -45,9 +45,9 @@ export default async function ProductDetailPage({
             <div className="font-bold text-lg">{tier.price.toLocaleString()}P</div>
           </div>
           <div>
-            <div className="text-neutral-400">그림 범위</div>
+            <div className="text-neutral-400">스킨 개수</div>
             <div className="font-semibold">
-              {tier.minCount}~{tier.maxCount}개 중 1개
+              {tier.minCount}~{tier.maxCount}개 
             </div>
           </div>
           <div>

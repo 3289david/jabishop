@@ -53,7 +53,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
 
       {order.artwork && isCompleted && (
         <div className="bg-white border border-neutral-200 rounded-xl p-5">
-          <h2 className="font-semibold mb-3">지급된 그림</h2>
+          <h2 className="font-semibold mb-3">지급된 계정</h2>
           <div className="flex gap-4">
             <img
               src={`/api/files/preview/${order.artwork.id}`}
