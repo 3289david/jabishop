@@ -10,12 +10,12 @@ export function AdminRoleForm({ admin }: { admin: AdminUser }) {
   return (
     <form action={formAction} className="flex items-center gap-2">
       <input type="hidden" name="adminId" value={admin.id} />
-      <select name="role" defaultValue={admin.role} className="border rounded-md px-2 py-1 text-xs">
+      <select key={admin.role} name="role" defaultValue={admin.role} className="border rounded-md px-2 py-1 text-xs">
         <option value="STAFF">STAFF</option>
         <option value="MANAGER">MANAGER</option>
         <option value="SUPER">SUPER</option>
       </select>
-      <select name="status" defaultValue={admin.status} className="border rounded-md px-2 py-1 text-xs">
+      <select key={admin.status} name="status" defaultValue={admin.status} className="border rounded-md px-2 py-1 text-xs">
         <option value="ACTIVE">활성</option>
         <option value="DISABLED">비활성</option>
       </select>

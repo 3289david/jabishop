@@ -10,7 +10,14 @@ export default async function ProductDetailPage({
 }: {
   params: Promise<{ slug: string }>;
 }) {
-  const { slug } = await params;
+  const { slug: rawSlug } = await params;
+  // 한글 등급 슬러그가 URL에서 퍼센트 인코딩된 채로 넘어오는 경우가 있어 직접 디코딩한다.
+  let slug = rawSlug;
+  try {
+    slug = decodeURIComponent(rawSlug);
+  } catch {
+    // 잘못된 인코딩이면 원본 그대로 조회 시도
+  }
   const tier = await prisma.tier.findUnique({ where: { slug } });
   if (!tier) notFound();
 
