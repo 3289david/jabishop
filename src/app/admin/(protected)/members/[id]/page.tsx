@@ -2,17 +2,19 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { MemberStatusForm } from "@/components/admin/MemberStatusForm";
 import { PointAdjustForm } from "@/components/admin/PointAdjustForm";
+import { GrantArtworkForm } from "@/components/admin/GrantArtworkForm";
 
 export default async function AdminMemberDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await prisma.user.findUnique({ where: { id } });
   if (!user) notFound();
 
-  const [orders, reviews, inquiries, reports] = await Promise.all([
+  const [orders, reviews, inquiries, reports, tiers] = await Promise.all([
     prisma.order.findMany({ where: { userId: id }, include: { tier: true }, orderBy: { createdAt: "desc" }, take: 20 }),
     prisma.review.count({ where: { userId: id } }),
     prisma.inquiry.count({ where: { userId: id } }),
     prisma.report.count({ where: { reporterId: id } }),
+    prisma.tier.findMany({ orderBy: { sortOrder: "asc" } }),
   ]);
 
   return (
@@ -30,6 +32,11 @@ export default async function AdminMemberDetailPage({ params }: { params: Promis
           </h2>
           <PointAdjustForm userId={user.id} />
         </div>
+      </div>
+
+      <div className="bg-white border border-neutral-200 rounded-xl p-5">
+        <h2 className="font-semibold mb-2 text-sm">계정 지급 (결제 없이 관리자가 직접 증정)</h2>
+        <GrantArtworkForm userId={user.id} tiers={tiers} />
       </div>
 
       <div className="bg-white border border-neutral-200 rounded-xl p-5 text-sm flex gap-6">

@@ -14,12 +14,17 @@ import { handleButtonInteraction } from "@/bot/interactions/buttons";
 import { handleSelectMenuInteraction } from "@/bot/interactions/selects";
 import { errorEmbed } from "@/bot/format";
 import { startStatsChannelLoop } from "@/bot/statsChannels";
+import { handleAutoDeleteMessage } from "@/bot/autoDeleteChannel";
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds] });
+const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
 
 client.once(Events.ClientReady, (c) => {
   console.log(`✅ 자비샵 봇 로그인 완료: ${c.user.tag}`);
   startStatsChannelLoop(client);
+});
+
+client.on(Events.MessageCreate, (message) => {
+  handleAutoDeleteMessage(message).catch(() => {});
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {

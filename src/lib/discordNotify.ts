@@ -142,21 +142,31 @@ export async function syncPurchaseTierRoles(discordId: string, cumulativeSpend: 
   }
 }
 
-/** 구매(랜덤 지급) 완료 시, 연동된 디스코드 계정으로 결과를 DM으로 보낸다. */
-export async function notifyPurchaseByDM(userId: string) {
+/**
+ * 구매(랜덤 지급) 완료 시, 연동된 디스코드 계정으로 결과를 DM으로 보낸다.
+ * orderId를 지정하면 그 주문을 정확히 대상으로 하고(관리자 지급/교환 재발송 등에 사용),
+ * 생략하면 기존처럼 그 사용자의 가장 최근 주문을 사용한다.
+ */
+export async function notifyPurchaseByDM(
+  userId: string,
+  orderId?: string,
+  override?: { title?: string; description?: string }
+) {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user?.discordId) return;
 
-  const order = await prisma.order.findFirst({
-    where: { userId },
-    orderBy: { createdAt: "desc" },
-    include: { tier: true, artwork: true },
-  });
+  const order = orderId
+    ? await prisma.order.findUnique({ where: { id: orderId }, include: { tier: true, artwork: true } })
+    : await prisma.order.findFirst({
+        where: { userId },
+        orderBy: { createdAt: "desc" },
+        include: { tier: true, artwork: true },
+      });
   if (!order || !order.artwork) return;
 
   const embed: SimpleEmbed = {
-    title: `🎉 주문 #${order.orderNo} 완료`,
-    description: `**${order.tier.name}** 구매가 완료되어 계정이 지급되었습니다.`,
+    title: override?.title ?? `🎉 주문 #${order.orderNo} 완료`,
+    description: override?.description ?? `**${order.tier.name}** 구매가 완료되어 계정이 지급되었습니다.`,
     color: BRAND_COLOR,
     fields: [
       { name: "결제 금액", value: `${order.finalAmount.toLocaleString()}P`, inline: true },

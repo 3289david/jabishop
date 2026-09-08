@@ -76,3 +76,31 @@ export async function issueCouponToUserAction(_prev: ActionState, formData: Form
   revalidatePath("/admin/coupons");
   return { error: undefined };
 }
+
+export async function issueCouponToAllAction(formData: FormData) {
+  const admin = await requireAdmin();
+  const couponId = String(formData.get("couponId") || "");
+  if (!couponId) return;
+
+  const users = await prisma.user.findMany({ where: { status: "ACTIVE" }, select: { id: true } });
+
+  for (const u of users) {
+    await prisma.userCoupon.upsert({
+      where: { userId_couponId: { userId: u.id, couponId } },
+      update: {},
+      create: { userId: u.id, couponId },
+    });
+  }
+  if (users.length > 0) {
+    await prisma.notification.createMany({
+      data: users.map((u) => ({
+        userId: u.id,
+        type: "COUPON_ISSUED",
+        title: "쿠폰 지급",
+        message: "새로운 쿠폰이 지급되었습니다.",
+      })),
+    });
+  }
+  await logAdminActivity(admin.id, "COUPON_ISSUE_ALL", couponId, `${users.length}명`);
+  revalidatePath("/admin/coupons");
+}

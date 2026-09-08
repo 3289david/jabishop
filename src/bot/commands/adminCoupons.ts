@@ -67,16 +67,46 @@ export const couponListAdminCommand: BotCommand = {
 export const couponIssueCommand: BotCommand = {
   data: new SlashCommandBuilder()
     .setName("쿠폰지급")
-    .setDescription("[관리자] 특정 회원에게 쿠폰을 지급합니다.")
+    .setDescription("[관리자] 회원에게 쿠폰을 지급합니다.")
     .addStringOption((o) => o.setName("코드").setDescription("지급할 쿠폰 코드").setRequired(true))
-    .addUserOption((o) => o.setName("대상").setDescription("지급받을 디스코드 사용자").setRequired(true)),
+    .addUserOption((o) => o.setName("대상").setDescription("지급받을 디스코드 사용자 (전체 지급 시 생략)"))
+    .addBooleanOption((o) => o.setName("전체").setDescription("모든 회원에게 지급할지 여부")),
   async execute(interaction) {
     const admin = await requireLinkedAdmin(interaction.user.id);
     const code = interaction.options.getString("코드", true).toUpperCase();
-    const target = interaction.options.getUser("대상", true);
+    const target = interaction.options.getUser("대상");
+    const toAll = interaction.options.getBoolean("전체") ?? false;
 
     const coupon = await prisma.coupon.findUnique({ where: { code } });
     if (!coupon) return interaction.reply({ embeds: [errorEmbed("존재하지 않는 쿠폰 코드입니다.")], ephemeral: true });
+
+    if (toAll) {
+      await interaction.deferReply({ ephemeral: true });
+      const users = await prisma.user.findMany({ where: { status: "ACTIVE" }, select: { id: true } });
+      for (const u of users) {
+        await prisma.userCoupon.upsert({
+          where: { userId_couponId: { userId: u.id, couponId: coupon.id } },
+          update: {},
+          create: { userId: u.id, couponId: coupon.id },
+        });
+      }
+      if (users.length > 0) {
+        await prisma.notification.createMany({
+          data: users.map((u) => ({
+            userId: u.id,
+            type: "COUPON_ISSUED",
+            title: "쿠폰 지급",
+            message: `"${coupon.name}" 쿠폰이 지급되었습니다.`,
+          })),
+        });
+      }
+      await prisma.adminActivityLog.create({
+        data: { adminId: admin.id, action: "COUPON_ISSUE_ALL", target: coupon.id, detail: `${users.length}명` },
+      });
+      return interaction.editReply({ embeds: [successEmbed(`전체 회원(${users.length}명)에게 "${code}" 쿠폰을 지급했습니다.`)] });
+    }
+
+    if (!target) return interaction.reply({ embeds: [errorEmbed("지급 대상을 지정하거나 '전체'를 켜주세요.")], ephemeral: true });
 
     const user = await getOrCreateShopUser(target.id, target.tag);
     await prisma.userCoupon.upsert({

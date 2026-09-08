@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { toggleCouponActiveAction } from "@/lib/actions/adminCoupons";
 import { IssueCouponForm } from "@/components/admin/IssueCouponForm";
+import { IssueCouponAllButton } from "@/components/admin/IssueCouponAllButton";
 
 export default async function AdminCouponsPage() {
   const coupons = await prisma.coupon.findMany({
@@ -55,7 +56,10 @@ export default async function AdminCouponsPage() {
                   </form>
                 </td>
                 <td className="px-4 py-2">
-                  <IssueCouponForm couponId={c.id} />
+                  <div className="flex flex-col gap-1 items-start">
+                    <IssueCouponForm couponId={c.id} />
+                    <IssueCouponAllButton couponId={c.id} />
+                  </div>
                 </td>
               </tr>
             ))}

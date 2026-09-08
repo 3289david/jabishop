@@ -21,6 +21,7 @@ export async function updateSettingsAction(_prev: ActionState, formData: FormDat
     "discordPurchaseLogChannelId",
     "discordMemberCountChannelId",
     "discordBuyerCountChannelId",
+    "discordAutoDeleteChannelId",
     "discordRoleTier150k",
     "discordRoleTier100k",
     "discordRoleTier50k",

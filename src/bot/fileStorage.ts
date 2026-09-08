@@ -32,3 +32,7 @@ export function resolveUploadPath(key: string): string {
 export async function readUploadedFile(key: string): Promise<Buffer> {
   return fs.readFile(resolveUploadPath(key));
 }
+
+export async function deleteUploadedFile(key: string): Promise<void> {
+  await fs.unlink(resolveUploadPath(key)).catch(() => {});
+}

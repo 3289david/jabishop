@@ -30,6 +30,9 @@ export const ARTWORK_STATUS = {
   RESERVED: "RESERVED",
   SOLD: "SOLD",
   HIDDEN: "HIDDEN",
+  // 교환(재추첨)으로 다른 계정으로 대체되어 더 이상 어떤 주문에도 연결되지 않는 상태.
+  // 재판매 방지를 위해 재고(AVAILABLE)로 되돌리지 않는다.
+  EXCHANGED: "EXCHANGED",
 } as const;
 
 export const ORDER_STATUS = {

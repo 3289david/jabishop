@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { forceCancelOrderAction } from "@/lib/actions/adminOrders";
 import { ORDER_STATUS } from "@/lib/constants";
+import { ExchangeOrderForm } from "@/components/admin/ExchangeOrderForm";
 
 export default async function AdminOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -12,6 +13,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
   if (!order) notFound();
 
   const cancellable = ([ORDER_STATUS.PENDING_PAYMENT, ORDER_STATUS.RESERVED] as string[]).includes(order.status);
+  const exchangeable = order.status === ORDER_STATUS.COMPLETED && !!order.artwork;
 
   return (
     <div className="space-y-4 max-w-2xl">
@@ -31,14 +33,17 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
         {order.refundRequest && <Row label="환불 상태" value={order.refundRequest.status} />}
       </div>
 
-      {cancellable && (
-        <form action={forceCancelOrderAction}>
-          <input type="hidden" name="orderId" value={order.id} />
-          <button className="border border-red-300 text-red-600 px-4 py-2 rounded-md text-sm hover:bg-red-50">
-            주문 강제 취소 (재고 복구)
-          </button>
-        </form>
-      )}
+      <div className="flex gap-2">
+        {cancellable && (
+          <form action={forceCancelOrderAction}>
+            <input type="hidden" name="orderId" value={order.id} />
+            <button className="border border-red-300 text-red-600 px-4 py-2 rounded-md text-sm hover:bg-red-50">
+              주문 강제 취소 (재고 복구)
+            </button>
+          </form>
+        )}
+        {exchangeable && <ExchangeOrderForm orderId={order.id} />}
+      </div>
     </div>
   );
 }

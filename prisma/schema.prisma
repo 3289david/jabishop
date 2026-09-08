@@ -375,6 +375,8 @@ model ShopSetting {
   discordPurchaseLogChannelId String?
   discordMemberCountChannelId String?
   discordBuyerCountChannelId  String?
+  // 이 채널에 올라오는 메시지는 5초 뒤 자동 삭제된다 (예: 문의/상담용 임시 채팅 채널).
+  discordAutoDeleteChannelId  String?
 
   // 디스코드 연동 - 누적 구매금액 등급별 자동 지급 역할 (역할 ID는 관리자가 Discord에서 직접 만든 뒤 등록)
   discordRoleTier150k String? // 150,000원 이상 - 10% 할인

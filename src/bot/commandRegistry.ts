@@ -13,7 +13,14 @@ import { refundRequestCommand } from "@/bot/commands/refunds";
 import { adminLinkCommand } from "@/bot/commands/adminLink";
 import { adminUnlinkCommand } from "@/bot/commands/adminUnlink";
 import { tierListCommand, tierCreateCommand, tierUpdateCommand, tierDeleteCommand } from "@/bot/commands/adminProducts";
-import { artworkCreateCommand, artworkListCommand, artworkStatusCommand } from "@/bot/commands/adminInventory";
+import {
+  artworkCreateCommand,
+  artworkListCommand,
+  artworkStatusCommand,
+  artworkDeleteCommand,
+  artworkGrantCommand,
+} from "@/bot/commands/adminInventory";
+import { orderExchangeCommand } from "@/bot/commands/adminOrders";
 import { topUpListCommand, topUpConfirmCommand, topUpRejectCommand } from "@/bot/commands/adminPayments";
 import { refundListCommand, refundApproveCommand, refundRejectCommand } from "@/bot/commands/adminRefunds";
 import { couponCreateCommand, couponListAdminCommand, couponIssueCommand } from "@/bot/commands/adminCoupons";
@@ -61,6 +68,9 @@ export const commands: BotCommand[] = [
   artworkCreateCommand,
   artworkListCommand,
   artworkStatusCommand,
+  artworkDeleteCommand,
+  artworkGrantCommand,
+  orderExchangeCommand,
   topUpListCommand,
   topUpConfirmCommand,
   topUpRejectCommand,

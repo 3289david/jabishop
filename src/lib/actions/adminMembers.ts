@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/actions/adminAuth";
 import { logAdminActivity } from "@/lib/actions/adminSecurity";
 import { adjustPoints, TopUpError } from "@/lib/points";
+import { grantArtworkToUser, OrderError } from "@/lib/orders";
 
 export type ActionState = { error?: string; success?: string } | undefined;
 
@@ -38,4 +39,21 @@ export async function adminAdjustPointsAction(_prev: ActionState, formData: Form
   await logAdminActivity(admin.id, "POINT_ADMIN_ADJUST", userId, `${amount}P: ${memo}`);
   revalidatePath(`/admin/members/${userId}`);
   return { success: "포인트가 조정되었습니다." };
+}
+
+export async function grantArtworkAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const admin = await requireAdmin();
+  const userId = String(formData.get("userId") || "");
+  const tierId = String(formData.get("tierId") || "");
+  if (!tierId) return { error: "지급할 등급을 선택해주세요." };
+
+  try {
+    const order = await grantArtworkToUser({ tierId, userId });
+    await logAdminActivity(admin.id, "ARTWORK_GRANT", order.id, `${order.tier.name} → ${userId}`);
+    revalidatePath(`/admin/members/${userId}`);
+    return { success: `${order.tier.name} 계정이 지급되었습니다. (주문 #${order.orderNo})` };
+  } catch (e) {
+    if (e instanceof OrderError) return { error: e.message };
+    throw e;
+  }
 }

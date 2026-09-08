@@ -17,6 +17,10 @@ export const settingsViewCommand: BotCommand = {
       { name: "안내 문구", value: s?.noticeMessage ?? "-" },
       { name: "구매 로그 채널", value: s?.discordPurchaseLogChannelId ? `<#${s.discordPurchaseLogChannelId}>` : "미설정" },
       {
+        name: "자동삭제 채팅 채널",
+        value: s?.discordAutoDeleteChannelId ? `<#${s.discordAutoDeleteChannelId}> (5초 후 자동 삭제)` : "미설정",
+      },
+      {
         name: "누적 구매금액 등급 역할",
         value: [
           `150,000원↑(10%): ${s?.discordRoleTier150k ? `<@&${s.discordRoleTier150k}>` : "미설정"}`,
@@ -43,6 +47,12 @@ export const settingsUpdateCommand: BotCommand = {
     .addChannelOption((o) =>
       o.setName("구매로그채널").setDescription("구매 발생 시 공지할 채널").addChannelTypes(ChannelType.GuildText)
     )
+    .addChannelOption((o) =>
+      o
+        .setName("자동삭제채팅채널")
+        .setDescription("이 채널의 모든 메시지를 5초 후 자동 삭제")
+        .addChannelTypes(ChannelType.GuildText)
+    )
     .addRoleOption((o) => o.setName("역할150k").setDescription("누적 150,000원 이상 (10% 할인) 역할"))
     .addRoleOption((o) => o.setName("역할100k").setDescription("누적 100,000원 이상 (8% 할인) 역할"))
     .addRoleOption((o) => o.setName("역할50k").setDescription("누적 50,000원 이상 (5% 할인) 역할"))
@@ -58,6 +68,7 @@ export const settingsUpdateCommand: BotCommand = {
     const refundAllowedAfterDownload = interaction.options.getBoolean("다운로드후환불허용");
     const noticeMessage = interaction.options.getString("안내문구");
     const purchaseLogChannel = interaction.options.getChannel("구매로그채널");
+    const autoDeleteChannel = interaction.options.getChannel("자동삭제채팅채널");
     const roleTier150k = interaction.options.getRole("역할150k");
     const roleTier100k = interaction.options.getRole("역할100k");
     const roleTier50k = interaction.options.getRole("역할50k");
@@ -73,6 +84,7 @@ export const settingsUpdateCommand: BotCommand = {
         ...(refundAllowedAfterDownload != null ? { refundAllowedAfterDownload } : {}),
         ...(noticeMessage != null ? { noticeMessage } : {}),
         ...(purchaseLogChannel ? { discordPurchaseLogChannelId: purchaseLogChannel.id } : {}),
+        ...(autoDeleteChannel ? { discordAutoDeleteChannelId: autoDeleteChannel.id } : {}),
         ...(roleTier150k ? { discordRoleTier150k: roleTier150k.id } : {}),
         ...(roleTier100k ? { discordRoleTier100k: roleTier100k.id } : {}),
         ...(roleTier50k ? { discordRoleTier50k: roleTier50k.id } : {}),
@@ -87,6 +99,7 @@ export const settingsUpdateCommand: BotCommand = {
         refundAllowedAfterDownload: refundAllowedAfterDownload ?? false,
         noticeMessage,
         discordPurchaseLogChannelId: purchaseLogChannel?.id,
+        discordAutoDeleteChannelId: autoDeleteChannel?.id,
         discordRoleTier150k: roleTier150k?.id,
         discordRoleTier100k: roleTier100k?.id,
         discordRoleTier50k: roleTier50k?.id,

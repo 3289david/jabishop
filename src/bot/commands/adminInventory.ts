@@ -1,9 +1,11 @@
 import { SlashCommandBuilder } from "discord.js";
 import { prisma } from "@/lib/prisma";
-import { requireLinkedAdmin } from "@/bot/discordAuth";
+import { requireLinkedAdmin, getOrCreateShopUser } from "@/bot/discordAuth";
 import { baseEmbed, errorEmbed, successEmbed } from "@/bot/format";
 import { tierAutocomplete } from "@/bot/autocomplete";
-import { saveBufferToUploads } from "@/bot/fileStorage";
+import { saveBufferToUploads, deleteUploadedFile, isUploadKey } from "@/bot/fileStorage";
+import { grantArtworkToUser, OrderError } from "@/lib/orders";
+import { ARTWORK_STATUS } from "@/lib/constants";
 import type { BotCommand } from "@/bot/types";
 
 export const artworkCreateCommand: BotCommand = {
@@ -117,5 +119,72 @@ export const artworkStatusCommand: BotCommand = {
     await prisma.artwork.update({ where: { id: artwork.id }, data: { status } });
     await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "ARTWORK_UPDATE", target: artwork.id, detail: status } });
     await interaction.reply({ embeds: [successEmbed(`"${code}" 상태가 ${status}로 변경되었습니다.`)], ephemeral: true });
+  },
+};
+
+export const artworkDeleteCommand: BotCommand = {
+  data: new SlashCommandBuilder()
+    .setName("계정삭제")
+    .setDescription("[관리자] 특정 계정 재고를 삭제합니다.")
+    .addStringOption((o) => o.setName("코드").setDescription("삭제할 재고 코드").setRequired(true)),
+  async execute(interaction) {
+    const admin = await requireLinkedAdmin(interaction.user.id);
+    const code = interaction.options.getString("코드", true);
+
+    const artwork = await prisma.artwork.findUnique({ where: { code } });
+    if (!artwork) return interaction.reply({ embeds: [errorEmbed("존재하지 않는 재고 코드입니다.")], ephemeral: true });
+
+    if (artwork.status === ARTWORK_STATUS.SOLD || artwork.status === ARTWORK_STATUS.RESERVED) {
+      // 이미 판매/예약된 재고는 실수 삭제를 막기 위해 숨김 처리만 한다 (웹 관리자 패널과 동일한 정책).
+      await prisma.artwork.update({ where: { id: artwork.id }, data: { status: ARTWORK_STATUS.HIDDEN } });
+      await prisma.adminActivityLog.create({
+        data: { adminId: admin.id, action: "ARTWORK_HIDE", target: artwork.id, detail: "판매/예약 상태라 숨김 처리" },
+      });
+      return interaction.reply({
+        embeds: [successEmbed(`"${code}"는 이미 판매/예약되어 삭제 대신 숨김 처리했습니다.`)],
+        ephemeral: true,
+      });
+    }
+
+    if (isUploadKey(artwork.fileKey)) await deleteUploadedFile(artwork.fileKey);
+    if (artwork.previewKey && artwork.previewKey !== artwork.fileKey && isUploadKey(artwork.previewKey)) {
+      await deleteUploadedFile(artwork.previewKey);
+    }
+    await prisma.artwork.delete({ where: { id: artwork.id } });
+    await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "ARTWORK_DELETE", target: artwork.id, detail: code } });
+    await interaction.reply({ embeds: [successEmbed(`"${code}" 재고가 삭제되었습니다.`)], ephemeral: true });
+  },
+};
+
+export const artworkGrantCommand: BotCommand = {
+  data: new SlashCommandBuilder()
+    .setName("계정지급")
+    .setDescription("[관리자] 결제 없이 특정 회원에게 계정을 지급합니다.")
+    .addStringOption((o) => o.setName("등급").setDescription("지급할 등급").setRequired(true).setAutocomplete(true))
+    .addUserOption((o) => o.setName("대상").setDescription("지급받을 디스코드 사용자").setRequired(true)),
+  autocomplete: tierAutocomplete,
+  async execute(interaction) {
+    await interaction.deferReply({ ephemeral: true });
+    const admin = await requireLinkedAdmin(interaction.user.id);
+    const slug = interaction.options.getString("등급", true);
+    const target = interaction.options.getUser("대상", true);
+
+    const tier = await prisma.tier.findUnique({ where: { slug } });
+    if (!tier) return interaction.editReply({ embeds: [errorEmbed("존재하지 않는 등급입니다.")] });
+
+    const user = await getOrCreateShopUser(target.id, target.tag);
+
+    try {
+      const order = await grantArtworkToUser({ tierId: tier.id, userId: user.id });
+      await prisma.adminActivityLog.create({
+        data: { adminId: admin.id, action: "ARTWORK_GRANT", target: order.id, detail: `${tier.name} → ${target.tag}` },
+      });
+      await interaction.editReply({
+        embeds: [successEmbed(`${target.username}님에게 "${tier.name}" 계정을 지급했습니다. (주문 #${order.orderNo})`)],
+      });
+    } catch (e) {
+      const message = e instanceof OrderError ? e.message : "지급 중 오류가 발생했습니다.";
+      await interaction.editReply({ embeds: [errorEmbed(message)] });
+    }
   },
 };
