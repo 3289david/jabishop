@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { ORDER_STATUS } from "@/lib/constants";
 import { ReviewForm } from "@/components/ReviewForm";
 import { RefundRequestForm } from "@/components/RefundRequestForm";
+import { ExchangeRequestForm } from "@/components/ExchangeRequestForm";
 import { ArtworkPreview } from "@/components/ArtworkPreview";
 
 export default async function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -13,7 +14,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
 
   const order = await prisma.order.findUnique({
     where: { id },
-    include: { tier: true, artwork: true, review: true, refundRequest: true, coupon: true },
+    include: { tier: true, artwork: true, review: true, refundRequest: true, exchangeRequest: true, coupon: true },
   });
   if (!order || order.userId !== user.id) notFound();
 
@@ -110,6 +111,25 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             </div>
           ) : (
             <RefundRequestForm orderId={order.id} />
+          )}
+        </div>
+      )}
+
+      {isCompleted && order.artwork && (
+        <div className="bg-white border border-neutral-200 rounded-xl p-5">
+          <h2 className="font-semibold mb-3">계정 교환</h2>
+          {order.exchangeRequest ? (
+            <div className="text-sm space-y-1">
+              <p>
+                상태: <span className="font-medium">{order.exchangeRequest.status}</span>
+              </p>
+              <p className="text-neutral-500">사유: {order.exchangeRequest.reason}</p>
+              {order.exchangeRequest.adminNote && (
+                <p className="text-neutral-500">관리자 메모: {order.exchangeRequest.adminNote}</p>
+              )}
+            </div>
+          ) : (
+            <ExchangeRequestForm orderId={order.id} />
           )}
         </div>
       )}

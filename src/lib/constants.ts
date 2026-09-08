@@ -67,6 +67,12 @@ export const REFUND_STATUS = {
   COMPLETED: "COMPLETED",
 } as const;
 
+export const EXCHANGE_STATUS = {
+  PENDING: "PENDING",
+  APPROVED: "APPROVED",
+  REJECTED: "REJECTED",
+} as const;
+
 export const DISCOUNT_TYPE = {
   AMOUNT: "AMOUNT",
   RATE: "RATE",

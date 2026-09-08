@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireAdmin } from "@/lib/actions/adminAuth";
 import { adminLogoutAction } from "@/lib/actions/adminAuth";
 import { prisma } from "@/lib/prisma";
-import { REFUND_STATUS, INQUIRY_STATUS, TOPUP_STATUS } from "@/lib/constants";
+import { REFUND_STATUS, EXCHANGE_STATUS, INQUIRY_STATUS, TOPUP_STATUS } from "@/lib/constants";
 
 const NAV: { href: string; label: string }[] = [
   { href: "/admin", label: "대시보드" },
@@ -12,6 +12,7 @@ const NAV: { href: string; label: string }[] = [
   { href: "/admin/members", label: "회원 관리" },
   { href: "/admin/payments", label: "결제(충전) 관리" },
   { href: "/admin/refunds", label: "환불 관리" },
+  { href: "/admin/exchanges", label: "교환 관리" },
   { href: "/admin/coupons", label: "쿠폰 관리" },
   { href: "/admin/points", label: "포인트 관리" },
   { href: "/admin/reviews", label: "리뷰 관리" },
@@ -26,15 +27,17 @@ const NAV: { href: string; label: string }[] = [
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const admin = await requireAdmin();
 
-  const [pendingTopUps, pendingRefunds, waitingInquiries] = await Promise.all([
+  const [pendingTopUps, pendingRefunds, pendingExchanges, waitingInquiries] = await Promise.all([
     prisma.pointTopUpRequest.count({ where: { status: TOPUP_STATUS.PENDING } }),
     prisma.refundRequest.count({ where: { status: REFUND_STATUS.PENDING } }),
+    prisma.exchangeRequest.count({ where: { status: EXCHANGE_STATUS.PENDING } }),
     prisma.inquiry.count({ where: { status: INQUIRY_STATUS.WAITING } }),
   ]);
 
   const badges: Record<string, number> = {
     "/admin/payments": pendingTopUps,
     "/admin/refunds": pendingRefunds,
+    "/admin/exchanges": pendingExchanges,
     "/admin/inquiries": waitingInquiries,
   };
 

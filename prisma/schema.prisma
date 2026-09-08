@@ -40,9 +40,10 @@ model User {
   inquiries      Inquiry[]
   reports        Report[]        @relation("ReporterUser")
   notifications  Notification[]
-  refundRequests RefundRequest[]
-  sessions       UserSession[]
-  cartItems      CartItem[]
+  refundRequests   RefundRequest[]
+  exchangeRequests ExchangeRequest[]
+  sessions         UserSession[]
+  cartItems        CartItem[]
 }
 
 model UserSession {
@@ -187,13 +188,14 @@ model Order {
   createdAt            DateTime  @default(now())
   updatedAt            DateTime  @updatedAt
 
-  artwork       Artwork?           @relation("ArtworkOrder")
-  couponUsage   CouponUsage?
-  pointTx       PointTransaction[]
-  review        Review?
-  refundRequest RefundRequest?
-  notifications Notification[]
-  downloadLogs  DownloadLog[]
+  artwork         Artwork?           @relation("ArtworkOrder")
+  couponUsage     CouponUsage?
+  pointTx         PointTransaction[]
+  review          Review?
+  refundRequest   RefundRequest?
+  exchangeRequest ExchangeRequest?
+  notifications   Notification[]
+  downloadLogs    DownloadLog[]
 }
 
 model DownloadLog {
@@ -243,6 +245,23 @@ model RefundRequest {
   status             String    @default("PENDING") // PENDING | APPROVED | REJECTED | COMPLETED
   adminNote          String?
   refundAmount       Int?
+  processedByAdminId String?
+  processedAt        DateTime?
+  createdAt          DateTime  @default(now())
+}
+
+// 계정 교환(재추첨) 요청. 구매자가 사유 + 증빙 파일과 함께 신청하면, 관리자 승인이
+// 있어야만 실제로 다른 재고로 교환된다 (구매자가 직접 재추첨할 수는 없다).
+model ExchangeRequest {
+  id                 String    @id @default(cuid())
+  orderId            String    @unique
+  order              Order     @relation(fields: [orderId], references: [id])
+  userId             String
+  user               User      @relation(fields: [userId], references: [id])
+  reason             String
+  proofFileKey       String
+  status             String    @default("PENDING") // PENDING | APPROVED | REJECTED
+  adminNote          String?
   processedByAdminId String?
   processedAt        DateTime?
   createdAt          DateTime  @default(now())

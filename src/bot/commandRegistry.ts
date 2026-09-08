@@ -10,6 +10,7 @@ import { inquiryCreateCommand, inquiryListCommand } from "@/bot/commands/inquiri
 import { reportCreateCommand } from "@/bot/commands/reports";
 import { notificationsCommand } from "@/bot/commands/notifications";
 import { refundRequestCommand } from "@/bot/commands/refunds";
+import { exchangeRequestCommand } from "@/bot/commands/exchanges";
 import { adminLinkCommand } from "@/bot/commands/adminLink";
 import { adminUnlinkCommand } from "@/bot/commands/adminUnlink";
 import { tierListCommand, tierCreateCommand, tierUpdateCommand, tierDeleteCommand } from "@/bot/commands/adminProducts";
@@ -20,9 +21,9 @@ import {
   artworkDeleteCommand,
   artworkGrantCommand,
 } from "@/bot/commands/adminInventory";
-import { orderExchangeCommand } from "@/bot/commands/adminOrders";
 import { topUpListCommand, topUpConfirmCommand, topUpRejectCommand } from "@/bot/commands/adminPayments";
 import { refundListCommand, refundApproveCommand, refundRejectCommand } from "@/bot/commands/adminRefunds";
+import { exchangeListCommand, exchangeApproveCommand, exchangeRejectCommand } from "@/bot/commands/adminExchanges";
 import { couponCreateCommand, couponListAdminCommand, couponIssueCommand } from "@/bot/commands/adminCoupons";
 import { inquiryListAdminCommand, inquiryAnswerCommand } from "@/bot/commands/adminInquiries";
 import { reportListAdminCommand, reportResolveCommand } from "@/bot/commands/adminReports";
@@ -57,6 +58,7 @@ export const commands: BotCommand[] = [
   reportCreateCommand,
   notificationsCommand,
   refundRequestCommand,
+  exchangeRequestCommand,
   // 관리자 연동
   adminLinkCommand,
   adminUnlinkCommand,
@@ -70,13 +72,15 @@ export const commands: BotCommand[] = [
   artworkStatusCommand,
   artworkDeleteCommand,
   artworkGrantCommand,
-  orderExchangeCommand,
   topUpListCommand,
   topUpConfirmCommand,
   topUpRejectCommand,
   refundListCommand,
   refundApproveCommand,
   refundRejectCommand,
+  exchangeListCommand,
+  exchangeApproveCommand,
+  exchangeRejectCommand,
   couponCreateCommand,
   couponListAdminCommand,
   couponIssueCommand,

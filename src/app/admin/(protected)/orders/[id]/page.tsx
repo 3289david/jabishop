@@ -1,19 +1,18 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { forceCancelOrderAction } from "@/lib/actions/adminOrders";
 import { ORDER_STATUS } from "@/lib/constants";
-import { ExchangeOrderForm } from "@/components/admin/ExchangeOrderForm";
 
 export default async function AdminOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const order = await prisma.order.findUnique({
     where: { id },
-    include: { user: true, tier: true, artwork: true, coupon: true, refundRequest: true, review: true },
+    include: { user: true, tier: true, artwork: true, coupon: true, refundRequest: true, exchangeRequest: true, review: true },
   });
   if (!order) notFound();
 
   const cancellable = ([ORDER_STATUS.PENDING_PAYMENT, ORDER_STATUS.RESERVED] as string[]).includes(order.status);
-  const exchangeable = order.status === ORDER_STATUS.COMPLETED && !!order.artwork;
 
   return (
     <div className="space-y-4 max-w-2xl">
@@ -31,6 +30,22 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
           <Row label="최초 다운로드" value={order.firstDownloadedAt.toLocaleString("ko-KR")} />
         )}
         {order.refundRequest && <Row label="환불 상태" value={order.refundRequest.status} />}
+        {order.exchangeRequest && (
+          <div className="flex justify-between border-b border-neutral-100 py-1.5 last:border-0">
+            <span className="text-neutral-400">교환 상태</span>
+            <span>
+              {order.exchangeRequest.status}
+              {order.exchangeRequest.status === "PENDING" && (
+                <>
+                  {" · "}
+                  <Link href="/admin/exchanges" className="text-indigo-600 hover:underline">
+                    처리하러 가기
+                  </Link>
+                </>
+              )}
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="flex gap-2">
@@ -42,7 +57,6 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
             </button>
           </form>
         )}
-        {exchangeable && <ExchangeOrderForm orderId={order.id} />}
       </div>
     </div>
   );

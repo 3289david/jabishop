@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { ORDER_STATUS, REFUND_STATUS, INQUIRY_STATUS, ARTWORK_STATUS } from "@/lib/constants";
+import { ORDER_STATUS, REFUND_STATUS, EXCHANGE_STATUS, INQUIRY_STATUS, ARTWORK_STATUS } from "@/lib/constants";
 
 function startOfToday() {
   const now = new Date();
@@ -15,6 +15,7 @@ export default async function AdminDashboardPage() {
     stockCount,
     memberCount,
     pendingRefunds,
+    pendingExchanges,
     waitingInquiries,
     recentOrders,
   ] = await Promise.all([
@@ -24,6 +25,7 @@ export default async function AdminDashboardPage() {
     prisma.artwork.count({ where: { status: ARTWORK_STATUS.AVAILABLE } }),
     prisma.user.count(),
     prisma.refundRequest.count({ where: { status: REFUND_STATUS.PENDING } }),
+    prisma.exchangeRequest.count({ where: { status: EXCHANGE_STATUS.PENDING } }),
     prisma.inquiry.count({ where: { status: INQUIRY_STATUS.WAITING } }),
     prisma.order.findMany({
       orderBy: { createdAt: "desc" },
@@ -42,6 +44,7 @@ export default async function AdminDashboardPage() {
     { label: "현재 계정 재고", value: `${stockCount}개` },
     { label: "회원 수", value: `${memberCount.toLocaleString()}명` },
     { label: "환불 요청", value: `${pendingRefunds}건`, href: "/admin/refunds" },
+    { label: "교환 요청", value: `${pendingExchanges}건`, href: "/admin/exchanges" },
     { label: "문의", value: `${waitingInquiries}건`, href: "/admin/inquiries" },
   ];
 

@@ -5,9 +5,6 @@ import { prisma } from "@/lib/prisma";
 import { requireAdmin } from "@/lib/actions/adminAuth";
 import { logAdminActivity } from "@/lib/actions/adminSecurity";
 import { ORDER_STATUS, ARTWORK_STATUS } from "@/lib/constants";
-import { exchangeOrderArtwork, OrderError } from "@/lib/orders";
-
-export type ActionState = { error?: string; success?: string } | undefined;
 
 export async function forceCancelOrderAction(formData: FormData) {
   const admin = await requireAdmin();
@@ -30,24 +27,4 @@ export async function forceCancelOrderAction(formData: FormData) {
 
   await logAdminActivity(admin.id, "ORDER_CANCEL", orderId);
   revalidatePath("/admin/orders");
-}
-
-export async function exchangeOrderAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const admin = await requireAdmin();
-  const orderId = String(formData.get("orderId") || "");
-
-  try {
-    const result = await exchangeOrderArtwork(orderId);
-    await logAdminActivity(
-      admin.id,
-      "ORDER_EXCHANGE",
-      orderId,
-      `${result.oldArtwork.code} → ${result.newArtwork.code}`
-    );
-    revalidatePath(`/admin/orders/${orderId}`);
-    return { success: `${result.newArtwork.code}로 교환되어 재발송되었습니다.` };
-  } catch (e) {
-    if (e instanceof OrderError) return { error: e.message };
-    throw e;
-  }
 }
