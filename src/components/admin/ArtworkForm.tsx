@@ -8,7 +8,15 @@ function isUploadedFileKey(key: string | null): boolean {
   return !!key && /^(artworks|previews)\//.test(key);
 }
 
-export function ArtworkForm({ artwork, tiers }: { artwork?: Artwork; tiers: Tier[] }) {
+export function ArtworkForm({
+  artwork,
+  tiers,
+  defaultTierId,
+}: {
+  artwork?: Artwork;
+  tiers: Tier[];
+  defaultTierId?: string;
+}) {
   const action = artwork ? updateArtworkAction : createArtworkAction;
   const [state, formAction, pending] = useActionState<ActionState, FormData>(action, undefined);
 
@@ -20,7 +28,7 @@ export function ArtworkForm({ artwork, tiers }: { artwork?: Artwork; tiers: Tier
         <>
           <div>
             <label className="block text-xs text-neutral-500 mb-1">등급</label>
-            <select name="tierId" required className="w-full border rounded-md px-3 py-2 text-sm">
+            <select name="tierId" required defaultValue={defaultTierId} className="w-full border rounded-md px-3 py-2 text-sm">
               {tiers.map((t) => (
                 <option key={t.id} value={t.id}>
                   {t.name}

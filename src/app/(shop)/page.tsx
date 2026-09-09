@@ -56,12 +56,9 @@ export default async function HomePage() {
               </div>
               <p className="text-sm text-neutral-500 mb-3 line-clamp-2">{tier.description}</p>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-neutral-500">
-                  계정 {tier.minCount}~{tier.maxCount}개 
-                </span>
+                <span className="text-neutral-400 text-xs">재고 {stock}개</span>
                 <span className="font-bold text-indigo-600">{tier.price.toLocaleString()}원</span>
               </div>
-              <div className="mt-2 text-xs text-neutral-400">재고 {stock}개</div>
             </Link>
           );
         })}

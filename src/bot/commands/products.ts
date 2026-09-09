@@ -20,7 +20,7 @@ export const productListCommand: BotCommand = {
       const soldOut = t._count.artworks === 0 || t.status === TIER_STATUS.SOLD_OUT;
       embed.addFields({
         name: `${t.name}${soldOut ? " (품절)" : ""}`,
-        value: `${won(t.price)} · 계정 ${t.minCount}~${t.maxCount}개  · 재고 ${t._count.artworks}개`,
+        value: `${won(t.price)} · 재고 ${t._count.artworks}개`,
       });
     }
     await interaction.reply({ embeds: [embed] });
@@ -46,7 +46,6 @@ export const productDetailCommand: BotCommand = {
       .setDescription(tier.description || null)
       .addFields(
         { name: "가격", value: won(tier.price), inline: true },
-        { name: "스킨 개수", value: `${tier.minCount}~${tier.maxCount}개 `, inline: true },
         { name: "재고", value: `${stock}개`, inline: true },
         { name: "구매 제한", value: tier.purchaseLimitPerUser ? `1인 ${tier.purchaseLimitPerUser}개` : "없음", inline: true }
       );

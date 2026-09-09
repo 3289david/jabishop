@@ -47,7 +47,7 @@ export async function productSelectRow() {
     .addOptions(
       tiers.slice(0, 25).map((t) => ({
         label: `${t.name} (${t.price.toLocaleString()}원)`,
-        description: `재고 ${t._count.artworks}개 · 계정 ${t.minCount}~${t.maxCount}개 `,
+        description: `재고 ${t._count.artworks}개`,
         value: t.slug,
       }))
     );
@@ -65,7 +65,6 @@ export async function tierDetailPayload(slug: string) {
     .setDescription(tier.description || null)
     .addFields(
       { name: "가격", value: won(tier.price), inline: true },
-      { name: "스킨 개수", value: `${tier.minCount}~${tier.maxCount}개 `, inline: true },
       { name: "재고", value: `${stock}개`, inline: true }
     );
 
@@ -249,7 +248,7 @@ export async function tierListPayload() {
   for (const t of tiers) {
     embed.addFields({
       name: `${t.name} (${t.slug})`,
-      value: `${won(t.price)} · ${t.minCount}~${t.maxCount}개 · 재고 ${t._count.artworks}개 · ${t.status}`,
+      value: `${won(t.price)} · 재고 ${t._count.artworks}개 · ${t.status}`,
     });
   }
   return { embed };

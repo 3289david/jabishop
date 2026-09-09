@@ -24,6 +24,7 @@ import {
 import { topUpListCommand, topUpConfirmCommand, topUpRejectCommand } from "@/bot/commands/adminPayments";
 import { refundListCommand, refundApproveCommand, refundRejectCommand } from "@/bot/commands/adminRefunds";
 import { exchangeListCommand, exchangeApproveCommand, exchangeRejectCommand } from "@/bot/commands/adminExchanges";
+import { orderExchangeCommand } from "@/bot/commands/adminOrders";
 import { couponCreateCommand, couponListAdminCommand, couponIssueCommand } from "@/bot/commands/adminCoupons";
 import { inquiryListAdminCommand, inquiryAnswerCommand } from "@/bot/commands/adminInquiries";
 import { reportListAdminCommand, reportResolveCommand } from "@/bot/commands/adminReports";
@@ -81,6 +82,7 @@ export const commands: BotCommand[] = [
   exchangeListCommand,
   exchangeApproveCommand,
   exchangeRejectCommand,
+  orderExchangeCommand,
   couponCreateCommand,
   couponListAdminCommand,
   couponIssueCommand,

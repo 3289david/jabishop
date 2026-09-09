@@ -4,7 +4,7 @@ import { useActionState } from "react";
 import type { Tier } from "@prisma/client";
 import { createTierAction, updateTierAction, type ActionState } from "@/lib/actions/adminProducts";
 
-export function TierForm({ tier }: { tier?: Tier }) {
+export function TierForm({ tier, stockCount }: { tier?: Tier; stockCount?: number }) {
   const action = tier ? updateTierAction : createTierAction;
   const [state, formAction, pending] = useActionState<ActionState, FormData>(action, undefined);
 
@@ -40,27 +40,13 @@ export function TierForm({ tier }: { tier?: Tier }) {
             className="w-full border rounded-md px-3 py-2 text-sm"
           />
         </div>
-        <div>
-          <label className="block text-xs text-neutral-500 mb-1">최소 계정 수</label>
-          <input
-            name="minCount"
-            type="number"
-            defaultValue={tier?.minCount}
-            required
-            className="w-full border rounded-md px-3 py-2 text-sm"
-          />
-        </div>
-        <div>
-          <label className="block text-xs text-neutral-500 mb-1">최대 계정 수</label>
-          <input
-            name="maxCount"
-            type="number"
-            defaultValue={tier?.maxCount}
-            required
-            className="w-full border rounded-md px-3 py-2 text-sm"
-          />
-        </div>
       </div>
+      {tier && (
+        <p className="text-xs text-neutral-500">
+          현재 재고: <span className="font-medium text-neutral-700">{stockCount ?? 0}개</span> (실제 등록된 계정
+          수에서 자동으로 계산되며, 재고 관리 화면에서 추가/삭제합니다.)
+        </p>
+      )}
       {tier && (
         <div>
           <label className="block text-xs text-neutral-500 mb-1">판매 상태</label>

@@ -42,13 +42,16 @@ export default async function AdminInventoryPage({
           >
             CSV 내보내기
           </a>
-          <Link href="/admin/inventory/new" className="bg-indigo-600 text-white text-sm px-3 py-2 rounded-md hover:bg-indigo-700">
+          <Link
+            href={sp.tierId ? `/admin/inventory/new?tierId=${sp.tierId}` : "/admin/inventory/new"}
+            className="bg-indigo-600 text-white text-sm px-3 py-2 rounded-md hover:bg-indigo-700"
+          >
             계정 추가
           </Link>
         </div>
       </div>
 
-      <TxtImportForm tiers={tiers} />
+      <TxtImportForm tiers={tiers} defaultTierId={sp.tierId} />
 
       <form className="bg-white border border-neutral-200 rounded-xl p-4 flex flex-wrap gap-3 items-end text-sm">
         <div>

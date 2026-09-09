@@ -41,16 +41,10 @@ export default async function ProductDetailPage({
           <p className="text-neutral-500 mt-1">{tier.description}</p>
         </div>
 
-        <div className="bg-white border border-neutral-200 rounded-xl p-4 grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+        <div className="bg-white border border-neutral-200 rounded-xl p-4 grid grid-cols-3 gap-4 text-sm">
           <div>
             <div className="text-neutral-400">가격</div>
             <div className="font-bold text-lg">{tier.price.toLocaleString()}P</div>
-          </div>
-          <div>
-            <div className="text-neutral-400">스킨 개수</div>
-            <div className="font-semibold">
-              {tier.minCount}~{tier.maxCount}개 
-            </div>
           </div>
           <div>
             <div className="text-neutral-400">현재 재고</div>

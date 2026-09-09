@@ -3,6 +3,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { forceCancelOrderAction } from "@/lib/actions/adminOrders";
 import { ORDER_STATUS } from "@/lib/constants";
+import { ExchangeOrderForm } from "@/components/admin/ExchangeOrderForm";
 
 export default async function AdminOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -13,6 +14,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
   if (!order) notFound();
 
   const cancellable = ([ORDER_STATUS.PENDING_PAYMENT, ORDER_STATUS.RESERVED] as string[]).includes(order.status);
+  const exchangeable = order.status === ORDER_STATUS.COMPLETED && !!order.artwork;
 
   return (
     <div className="space-y-4 max-w-2xl">
@@ -57,6 +59,7 @@ export default async function AdminOrderDetailPage({ params }: { params: Promise
             </button>
           </form>
         )}
+        {exchangeable && <ExchangeOrderForm orderId={order.id} />}
       </div>
     </div>
   );

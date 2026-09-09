@@ -23,13 +23,13 @@ function writePlaceholder(kind: "artworks" | "previews", fileName: string, title
 }
 
 const TIERS = [
-  { slug: "bronze", name: "브론즈 랜덤", price: 1900, minCount: 5, maxCount: 15, color: "#8c5a3c", desc: "일반 계정 등급의 랜덤 상품입니다." },
-  { slug: "silver", name: "실버 랜덤", price: 4900, minCount: 10, maxCount: 25, color: "#9aa5ad", desc: "고급 계정 등급의 랜덤 상품입니다." },
-  { slug: "gold", name: "골드 랜덤", price: 9900, minCount: 20, maxCount: 40, color: "#d4af37", desc: "희귀 계정 등급의 랜덤 상품입니다." },
-  { slug: "platinum", name: "플래티넘 랜덤", price: 19900, minCount: 30, maxCount: 60, color: "#8fb9c9", desc: "매우 희귀한 계정 등급의 랜덤 상품입니다." },
-  { slug: "diamond", name: "다이아 랜덤", price: 34900, minCount: 40, maxCount: 80, color: "#63c6e0", desc: "최고급 계정 등급의 랜덤 상품입니다." },
-  { slug: "ascendant", name: "초월자 랜덤", price: 59900, minCount: 60, maxCount: 100, color: "#5ad1a8", desc: "초희귀 계정 등급의 랜덤 상품입니다." },
-  { slug: "immortal", name: "불멸 랜덤", price: 99900, minCount: 80, maxCount: 150, color: "#c94f7c", desc: "최상급 계정 등급의 랜덤 상품입니다." },
+  { slug: "bronze", name: "브론즈 랜덤", price: 1900, color: "#8c5a3c", desc: "일반 계정 등급의 랜덤 상품입니다." },
+  { slug: "silver", name: "실버 랜덤", price: 4900, color: "#9aa5ad", desc: "고급 계정 등급의 랜덤 상품입니다." },
+  { slug: "gold", name: "골드 랜덤", price: 9900, color: "#d4af37", desc: "희귀 계정 등급의 랜덤 상품입니다." },
+  { slug: "platinum", name: "플래티넘 랜덤", price: 19900, color: "#8fb9c9", desc: "매우 희귀한 계정 등급의 랜덤 상품입니다." },
+  { slug: "diamond", name: "다이아 랜덤", price: 34900, color: "#63c6e0", desc: "최고급 계정 등급의 랜덤 상품입니다." },
+  { slug: "ascendant", name: "초월자 랜덤", price: 59900, color: "#5ad1a8", desc: "초희귀 계정 등급의 랜덤 상품입니다." },
+  { slug: "immortal", name: "불멸 랜덤", price: 99900, color: "#c94f7c", desc: "최상급 계정 등급의 랜덤 상품입니다." },
 ];
 
 async function main() {
@@ -85,8 +85,6 @@ async function main() {
         slug: t.slug,
         name: t.name,
         price: t.price,
-        minCount: t.minCount,
-        maxCount: t.maxCount,
         description: t.desc,
         status: "ON_SALE",
         sortOrder: TIERS.indexOf(t),

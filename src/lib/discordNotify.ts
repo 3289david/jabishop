@@ -6,6 +6,7 @@
 import { prisma } from "@/lib/prisma";
 import { readUploadedFile, isUploadKey } from "@/lib/storage";
 import { PURCHASE_TIER_ROLES, ORDER_STATUS } from "@/lib/constants";
+import { getAppOrigin } from "@/lib/appUrl";
 
 const API_BASE = "https://discord.com/api/v10";
 
@@ -13,6 +14,7 @@ type EmbedField = { name: string; value: string; inline?: boolean };
 type SimpleEmbed = {
   title?: string;
   description?: string;
+  url?: string;
   color?: number;
   fields?: EmbedField[];
   image?: { url: string };
@@ -164,13 +166,17 @@ export async function notifyPurchaseByDM(
       });
   if (!order || !order.artwork) return;
 
+  const mypageUrl = `${getAppOrigin()}/mypage/orders/${order.id}`;
+
   const embed: SimpleEmbed = {
     title: override?.title ?? `🎉 주문 #${order.orderNo} 완료`,
     description: override?.description ?? `**${order.tier.name}** 구매가 완료되어 계정이 지급되었습니다.`,
+    url: mypageUrl,
     color: BRAND_COLOR,
     fields: [
       { name: "결제 금액", value: `${order.finalAmount.toLocaleString()}P`, inline: true },
       { name: "지급된 계정", value: order.artwork.title, inline: true },
+      { name: "마이페이지에서 보기", value: mypageUrl },
     ],
     timestamp: new Date().toISOString(),
   };

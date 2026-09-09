@@ -122,8 +122,6 @@ model Tier {
   slug                 String   @unique
   name                 String
   price                Int
-  minCount             Int
-  maxCount             Int
   description          String?
   status               String   @default("ON_SALE") // ON_SALE | HIDDEN | SOLD_OUT
   purchaseLimitPerUser Int?
