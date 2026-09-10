@@ -254,6 +254,7 @@ Discord DM 발송 (연동되어 있으면, 실패해도 구매엔 영향 없음)
 | `DISCORD_CLIENT_SECRET` | Discord 로그인 사용 시 | OAuth 클라이언트 시크릿 |
 | `DISCORD_OAUTH_REDIRECT_URI` | Discord 로그인 사용 시 | OAuth 콜백 URL (일반 로그인용) |
 | `DISCORD_ADMIN_ROLE_ID` | 선택 | Administrator 권한 대신 특정 역할만 관리자로 인정하고 싶을 때 |
+| `BANK_WEBHOOK_SECRET` | 은행 입금 자동승인 사용 시 | `android-notifier/` 앱이 보내는 입금 알림 웹훅 서명 검증용 비밀키. 자세한 내용은 [android-notifier/README.md](android-notifier/README.md) 참고 |
 
 ---
 

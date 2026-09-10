@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="자비샵 입금 알림 자동전달"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="4dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="은행 앱 알림을 감지해 서버로 전달합니다. 아래 값을 채우고 저장한 뒤, 알림 접근 권한을 허용해주세요."
+            android:textSize="13sp"
+            android:layout_marginBottom="16dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="서버 웹훅 URL" />
+        <EditText
+            android:id="@+id/edit_webhook_url"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="https://jabishop.krl.kr/api/webhooks/bank-topup"
+            android:inputType="textUri"
+            android:layout_marginBottom="12dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="비밀키 (서버 .env의 BANK_WEBHOOK_SECRET과 동일한 값)" />
+        <EditText
+            android:id="@+id/edit_secret"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="비밀키"
+            android:inputType="textPassword"
+            android:layout_marginBottom="12dp" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="감지할 은행 앱 패키지명 (설정 → 앱 → 하나은행 앱에서 확인)" />
+        <EditText
+            android:id="@+id/edit_package"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="예: com.kebhana.hnbank"
+            android:layout_marginBottom="16dp" />
+
+        <Button
+            android:id="@+id/btn_save"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="저장"
+            android:layout_marginBottom="8dp" />
+
+        <Button
+            android:id="@+id/btn_open_notification_settings"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="알림 접근 권한 설정 열기"
+            android:layout_marginBottom="8dp" />
+
+        <Button
+            android:id="@+id/btn_test_send"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="테스트 전송 (서버 연결 확인)"
+            android:layout_marginBottom="16dp" />
+
+        <TextView
+            android:id="@+id/text_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text=""
+            android:textSize="13sp" />
+
+    </LinearLayout>
+</ScrollView>
