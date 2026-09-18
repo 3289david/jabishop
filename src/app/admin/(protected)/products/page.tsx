@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { deleteTierAction, duplicateAllTiersAction } from "@/lib/actions/adminProducts";
 import { ARTWORK_STATUS } from "@/lib/constants";
 import { DuplicateTiersButton } from "@/components/admin/DuplicateTiersButton";
+import { BulkDeleteStockButton } from "@/components/admin/BulkDeleteStockButton";
 
 export default async function AdminProductsPage() {
   const tiers = await prisma.tier.findMany({
@@ -51,6 +52,7 @@ export default async function AdminProductsPage() {
                     <Link href={`/admin/inventory?tierId=${t.id}`} className="text-xs text-indigo-600 hover:underline">
                       재고 추가
                     </Link>
+                    <BulkDeleteStockButton tierId={t.id} tierName={t.name} />
                     <form action={deleteTierAction}>
                       <input type="hidden" name="id" value={t.id} />
                       <button className="text-xs text-neutral-400 hover:text-red-500">삭제</button>

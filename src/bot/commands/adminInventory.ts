@@ -188,3 +188,55 @@ export const artworkGrantCommand: BotCommand = {
     }
   },
 };
+
+export const artworkBulkDeleteCommand: BotCommand = {
+  data: new SlashCommandBuilder()
+    .setName("재고일괄삭제")
+    .setDescription("[관리자] 특정 등급의 판매되지 않은 재고를 전부 삭제합니다.")
+    .addStringOption((o) => o.setName("등급").setDescription("대상 등급").setRequired(true).setAutocomplete(true))
+    .addStringOption((o) => o.setName("확인").setDescription('정말 삭제하려면 "삭제"를 입력하세요').setRequired(true)),
+  autocomplete: tierAutocomplete,
+  async execute(interaction) {
+    const admin = await requireLinkedAdmin(interaction.user.id);
+    const slug = interaction.options.getString("등급", true);
+    const confirm = interaction.options.getString("확인", true);
+    if (confirm !== "삭제") {
+      return interaction.reply({ embeds: [errorEmbed('확인 문구가 일치하지 않습니다. "삭제"를 정확히 입력해주세요.')], ephemeral: true });
+    }
+
+    const tier = await prisma.tier.findUnique({ where: { slug } });
+    if (!tier) return interaction.reply({ embeds: [errorEmbed("존재하지 않는 등급입니다.")], ephemeral: true });
+
+    await interaction.deferReply({ ephemeral: true });
+
+    const deletable = await prisma.artwork.findMany({
+      where: { tierId: tier.id, status: { in: [ARTWORK_STATUS.AVAILABLE, ARTWORK_STATUS.HIDDEN] } },
+    });
+    for (const artwork of deletable) {
+      if (isUploadKey(artwork.fileKey)) await deleteUploadedFile(artwork.fileKey);
+      if (artwork.previewKey && artwork.previewKey !== artwork.fileKey && isUploadKey(artwork.previewKey)) {
+        await deleteUploadedFile(artwork.previewKey);
+      }
+    }
+    const result = await prisma.artwork.deleteMany({ where: { id: { in: deletable.map((a) => a.id) } } });
+    const protectedCount = await prisma.artwork.count({
+      where: { tierId: tier.id, status: { in: [ARTWORK_STATUS.SOLD, ARTWORK_STATUS.RESERVED, ARTWORK_STATUS.EXCHANGED] } },
+    });
+
+    await prisma.adminActivityLog.create({
+      data: {
+        adminId: admin.id,
+        action: "ARTWORK_BULK_DELETE",
+        target: tier.id,
+        detail: `${result.count}건 삭제${protectedCount > 0 ? `, 판매/예약/교환 이력 ${protectedCount}건은 보존` : ""}`,
+      },
+    });
+    await interaction.editReply({
+      embeds: [
+        successEmbed(
+          `"${tier.name}" 등급 재고 ${result.count}건을 삭제했습니다.${protectedCount > 0 ? ` (판매/예약/교환 이력 ${protectedCount}건은 보존됨)` : ""}`
+        ),
+      ],
+    });
+  },
+};

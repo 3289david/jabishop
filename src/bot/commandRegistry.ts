@@ -20,6 +20,7 @@ import {
   artworkStatusCommand,
   artworkDeleteCommand,
   artworkGrantCommand,
+  artworkBulkDeleteCommand,
 } from "@/bot/commands/adminInventory";
 import { topUpListCommand, topUpConfirmCommand, topUpRejectCommand } from "@/bot/commands/adminPayments";
 import { refundListCommand, refundApproveCommand, refundRejectCommand } from "@/bot/commands/adminRefunds";
@@ -73,6 +74,7 @@ export const commands: BotCommand[] = [
   artworkStatusCommand,
   artworkDeleteCommand,
   artworkGrantCommand,
+  artworkBulkDeleteCommand,
   topUpListCommand,
   topUpConfirmCommand,
   topUpRejectCommand,

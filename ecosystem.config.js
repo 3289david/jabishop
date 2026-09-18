@@ -12,8 +12,8 @@ module.exports = {
     },
     {
       name: "jabishop-bot",
-      script: "node_modules/.bin/tsx",
-      args: "src/bot/index.ts",
+      script: "scripts/start-bot.sh",
+      interpreter: "none",
       cwd: "/root/jabishop",
       env: {
         NODE_ENV: "production",

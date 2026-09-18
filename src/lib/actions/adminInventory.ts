@@ -93,6 +93,43 @@ export async function deleteArtworkAction(formData: FormData) {
   revalidatePath("/admin/inventory");
 }
 
+// 특정 등급의 재고를 일괄 삭제한다. 이미 판매/예약/교환 이력이 있는 재고(SOLD/RESERVED/
+// EXCHANGED)는 주문 기록과 연결돼 있어 개별 삭제와 동일한 정책으로 건드리지 않고,
+// 아직 팔리지 않은(AVAILABLE/HIDDEN) 재고만 실제 파일까지 정리하며 삭제한다.
+export async function bulkDeleteArtworksByTierAction(formData: FormData) {
+  const admin = await requireAdmin();
+  const tierId = String(formData.get("tierId") || "");
+  if (!tierId) return;
+
+  const deletable = await prisma.artwork.findMany({
+    where: { tierId, status: { in: [ARTWORK_STATUS.AVAILABLE, ARTWORK_STATUS.HIDDEN] } },
+  });
+
+  for (const artwork of deletable) {
+    if (isUploadKey(artwork.fileKey)) await deleteUploadedFile(artwork.fileKey);
+    if (artwork.previewKey && artwork.previewKey !== artwork.fileKey && isUploadKey(artwork.previewKey)) {
+      await deleteUploadedFile(artwork.previewKey);
+    }
+  }
+
+  const result = await prisma.artwork.deleteMany({
+    where: { id: { in: deletable.map((a) => a.id) } },
+  });
+
+  const protectedCount = await prisma.artwork.count({
+    where: { tierId, status: { in: [ARTWORK_STATUS.SOLD, ARTWORK_STATUS.RESERVED, ARTWORK_STATUS.EXCHANGED] } },
+  });
+
+  await logAdminActivity(
+    admin.id,
+    "ARTWORK_BULK_DELETE",
+    tierId,
+    `${result.count}건 삭제${protectedCount > 0 ? `, 판매/예약/교환 이력 ${protectedCount}건은 보존` : ""}`
+  );
+  revalidatePath("/admin/inventory");
+  revalidatePath("/admin/products");
+}
+
 export async function bulkMarkSoldOutAction(formData: FormData) {
   const admin = await requireAdmin();
   const tierId = String(formData.get("tierId") || "");
