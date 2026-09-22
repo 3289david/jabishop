@@ -73,6 +73,12 @@ export const EXCHANGE_STATUS = {
   REJECTED: "REJECTED",
 } as const;
 
+export const PARTNER_STATUS = {
+  PENDING: "PENDING",
+  APPROVED: "APPROVED",
+  REJECTED: "REJECTED",
+} as const;
+
 export const DISCOUNT_TYPE = {
   AMOUNT: "AMOUNT",
   RATE: "RATE",

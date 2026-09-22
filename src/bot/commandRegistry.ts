@@ -11,6 +11,7 @@ import { reportCreateCommand } from "@/bot/commands/reports";
 import { notificationsCommand } from "@/bot/commands/notifications";
 import { refundRequestCommand } from "@/bot/commands/refunds";
 import { exchangeRequestCommand } from "@/bot/commands/exchanges";
+import { partnerRequestCommand } from "@/bot/commands/partners";
 import { adminLinkCommand } from "@/bot/commands/adminLink";
 import { adminUnlinkCommand } from "@/bot/commands/adminUnlink";
 import { tierListCommand, tierCreateCommand, tierUpdateCommand, tierDeleteCommand } from "@/bot/commands/adminProducts";
@@ -26,6 +27,7 @@ import { topUpListCommand, topUpConfirmCommand, topUpRejectCommand } from "@/bot
 import { refundListCommand, refundApproveCommand, refundRejectCommand } from "@/bot/commands/adminRefunds";
 import { exchangeListCommand, exchangeApproveCommand, exchangeRejectCommand } from "@/bot/commands/adminExchanges";
 import { orderExchangeCommand } from "@/bot/commands/adminOrders";
+import { partnerListCommand, partnerApproveCommand, partnerRejectCommand } from "@/bot/commands/adminPartners";
 import { couponCreateCommand, couponListAdminCommand, couponIssueCommand } from "@/bot/commands/adminCoupons";
 import { inquiryListAdminCommand, inquiryAnswerCommand } from "@/bot/commands/adminInquiries";
 import { reportListAdminCommand, reportResolveCommand } from "@/bot/commands/adminReports";
@@ -61,6 +63,7 @@ export const commands: BotCommand[] = [
   notificationsCommand,
   refundRequestCommand,
   exchangeRequestCommand,
+  partnerRequestCommand,
   // 관리자 연동
   adminLinkCommand,
   adminUnlinkCommand,
@@ -85,6 +88,9 @@ export const commands: BotCommand[] = [
   exchangeApproveCommand,
   exchangeRejectCommand,
   orderExchangeCommand,
+  partnerListCommand,
+  partnerApproveCommand,
+  partnerRejectCommand,
   couponCreateCommand,
   couponListAdminCommand,
   couponIssueCommand,

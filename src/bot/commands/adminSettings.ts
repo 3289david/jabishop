@@ -29,6 +29,14 @@ export const settingsViewCommand: BotCommand = {
           `10,000원↑: ${s?.discordRoleTier10k ? `<@&${s.discordRoleTier10k}>` : "미설정"}`,
           `구매자: ${s?.discordRoleBuyer ? `<@&${s.discordRoleBuyer}>` : "미설정"}`,
         ].join("\n"),
+      },
+      {
+        name: "파트너 설정",
+        value: [
+          `카테고리: ${s?.partnerCategoryId ? `<#${s.partnerCategoryId}>` : "미설정"}`,
+          `역할: ${s?.partnerRoleId ? `<@&${s.partnerRoleId}>` : "미설정"}`,
+          `일일 발송 문구: ${s?.partnerDailyMessage ?? "미설정"}`,
+        ].join("\n"),
       }
     );
     await interaction.reply({ embeds: [embed], ephemeral: true });
@@ -57,7 +65,12 @@ export const settingsUpdateCommand: BotCommand = {
     .addRoleOption((o) => o.setName("역할100k").setDescription("누적 100,000원 이상 (8% 할인) 역할"))
     .addRoleOption((o) => o.setName("역할50k").setDescription("누적 50,000원 이상 (5% 할인) 역할"))
     .addRoleOption((o) => o.setName("역할10k").setDescription("누적 10,000원 이상 (표시 전용) 역할"))
-    .addRoleOption((o) => o.setName("역할구매자").setDescription("1원 이상 구매자 전원에게 줄 역할")),
+    .addRoleOption((o) => o.setName("역할구매자").setDescription("1원 이상 구매자 전원에게 줄 역할"))
+    .addChannelOption((o) =>
+      o.setName("파트너카테고리").setDescription("파트너 승인 시 채널을 생성할 카테고리").addChannelTypes(ChannelType.GuildCategory)
+    )
+    .addRoleOption((o) => o.setName("파트너역할").setDescription("파트너 승인 시 지급할 역할"))
+    .addStringOption((o) => o.setName("파트너일일문구").setDescription("매일 1회 파트너 웹훅으로 보낼 문구")),
   async execute(interaction) {
     const admin = await requireLinkedAdmin(interaction.user.id);
     requireSuperRole(admin.role);
@@ -74,6 +87,9 @@ export const settingsUpdateCommand: BotCommand = {
     const roleTier50k = interaction.options.getRole("역할50k");
     const roleTier10k = interaction.options.getRole("역할10k");
     const roleBuyer = interaction.options.getRole("역할구매자");
+    const partnerCategory = interaction.options.getChannel("파트너카테고리");
+    const partnerRole = interaction.options.getRole("파트너역할");
+    const partnerDailyMessage = interaction.options.getString("파트너일일문구");
 
     await prisma.shopSetting.upsert({
       where: { id: "singleton" },
@@ -90,6 +106,9 @@ export const settingsUpdateCommand: BotCommand = {
         ...(roleTier50k ? { discordRoleTier50k: roleTier50k.id } : {}),
         ...(roleTier10k ? { discordRoleTier10k: roleTier10k.id } : {}),
         ...(roleBuyer ? { discordRoleBuyer: roleBuyer.id } : {}),
+        ...(partnerCategory ? { partnerCategoryId: partnerCategory.id } : {}),
+        ...(partnerRole ? { partnerRoleId: partnerRole.id } : {}),
+        ...(partnerDailyMessage != null ? { partnerDailyMessage } : {}),
       },
       create: {
         id: "singleton",
@@ -105,6 +124,9 @@ export const settingsUpdateCommand: BotCommand = {
         discordRoleTier50k: roleTier50k?.id,
         discordRoleTier10k: roleTier10k?.id,
         discordRoleBuyer: roleBuyer?.id,
+        partnerCategoryId: partnerCategory?.id,
+        partnerRoleId: partnerRole?.id,
+        partnerDailyMessage,
       },
     });
     await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "SETTINGS_UPDATE" } });

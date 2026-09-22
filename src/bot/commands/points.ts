@@ -26,7 +26,7 @@ export const topUpCommand: BotCommand = {
   data: new SlashCommandBuilder()
     .setName("포인트충전신청")
     .setDescription("계좌이체 후 포인트 충전을 신청합니다 (관리자 확인 후 지급).")
-    .addIntegerOption((o) => o.setName("금액").setDescription("충전할 금액(원)").setRequired(true).setMinValue(1000))
+    .addIntegerOption((o) => o.setName("금액").setDescription("충전할 금액(원)").setRequired(true).setMinValue(1))
     .addStringOption((o) => o.setName("입금자명").setDescription("실제 입금자명").setRequired(true)),
   async execute(interaction) {
     const amount = interaction.options.getInteger("금액", true);

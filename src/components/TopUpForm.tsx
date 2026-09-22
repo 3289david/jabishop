@@ -12,7 +12,7 @@ export function TopUpForm() {
         <input
           name="amount"
           type="number"
-          min={1000}
+          min={1}
           step={100}
           placeholder="충전 금액"
           required

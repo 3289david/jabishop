@@ -99,6 +99,27 @@ export function SettingsForm({ settings }: { settings: ShopSetting | null }) {
         </div>
       </div>
 
+      <p className="text-xs font-semibold text-neutral-600 mt-2">파트너 설정</p>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs text-neutral-500 mb-1">파트너 카테고리 ID (승인 시 채널 생성 위치)</label>
+          <input name="partnerCategoryId" defaultValue={settings?.partnerCategoryId ?? undefined} className="w-full border rounded-md px-3 py-2 text-sm" />
+        </div>
+        <div>
+          <label className="block text-xs text-neutral-500 mb-1">파트너 역할 ID (승인 시 지급)</label>
+          <input name="partnerRoleId" defaultValue={settings?.partnerRoleId ?? undefined} className="w-full border rounded-md px-3 py-2 text-sm" />
+        </div>
+      </div>
+      <div>
+        <label className="block text-xs text-neutral-500 mb-1">파트너 일일 발송 문구 (매일 1회 승인된 파트너 웹훅으로 발송)</label>
+        <textarea
+          name="partnerDailyMessage"
+          defaultValue={settings?.partnerDailyMessage ?? undefined}
+          rows={2}
+          className="w-full border rounded-md px-3 py-2 text-sm"
+        />
+      </div>
+
       {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
       {state?.success && <p className="text-sm text-green-600">{state.success}</p>}
       <button

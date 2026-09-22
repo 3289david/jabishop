@@ -248,3 +248,76 @@ export async function notifyAdminsNewPendingItem(kind: string, summary: string) 
     timestamp: new Date().toISOString(),
   });
 }
+
+/** 특정 카테고리 밑에 텍스트 채널을 만들고, 지정한 사용자에게 그 채널을 볼 수 있는 권한을 명시적으로 준다. */
+export async function createGuildTextChannel(
+  guildId: string,
+  name: string,
+  categoryId: string | null,
+  viewerDiscordId?: string
+): Promise<string | null> {
+  const token = process.env.DISCORD_BOT_TOKEN;
+  if (!token) return null;
+
+  // Discord 채널명 규칙에 맞춰 공백/허용되지 않는 문자를 정리한다.
+  const safeName = name
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[^\p{L}\p{N}\-_]/gu, "")
+    .slice(0, 90) || "partner";
+
+  try {
+    const res = await fetch(`${API_BASE}/guilds/${guildId}/channels`, {
+      method: "POST",
+      headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: safeName,
+        type: 0, // GUILD_TEXT
+        parent_id: categoryId || undefined,
+        permission_overwrites: viewerDiscordId
+          ? [
+              {
+                id: viewerDiscordId,
+                type: 1, // member
+                allow: String(1024 | 2048 | 65536), // VIEW_CHANNEL | SEND_MESSAGES | READ_MESSAGE_HISTORY
+              },
+            ]
+          : undefined,
+      }),
+    });
+    if (!res.ok) return null;
+    const channel = (await res.json()) as { id: string };
+    return channel.id;
+  } catch {
+    return null;
+  }
+}
+
+/** 특정 길드 멤버에게 역할을 부여한다. */
+export async function addGuildMemberRole(guildId: string, discordUserId: string, roleId: string): Promise<boolean> {
+  const token = process.env.DISCORD_BOT_TOKEN;
+  if (!token) return false;
+  try {
+    const res = await fetch(`${API_BASE}/guilds/${guildId}/members/${discordUserId}/roles/${roleId}`, {
+      method: "PUT",
+      headers: { Authorization: `Bot ${token}` },
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/** 디스코드 웹훅 URL로 텍스트 메시지를 보낸다 (봇 토큰 불필요 - 웹훅 자체가 인증 수단). */
+export async function sendWebhookMessage(webhookUrl: string, content: string): Promise<boolean> {
+  try {
+    const res = await fetch(webhookUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}

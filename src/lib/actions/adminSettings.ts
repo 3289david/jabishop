@@ -16,6 +16,7 @@ export async function updateSettingsAction(_prev: ActionState, formData: FormDat
   const bankAccountHolder = String(formData.get("bankAccountHolder") || "").trim();
   const refundAllowedAfterDownload = formData.get("refundAllowedAfterDownload") === "on";
   const noticeMessage = String(formData.get("noticeMessage") || "").trim() || null;
+  const partnerDailyMessage = String(formData.get("partnerDailyMessage") || "").trim() || null;
 
   const discordFields = [
     "discordPurchaseLogChannelId",
@@ -27,6 +28,8 @@ export async function updateSettingsAction(_prev: ActionState, formData: FormDat
     "discordRoleTier50k",
     "discordRoleTier10k",
     "discordRoleBuyer",
+    "partnerCategoryId",
+    "partnerRoleId",
   ] as const;
   const discordData = Object.fromEntries(
     discordFields.map((key) => [key, String(formData.get(key) || "").trim() || null])
@@ -34,7 +37,16 @@ export async function updateSettingsAction(_prev: ActionState, formData: FormDat
 
   await prisma.shopSetting.upsert({
     where: { id: "singleton" },
-    update: { shopName, bankName, bankAccountNumber, bankAccountHolder, refundAllowedAfterDownload, noticeMessage, ...discordData },
+    update: {
+      shopName,
+      bankName,
+      bankAccountNumber,
+      bankAccountHolder,
+      refundAllowedAfterDownload,
+      noticeMessage,
+      partnerDailyMessage,
+      ...discordData,
+    },
     create: {
       id: "singleton",
       shopName,
@@ -43,6 +55,7 @@ export async function updateSettingsAction(_prev: ActionState, formData: FormDat
       bankAccountHolder,
       refundAllowedAfterDownload,
       noticeMessage,
+      partnerDailyMessage,
       ...discordData,
     },
   });

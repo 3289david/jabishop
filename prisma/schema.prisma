@@ -266,6 +266,26 @@ model ExchangeRequest {
 }
 
 // ─────────────────────────────────────────────────────────────
+// 파트너 (서버 간 상호 홍보)
+// ─────────────────────────────────────────────────────────────
+
+// 신청자는 디스코드 사용자일 뿐 꼭 자비샵 회원(User)일 필요는 없어서 User와 관계를 맺지 않는다.
+model Partner {
+  id                 String    @id @default(cuid())
+  discordUserId      String    @unique
+  discordTag         String
+  name               String // 파트너 서버/채널 이름
+  description        String?
+  webhookUrl         String? // 매일 1회 홍보 문구를 보낼 디스코드 웹훅 URL
+  status             String    @default("PENDING") // PENDING | APPROVED | REJECTED
+  channelId          String? // 승인 시 파트너 카테고리 밑에 자동 생성된 채널
+  adminNote          String?
+  processedByAdminId String?
+  processedAt        DateTime?
+  createdAt          DateTime  @default(now())
+}
+
+// ─────────────────────────────────────────────────────────────
 // 쿠폰
 // ─────────────────────────────────────────────────────────────
 
@@ -401,6 +421,14 @@ model ShopSetting {
   discordRoleTier50k  String? // 50,000원 이상 - 5% 할인
   discordRoleTier10k  String? // 10,000원 이상 - 할인 없음, 표시 전용
   discordRoleBuyer    String? // 1원 이상 구매한 모든 회원
+
+  // 파트너 기능 - 승인 시 이 카테고리 밑에 채널을 만들고 이 역할을 지급한다.
+  partnerCategoryId    String?
+  partnerRoleId        String?
+  // 매일 1회 승인된 모든 파트너의 웹훅으로 보낼 문구 (관리자가 설정)
+  partnerDailyMessage  String?
+  // 마지막으로 일일 파트너 웹훅 발송을 실행한 시각 - 봇이 재시작돼도 하루 1회를 지키기 위해 저장해둔다.
+  partnerLastBroadcast DateTime?
 }
 
 model Notification {
