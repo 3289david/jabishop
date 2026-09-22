@@ -11,10 +11,12 @@ import { assertActiveShopUser, requireLinkedAdmin } from "@/bot/discordAuth";
 import { errorEmbed, successEmbed } from "@/bot/format";
 import { createTopUpRequest } from "@/lib/points";
 import { createInquiry } from "@/lib/inquiries";
+import { updatePartnerWebhook, PartnerError } from "@/lib/partners";
 
 export const TOPUP_MODAL_ID = "topup_modal";
 export const INQUIRY_MODAL_ID = "inquiry_modal";
 export const ANSWER_MODAL_PREFIX = "answer_modal:";
+export const PARTNER_WEBHOOK_MODAL_ID = "partner_webhook_modal";
 
 export async function showTopUpModal(interaction: ButtonInteraction) {
   const modal = new ModalBuilder().setCustomId(TOPUP_MODAL_ID).setTitle("포인트 충전 신청");
@@ -93,4 +95,28 @@ export async function handleAnswerModalSubmit(interaction: ModalSubmitInteractio
   });
   await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "INQUIRY_ANSWER", target: inquiryId } });
   await interaction.editReply({ embeds: [successEmbed("답변이 등록되었습니다.")] });
+}
+
+export async function showPartnerWebhookModal(interaction: ButtonInteraction) {
+  const modal = new ModalBuilder().setCustomId(PARTNER_WEBHOOK_MODAL_ID).setTitle("파트너 웹훅 등록/수정");
+  const webhookUrl = new TextInputBuilder()
+    .setCustomId("webhookUrl")
+    .setLabel("디스코드 웹훅 URL")
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true);
+  modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(webhookUrl));
+  await interaction.showModal(modal);
+}
+
+export async function handlePartnerWebhookModalSubmit(interaction: ModalSubmitInteraction) {
+  const webhookUrl = interaction.fields.getTextInputValue("webhookUrl").trim();
+  await interaction.deferReply({ ephemeral: true });
+
+  try {
+    await updatePartnerWebhook(interaction.user.id, webhookUrl);
+  } catch (e) {
+    const message = e instanceof PartnerError ? e.message : "처리 중 오류가 발생했습니다.";
+    return interaction.editReply({ embeds: [errorEmbed(message)] });
+  }
+  await interaction.editReply({ embeds: [successEmbed("웹훅이 등록되었습니다. 다음 일일 발송부터 적용됩니다.")] });
 }

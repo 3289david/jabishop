@@ -6,7 +6,7 @@ import { approveRefund, rejectRefund, RefundError } from "@/lib/refunds";
 import { assertActiveShopUser, requireLinkedAdmin } from "@/bot/discordAuth";
 import { readUploadedFile, isUploadKey } from "@/bot/fileStorage";
 import { errorEmbed, successEmbed, pt } from "@/bot/format";
-import { showTopUpModal, showInquiryModal, showAnswerModal } from "@/bot/interactions/modals";
+import { showTopUpModal, showInquiryModal, showAnswerModal, showPartnerWebhookModal } from "@/bot/interactions/modals";
 import {
   productSelectRow,
   tierDetailPayload,
@@ -207,4 +207,5 @@ export async function handleButtonInteraction(interaction: ButtonInteraction) {
   if (ns === "topup") return handleTopUpAction(interaction, a as "approve" | "reject", b);
   if (ns === "refund") return handleRefundAction(interaction, a as "approve" | "reject", b);
   if (ns === "inquiry" && a === "answer") return showAnswerModal(interaction, b);
+  if (ns === "partner" && a === "webhook") return showPartnerWebhookModal(interaction);
 }

@@ -8,11 +8,13 @@ export const partnerRequestCommand: BotCommand = {
     .setName("파트너신청")
     .setDescription("서버/채널 상호 홍보 파트너를 신청합니다.")
     .addStringOption((o) => o.setName("이름").setDescription("파트너로 등록할 서버/채널 이름").setRequired(true))
+    .addStringOption((o) => o.setName("이모지").setDescription("생성될 채널명 앞에 붙일 이모지 (비우면 기본 🤝)"))
     .addStringOption((o) => o.setName("소개").setDescription("간단한 소개"))
     .addStringOption((o) => o.setName("웹훅url").setDescription("홍보 문구를 받을 디스코드 웹훅 URL")),
   async execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
     const name = interaction.options.getString("이름", true);
+    const emoji = interaction.options.getString("이모지") ?? undefined;
     const description = interaction.options.getString("소개") ?? undefined;
     const webhookUrl = interaction.options.getString("웹훅url") ?? undefined;
 
@@ -27,6 +29,7 @@ export const partnerRequestCommand: BotCommand = {
         discordUserId: interaction.user.id,
         discordTag: interaction.user.tag,
         name,
+        emoji,
         description,
         webhookUrl,
       });

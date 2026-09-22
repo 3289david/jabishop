@@ -67,8 +67,13 @@ export async function sendDiscordDM(
   }
 }
 
-/** 특정 채널에 임베드를 직접 게시한다 (DM이 아니라 서버 채널용). */
-export async function sendChannelMessage(channelId: string, payload: { content?: string; embeds?: SimpleEmbed[] }) {
+/** 특정 채널에 임베드(+버튼 등 컴포넌트)를 직접 게시한다 (DM이 아니라 서버 채널용). */
+export async function sendChannelMessage(
+  channelId: string,
+  // components는 Discord Message Components 원본 스키마를 그대로 받는다 (discord.js 빌더가 필요 없는
+  // 공용 lib 코드라 discord.js 타입에 의존하지 않기 위해 unknown[]로 느슨하게 받는다).
+  payload: { content?: string; embeds?: SimpleEmbed[]; components?: unknown[] }
+) {
   const token = process.env.DISCORD_BOT_TOKEN;
   if (!token) return;
   try {
@@ -259,12 +264,14 @@ export async function createGuildTextChannel(
   const token = process.env.DISCORD_BOT_TOKEN;
   if (!token) return null;
 
-  // Discord 채널명 규칙에 맞춰 공백/허용되지 않는 문자를 정리한다.
-  const safeName = name
-    .trim()
-    .replace(/\s+/g, "-")
-    .replace(/[^\p{L}\p{N}\-_]/gu, "")
-    .slice(0, 90) || "partner";
+  // 이모지/꾸밈 기호(┆◞꒰︰ 등)는 그대로 허용하고, 공백만 하이픈으로 바꾸고
+  // 제어 문자만 제거한다 (Discord 채널명은 유니코드/이모지를 지원한다).
+  const safeName =
+    name
+      .trim()
+      .replace(/\s+/g, "-")
+      .replace(/[\x00-\x1F\x7F]/g, "")
+      .slice(0, 90) || "partner";
 
   try {
     const res = await fetch(`${API_BASE}/guilds/${guildId}/channels`, {

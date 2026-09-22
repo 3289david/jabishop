@@ -275,6 +275,7 @@ model Partner {
   discordUserId      String    @unique
   discordTag         String
   name               String // 파트너 서버/채널 이름
+  emoji              String? // 채널명에 붙일 이모지 (비워두면 기본 이모지 사용)
   description        String?
   webhookUrl         String? // 매일 1회 홍보 문구를 보낼 디스코드 웹훅 URL
   status             String    @default("PENDING") // PENDING | APPROVED | REJECTED
