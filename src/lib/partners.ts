@@ -22,9 +22,13 @@ export async function requestPartner(params: {
   name: string;
   emoji?: string;
   description?: string;
-  webhookUrl?: string;
+  webhookUrl: string;
 }) {
   const { discordUserId, discordTag, name, emoji, description, webhookUrl } = params;
+
+  if (!webhookUrl || !webhookUrl.startsWith("https://discord.com/api/webhooks/")) {
+    throw new PartnerError("웹훅 URL은 필수입니다. https://discord.com/api/webhooks/... 형태로 입력해주세요.");
+  }
 
   const existing = await prisma.partner.findUnique({ where: { discordUserId } });
   if (existing && existing.status === PARTNER_STATUS.PENDING) {
@@ -151,4 +155,16 @@ export async function updatePartnerWebhook(discordUserId: string, webhookUrl: st
     throw new PartnerError("웹훅 URL 형식이 올바르지 않습니다.");
   }
   await prisma.partner.update({ where: { id: partner.id }, data: { webhookUrl } });
+}
+
+/** 승인된 파트너 본인이 자기 채널에 매일 게시될 홍보 문구를 직접 등록/수정한다. */
+export async function updatePartnerPromoMessage(discordUserId: string, promoMessage: string) {
+  const partner = await prisma.partner.findUnique({ where: { discordUserId } });
+  if (!partner || partner.status !== PARTNER_STATUS.APPROVED) {
+    throw new PartnerError("승인된 파트너만 홍보 문구를 등록할 수 있습니다.");
+  }
+  if (!partner.channelId) {
+    throw new PartnerError("파트너 채널이 없어 홍보 문구를 게시할 곳이 없습니다. 관리자에게 문의해주세요.");
+  }
+  await prisma.partner.update({ where: { id: partner.id }, data: { promoMessage } });
 }

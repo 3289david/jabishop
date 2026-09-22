@@ -12,6 +12,7 @@ import {
   showAnswerModal,
   showPartnerWebhookModal,
   showPartnerApplyModal,
+  showPartnerPromoModal,
 } from "@/bot/interactions/modals";
 import {
   productSelectRow,
@@ -76,7 +77,8 @@ async function handlePartnerManage(interaction: ButtonInteraction) {
   const embed = baseEmbed(`${partner.emoji || "🤝"} ${partner.name}`).addFields(
     { name: "상태", value: partner.status, inline: true },
     { name: "웹훅 등록 여부", value: partner.webhookUrl ? "등록됨" : "미등록", inline: true },
-    { name: "채널", value: partner.channelId ? `<#${partner.channelId}>` : "-", inline: true }
+    { name: "채널", value: partner.channelId ? `<#${partner.channelId}>` : "-", inline: true },
+    { name: "홍보 문구 등록 여부", value: partner.promoMessage ? "등록됨" : "미등록", inline: true }
   );
   if (partner.description) embed.addFields({ name: "소개", value: partner.description });
   if (partner.status === "REJECTED" && partner.adminNote) embed.addFields({ name: "반려 사유", value: partner.adminNote });
@@ -85,6 +87,11 @@ async function handlePartnerManage(interaction: ButtonInteraction) {
     new ButtonBuilder()
       .setCustomId("partner:webhook")
       .setLabel("웹훅 등록/수정")
+      .setStyle(ButtonStyle.Primary)
+      .setDisabled(partner.status !== "APPROVED"),
+    new ButtonBuilder()
+      .setCustomId("partner:promo")
+      .setLabel("홍보문구 등록/수정")
       .setStyle(ButtonStyle.Primary)
       .setDisabled(partner.status !== "APPROVED")
   );
@@ -243,4 +250,5 @@ export async function handleButtonInteraction(interaction: ButtonInteraction) {
   if (ns === "partner" && a === "webhook") return showPartnerWebhookModal(interaction);
   if (ns === "partner" && a === "apply") return showPartnerApplyModal(interaction);
   if (ns === "partner" && a === "manage") return handlePartnerManage(interaction);
+  if (ns === "partner" && a === "promo") return showPartnerPromoModal(interaction);
 }
