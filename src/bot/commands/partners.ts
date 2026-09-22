@@ -1,7 +1,19 @@
 import { SlashCommandBuilder } from "discord.js";
 import { errorEmbed, successEmbed } from "@/bot/format";
 import { requestPartner, PartnerError } from "@/lib/partners";
+import { requireLinkedAdmin } from "@/bot/discordAuth";
+import { partnerPanelEmbed, partnerPanelRow } from "@/bot/panels";
 import type { BotCommand } from "@/bot/types";
+
+export const partnerPanelCommand: BotCommand = {
+  data: new SlashCommandBuilder()
+    .setName("파트너패널")
+    .setDescription("[관리자] 버튼으로 파트너 신청/관리를 할 수 있는 안내 패널을 엽니다."),
+  async execute(interaction) {
+    await requireLinkedAdmin(interaction.user.id);
+    await interaction.reply({ embeds: [partnerPanelEmbed()], components: [partnerPanelRow()] });
+  },
+};
 
 export const partnerRequestCommand: BotCommand = {
   data: new SlashCommandBuilder()

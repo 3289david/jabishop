@@ -5,7 +5,6 @@ import {
   createGuildTextChannel,
   addGuildMemberRole,
   sendDiscordDM,
-  sendChannelMessage,
 } from "@/lib/discordNotify";
 
 export class PartnerError extends Error {}
@@ -100,37 +99,17 @@ export async function approvePartner(partnerId: string, adminId: string) {
     },
   });
 
-  if (channelId) {
-    sendChannelMessage(channelId, {
-      embeds: [
-        {
-          title: `${partner.emoji || DEFAULT_PARTNER_EMOJI} ${partner.name} 파트너 채널`,
-          description: [
-            `<@${partner.discordUserId}>님, 파트너 승인을 축하합니다!`,
-            partner.description ? `소개: ${partner.description}` : null,
-            "매일 1회 관리자가 설정한 홍보 문구가 등록하신 웹훅으로 자동 발송됩니다.",
-            `현재 웹훅: ${partner.webhookUrl ? "등록됨" : "등록 안 됨 - 아래 버튼으로 등록해주세요"}`,
-          ]
-            .filter(Boolean)
-            .join("\n"),
-          color: 0x6366f1,
-          timestamp: new Date().toISOString(),
-        },
-      ],
-      components: [
-        {
-          type: 1,
-          components: [{ type: 2, style: 1, label: "웹훅 등록/수정", custom_id: "partner:webhook" }],
-        },
-      ],
-    }).catch(() => {});
-  }
-
   sendDiscordDM(partner.discordUserId, {
     embeds: [
       {
         title: "🤝 파트너 승인 완료",
-        description: `**${partner.name}** 파트너 신청이 승인되었습니다.${channelId ? `\n<#${channelId}> 채널이 생성되었습니다.` : ""}`,
+        description: [
+          `**${partner.name}** 파트너 신청이 승인되었습니다.`,
+          channelId ? `<#${channelId}> 채널이 생성되었습니다.` : null,
+          "파트너 안내 패널의 [⚙️ 내 파트너 정보 관리] 버튼에서 웹훅 등록 등 정보를 직접 관리할 수 있습니다.",
+        ]
+          .filter(Boolean)
+          .join("\n"),
         color: 0x22c55e,
         timestamp: new Date().toISOString(),
       },

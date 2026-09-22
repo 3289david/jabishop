@@ -32,6 +32,22 @@ export function mainPanelRows() {
   return [row1, row2];
 }
 
+// ── 파트너 안내 패널 ─────────────────────────────────────────
+
+export function partnerPanelEmbed() {
+  return baseEmbed("🤝 파트너 프로그램").setDescription(
+    "서버/채널 상호 홍보 파트너를 모집합니다. 아래 버튼으로 신청하고, 승인된 뒤에는 같은 곳에서 웹훅 등록 등\n" +
+      "내 파트너 정보를 직접 관리할 수 있습니다."
+  );
+}
+
+export function partnerPanelRow() {
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder().setCustomId("partner:apply").setLabel("🤝 파트너 신청하기").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId("partner:manage").setLabel("⚙️ 내 파트너 정보 관리").setStyle(ButtonStyle.Secondary)
+  );
+}
+
 // ── 상품 목록 / 상세 ─────────────────────────────────────────
 
 export async function productSelectRow() {

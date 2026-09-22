@@ -1,12 +1,18 @@
-import { AttachmentBuilder, type ButtonInteraction } from "discord.js";
+import { AttachmentBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, type ButtonInteraction } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { purchaseTier, OrderError } from "@/lib/orders";
 import { confirmTopUp, rejectTopUp, TopUpError } from "@/lib/points";
 import { approveRefund, rejectRefund, RefundError } from "@/lib/refunds";
 import { assertActiveShopUser, requireLinkedAdmin } from "@/bot/discordAuth";
 import { readUploadedFile, isUploadKey } from "@/bot/fileStorage";
-import { errorEmbed, successEmbed, pt } from "@/bot/format";
-import { showTopUpModal, showInquiryModal, showAnswerModal, showPartnerWebhookModal } from "@/bot/interactions/modals";
+import { baseEmbed, errorEmbed, successEmbed, pt } from "@/bot/format";
+import {
+  showTopUpModal,
+  showInquiryModal,
+  showAnswerModal,
+  showPartnerWebhookModal,
+  showPartnerApplyModal,
+} from "@/bot/interactions/modals";
 import {
   productSelectRow,
   tierDetailPayload,
@@ -56,6 +62,33 @@ async function handlePanelCoupons(interaction: ButtonInteraction) {
   const userCoupons = await prisma.userCoupon.findMany({ where: { userId: user.id }, include: { coupon: true }, orderBy: { issuedAt: "desc" } });
   const { embed } = couponsPayload(userCoupons);
   await interaction.reply({ embeds: [embed], ephemeral: true });
+}
+
+async function handlePartnerManage(interaction: ButtonInteraction) {
+  const partner = await prisma.partner.findUnique({ where: { discordUserId: interaction.user.id } });
+  if (!partner) {
+    return interaction.reply({
+      embeds: [errorEmbed("아직 파트너 신청 내역이 없습니다. [🤝 파트너 신청하기] 버튼으로 먼저 신청해주세요.")],
+      ephemeral: true,
+    });
+  }
+
+  const embed = baseEmbed(`${partner.emoji || "🤝"} ${partner.name}`).addFields(
+    { name: "상태", value: partner.status, inline: true },
+    { name: "웹훅 등록 여부", value: partner.webhookUrl ? "등록됨" : "미등록", inline: true },
+    { name: "채널", value: partner.channelId ? `<#${partner.channelId}>` : "-", inline: true }
+  );
+  if (partner.description) embed.addFields({ name: "소개", value: partner.description });
+  if (partner.status === "REJECTED" && partner.adminNote) embed.addFields({ name: "반려 사유", value: partner.adminNote });
+
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId("partner:webhook")
+      .setLabel("웹훅 등록/수정")
+      .setStyle(ButtonStyle.Primary)
+      .setDisabled(partner.status !== "APPROVED")
+  );
+  await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
 }
 
 async function handleBuy(interaction: ButtonInteraction, slug: string) {
@@ -208,4 +241,6 @@ export async function handleButtonInteraction(interaction: ButtonInteraction) {
   if (ns === "refund") return handleRefundAction(interaction, a as "approve" | "reject", b);
   if (ns === "inquiry" && a === "answer") return showAnswerModal(interaction, b);
   if (ns === "partner" && a === "webhook") return showPartnerWebhookModal(interaction);
+  if (ns === "partner" && a === "apply") return showPartnerApplyModal(interaction);
+  if (ns === "partner" && a === "manage") return handlePartnerManage(interaction);
 }

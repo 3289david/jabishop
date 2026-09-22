@@ -11,12 +11,13 @@ import { assertActiveShopUser, requireLinkedAdmin } from "@/bot/discordAuth";
 import { errorEmbed, successEmbed } from "@/bot/format";
 import { createTopUpRequest } from "@/lib/points";
 import { createInquiry } from "@/lib/inquiries";
-import { updatePartnerWebhook, PartnerError } from "@/lib/partners";
+import { updatePartnerWebhook, requestPartner, PartnerError } from "@/lib/partners";
 
 export const TOPUP_MODAL_ID = "topup_modal";
 export const INQUIRY_MODAL_ID = "inquiry_modal";
 export const ANSWER_MODAL_PREFIX = "answer_modal:";
 export const PARTNER_WEBHOOK_MODAL_ID = "partner_webhook_modal";
+export const PARTNER_APPLY_MODAL_ID = "partner_apply_modal";
 
 export async function showTopUpModal(interaction: ButtonInteraction) {
   const modal = new ModalBuilder().setCustomId(TOPUP_MODAL_ID).setTitle("포인트 충전 신청");
@@ -119,4 +120,53 @@ export async function handlePartnerWebhookModalSubmit(interaction: ModalSubmitIn
     return interaction.editReply({ embeds: [errorEmbed(message)] });
   }
   await interaction.editReply({ embeds: [successEmbed("웹훅이 등록되었습니다. 다음 일일 발송부터 적용됩니다.")] });
+}
+
+export async function showPartnerApplyModal(interaction: ButtonInteraction) {
+  const modal = new ModalBuilder().setCustomId(PARTNER_APPLY_MODAL_ID).setTitle("파트너 신청");
+  const name = new TextInputBuilder().setCustomId("name").setLabel("서버/채널 이름").setStyle(TextInputStyle.Short).setRequired(true);
+  const emoji = new TextInputBuilder()
+    .setCustomId("emoji")
+    .setLabel("채널명에 붙일 이모지 (비우면 기본 🤝)")
+    .setStyle(TextInputStyle.Short)
+    .setRequired(false);
+  const description = new TextInputBuilder()
+    .setCustomId("description")
+    .setLabel("간단한 소개")
+    .setStyle(TextInputStyle.Paragraph)
+    .setRequired(false);
+  const webhookUrl = new TextInputBuilder()
+    .setCustomId("webhookUrl")
+    .setLabel("홍보 문구를 받을 디스코드 웹훅 URL (선택)")
+    .setStyle(TextInputStyle.Short)
+    .setRequired(false);
+  modal.addComponents(
+    new ActionRowBuilder<TextInputBuilder>().addComponents(name),
+    new ActionRowBuilder<TextInputBuilder>().addComponents(emoji),
+    new ActionRowBuilder<TextInputBuilder>().addComponents(description),
+    new ActionRowBuilder<TextInputBuilder>().addComponents(webhookUrl)
+  );
+  await interaction.showModal(modal);
+}
+
+export async function handlePartnerApplyModalSubmit(interaction: ModalSubmitInteraction) {
+  const name = interaction.fields.getTextInputValue("name").trim();
+  const emoji = interaction.fields.getTextInputValue("emoji").trim() || undefined;
+  const description = interaction.fields.getTextInputValue("description").trim() || undefined;
+  const webhookUrl = interaction.fields.getTextInputValue("webhookUrl").trim() || undefined;
+  await interaction.deferReply({ ephemeral: true });
+
+  if (webhookUrl && !webhookUrl.startsWith("https://discord.com/api/webhooks/")) {
+    return interaction.editReply({
+      embeds: [errorEmbed("웹훅 URL 형식이 올바르지 않습니다. https://discord.com/api/webhooks/... 형태여야 합니다.")],
+    });
+  }
+
+  try {
+    await requestPartner({ discordUserId: interaction.user.id, discordTag: interaction.user.tag, name, emoji, description, webhookUrl });
+  } catch (e) {
+    const message = e instanceof PartnerError ? e.message : "신청 중 오류가 발생했습니다.";
+    return interaction.editReply({ embeds: [errorEmbed(message)] });
+  }
+  await interaction.editReply({ embeds: [successEmbed("파트너 신청이 접수되었습니다. 관리자 승인을 기다려주세요.")] });
 }

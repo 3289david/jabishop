@@ -7,10 +7,12 @@ import {
   INQUIRY_MODAL_ID,
   ANSWER_MODAL_PREFIX,
   PARTNER_WEBHOOK_MODAL_ID,
+  PARTNER_APPLY_MODAL_ID,
   handleTopUpModalSubmit,
   handleInquiryModalSubmit,
   handleAnswerModalSubmit,
   handlePartnerWebhookModalSubmit,
+  handlePartnerApplyModalSubmit,
 } from "@/bot/interactions/modals";
 import { handleButtonInteraction } from "@/bot/interactions/buttons";
 import { handleSelectMenuInteraction } from "@/bot/interactions/selects";
@@ -65,6 +67,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         return handleAnswerModalSubmit(interaction, interaction.customId.slice(ANSWER_MODAL_PREFIX.length));
       }
       if (interaction.customId === PARTNER_WEBHOOK_MODAL_ID) return handlePartnerWebhookModalSubmit(interaction);
+      if (interaction.customId === PARTNER_APPLY_MODAL_ID) return handlePartnerApplyModalSubmit(interaction);
       return;
     }
   } catch (err) {

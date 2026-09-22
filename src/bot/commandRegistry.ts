@@ -11,7 +11,7 @@ import { reportCreateCommand } from "@/bot/commands/reports";
 import { notificationsCommand } from "@/bot/commands/notifications";
 import { refundRequestCommand } from "@/bot/commands/refunds";
 import { exchangeRequestCommand } from "@/bot/commands/exchanges";
-import { partnerRequestCommand } from "@/bot/commands/partners";
+import { partnerRequestCommand, partnerPanelCommand } from "@/bot/commands/partners";
 import { adminLinkCommand } from "@/bot/commands/adminLink";
 import { adminUnlinkCommand } from "@/bot/commands/adminUnlink";
 import { tierListCommand, tierCreateCommand, tierUpdateCommand, tierDeleteCommand } from "@/bot/commands/adminProducts";
@@ -43,6 +43,7 @@ export const commands: BotCommand[] = [
   // 패널 (버튼 UI)
   panelCommand,
   adminPanelCommand,
+  partnerPanelCommand,
   // 사용자 기능
   productListCommand,
   productDetailCommand,
