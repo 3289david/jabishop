@@ -38,12 +38,14 @@ import { memberViewCommand, memberStatusCommand, memberPointAdjustCommand } from
 import { loginLogsCommand, activityLogsCommand } from "@/bot/commands/adminSecurity";
 import { panelCommand } from "@/bot/commands/panel";
 import { adminPanelCommand } from "@/bot/commands/adminPanel";
+import { verifyPanelCommand } from "@/bot/commands/verify";
 
 export const commands: BotCommand[] = [
   // 패널 (버튼 UI)
   panelCommand,
   adminPanelCommand,
   partnerPanelCommand,
+  verifyPanelCommand,
   // 사용자 기능
   productListCommand,
   productDetailCommand,

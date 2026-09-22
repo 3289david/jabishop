@@ -48,6 +48,24 @@ export function partnerPanelRow() {
   );
 }
 
+// ── 인증 패널 ────────────────────────────────────────────────
+
+const VERIFY_URL = "https://restore.salv.me/1545755740658995261";
+const VERIFY_ROLE_ID = "1545759847784382464";
+
+export function verifyPanelEmbed() {
+  return baseEmbed("💕 인증 채널 💕")
+    .setColor(0xff6fa5)
+    .setDescription("인증을 하시려면 아래 버튼을 클릭해 주세요")
+    .addFields({ name: "역할", value: `인증을 하시면 <@&${VERIFY_ROLE_ID}> 역할이 부여돼요` });
+}
+
+export function verifyPanelRow() {
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder().setLabel("인증하기").setStyle(ButtonStyle.Link).setURL(VERIFY_URL)
+  );
+}
+
 // ── 상품 목록 / 상세 ─────────────────────────────────────────
 
 export async function productSelectRow() {
