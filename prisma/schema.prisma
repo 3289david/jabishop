@@ -431,6 +431,11 @@ model ShopSetting {
   partnerDailyMessage  String?
   // 마지막으로 일일 파트너 웹훅 발송을 실행한 시각 - 봇이 재시작돼도 하루 1회를 지키기 위해 저장해둔다.
   partnerLastBroadcast DateTime?
+
+  // 매일 1회 오늘 매출/이용자 등 통계를 자동으로 게시할 공지 채널
+  announcementChannelId String?
+  // 마지막으로 일일 통계 공지를 게시한 시각 - 봇이 재시작돼도 하루 1회를 지키기 위해 저장해둔다.
+  dailyStatsLastPosted   DateTime?
 }
 
 model Notification {

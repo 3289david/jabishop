@@ -22,6 +22,7 @@ import { errorEmbed } from "@/bot/format";
 import { startStatsChannelLoop } from "@/bot/statsChannels";
 import { handleAutoDeleteMessage } from "@/bot/autoDeleteChannel";
 import { startPartnerBroadcastLoop } from "@/bot/partnerBroadcast";
+import { startDailyStatsBroadcastLoop } from "@/bot/dailyStatsBroadcast";
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
 
@@ -29,6 +30,7 @@ client.once(Events.ClientReady, (c) => {
   console.log(`✅ 자비샵 봇 로그인 완료: ${c.user.tag}`);
   startStatsChannelLoop(client);
   startPartnerBroadcastLoop();
+  startDailyStatsBroadcastLoop(client);
 });
 
 client.on(Events.MessageCreate, (message) => {

@@ -37,6 +37,10 @@ export const settingsViewCommand: BotCommand = {
           `역할: ${s?.partnerRoleId ? `<@&${s.partnerRoleId}>` : "미설정"}`,
           `일일 발송 문구: ${s?.partnerDailyMessage ?? "미설정"}`,
         ].join("\n"),
+      },
+      {
+        name: "일일 통계 공지",
+        value: `채널: ${s?.announcementChannelId ? `<#${s.announcementChannelId}>` : "미설정"} (매일 1회 오늘 매출/주문/재고/회원/환불/문의 자동 게시)`,
       }
     );
     await interaction.reply({ embeds: [embed], ephemeral: true });
@@ -70,7 +74,13 @@ export const settingsUpdateCommand: BotCommand = {
       o.setName("파트너카테고리").setDescription("파트너 승인 시 채널을 생성할 카테고리").addChannelTypes(ChannelType.GuildCategory)
     )
     .addRoleOption((o) => o.setName("파트너역할").setDescription("파트너 승인 시 지급할 역할"))
-    .addStringOption((o) => o.setName("파트너일일문구").setDescription("매일 1회 파트너 웹훅으로 보낼 문구")),
+    .addStringOption((o) => o.setName("파트너일일문구").setDescription("매일 1회 파트너 웹훅으로 보낼 문구"))
+    .addChannelOption((o) =>
+      o
+        .setName("공지채널")
+        .setDescription("매일 1회 오늘 매출/주문/재고/회원/환불/문의 통계를 자동 게시할 채널")
+        .addChannelTypes(ChannelType.GuildText)
+    ),
   async execute(interaction) {
     const admin = await requireLinkedAdmin(interaction.user.id);
     requireSuperRole(admin.role);
@@ -90,6 +100,7 @@ export const settingsUpdateCommand: BotCommand = {
     const partnerCategory = interaction.options.getChannel("파트너카테고리");
     const partnerRole = interaction.options.getRole("파트너역할");
     const partnerDailyMessage = interaction.options.getString("파트너일일문구");
+    const announcementChannel = interaction.options.getChannel("공지채널");
 
     await prisma.shopSetting.upsert({
       where: { id: "singleton" },
@@ -109,6 +120,7 @@ export const settingsUpdateCommand: BotCommand = {
         ...(partnerCategory ? { partnerCategoryId: partnerCategory.id } : {}),
         ...(partnerRole ? { partnerRoleId: partnerRole.id } : {}),
         ...(partnerDailyMessage != null ? { partnerDailyMessage } : {}),
+        ...(announcementChannel ? { announcementChannelId: announcementChannel.id } : {}),
       },
       create: {
         id: "singleton",
@@ -127,6 +139,7 @@ export const settingsUpdateCommand: BotCommand = {
         partnerCategoryId: partnerCategory?.id,
         partnerRoleId: partnerRole?.id,
         partnerDailyMessage,
+        announcementChannelId: announcementChannel?.id,
       },
     });
     await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "SETTINGS_UPDATE" } });
