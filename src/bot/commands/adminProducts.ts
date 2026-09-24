@@ -24,11 +24,17 @@ export const tierListCommand: BotCommand = {
       include: { _count: { select: { artworks: true } } },
     });
     const embed = baseEmbed("📋 등급 목록");
-    for (const t of tiers) {
+    // 디스코드 임베드는 필드를 25개까지만 허용한다 - 그 이상이면 addFields가 에러를 던져
+    // 목록이 아예 안 보이는 상태가 되므로, 여기서 미리 잘라서 방지한다.
+    const MAX_EMBED_FIELDS = 25;
+    for (const t of tiers.slice(0, MAX_EMBED_FIELDS)) {
       embed.addFields({
         name: `${t.name} (${t.slug})`,
-        value: `${won(t.price)} · 재고 ${t._count.artworks}개 · ${t.status}`,
+        value: `${won(t.price)} · 재고 ${t._count.artworks}개 · ${t.status}${t.category ? ` · ${t.category}` : ""}`,
       });
+    }
+    if (tiers.length > MAX_EMBED_FIELDS) {
+      embed.setDescription(`전체 ${tiers.length}개 중 ${MAX_EMBED_FIELDS}개만 표시됩니다.`);
     }
     await interaction.reply({ embeds: [embed], ephemeral: true });
   },
@@ -41,19 +47,21 @@ export const tierCreateCommand: BotCommand = {
     .addStringOption((o) => o.setName("이름").setDescription("등급명").setRequired(true))
     .addIntegerOption((o) => o.setName("가격").setDescription("가격(포인트)").setRequired(true).setMinValue(1))
     .addStringOption((o) => o.setName("설명").setDescription("상품 설명"))
-    .addIntegerOption((o) => o.setName("구매제한").setDescription("1인당 구매 제한 수량")),
+    .addIntegerOption((o) => o.setName("구매제한").setDescription("1인당 구매 제한 수량"))
+    .addStringOption((o) => o.setName("카테고리").setDescription("구매하기 패널에서 묶일 카테고리 (비우면 기타)")),
   async execute(interaction) {
     const admin = await requireLinkedAdmin(interaction.user.id);
     const name = interaction.options.getString("이름", true);
     const price = interaction.options.getInteger("가격", true);
     const description = interaction.options.getString("설명");
     const purchaseLimitPerUser = interaction.options.getInteger("구매제한");
+    const category = interaction.options.getString("카테고리");
 
     let slug = slugify(name);
     if (await prisma.tier.findUnique({ where: { slug } })) slug = `${slug}-${Date.now().toString().slice(-5)}`;
 
     const tier = await prisma.tier.create({
-      data: { slug, name, price, description, purchaseLimitPerUser },
+      data: { slug, name, price, description, purchaseLimitPerUser, category },
     });
     await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "TIER_CREATE", target: tier.id, detail: name } });
     await interaction.reply({ embeds: [successEmbed(`"${name}" 등급이 생성되었습니다. (slug: ${slug})`)], ephemeral: true });
@@ -73,7 +81,8 @@ export const tierUpdateCommand: BotCommand = {
         .addChoices({ name: "판매중", value: "ON_SALE" }, { name: "숨김", value: "HIDDEN" }, { name: "품절", value: "SOLD_OUT" })
     )
     .addStringOption((o) => o.setName("설명").setDescription("새 설명"))
-    .addIntegerOption((o) => o.setName("구매제한").setDescription("1인당 구매 제한 (0=무제한)")),
+    .addIntegerOption((o) => o.setName("구매제한").setDescription("1인당 구매 제한 (0=무제한)"))
+    .addStringOption((o) => o.setName("카테고리").setDescription("구매하기 패널에서 묶일 카테고리 (빈 문자열=기타)")),
   autocomplete: tierAutocomplete,
   async execute(interaction) {
     const admin = await requireLinkedAdmin(interaction.user.id);
@@ -85,6 +94,7 @@ export const tierUpdateCommand: BotCommand = {
     const status = interaction.options.getString("상태");
     const description = interaction.options.getString("설명");
     const purchaseLimit = interaction.options.getInteger("구매제한");
+    const category = interaction.options.getString("카테고리");
 
     await prisma.tier.update({
       where: { id: tier.id },
@@ -93,6 +103,7 @@ export const tierUpdateCommand: BotCommand = {
         ...(status != null ? { status } : {}),
         ...(description != null ? { description } : {}),
         ...(purchaseLimit != null ? { purchaseLimitPerUser: purchaseLimit === 0 ? null : purchaseLimit } : {}),
+        ...(category != null ? { category: category === "" ? null : category } : {}),
       },
     });
     await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "TIER_UPDATE", target: tier.id } });

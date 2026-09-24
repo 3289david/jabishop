@@ -16,12 +16,20 @@ export const productListCommand: BotCommand = {
 
     const embed = baseEmbed("🎨 자비샵 상품 목록");
     if (tiers.length === 0) embed.setDescription("등록된 상품이 없습니다.");
-    for (const t of tiers) {
+    // 디스코드 임베드는 필드를 25개까지만 허용한다 - 그 이상이면 addFields가 에러를 던져
+    // 상품이 하나도 안 보이는 상태가 되므로, 여기서 미리 잘라서 방지한다.
+    const MAX_EMBED_FIELDS = 25;
+    for (const t of tiers.slice(0, MAX_EMBED_FIELDS)) {
       const soldOut = t._count.artworks === 0 || t.status === TIER_STATUS.SOLD_OUT;
       embed.addFields({
         name: `${t.name}${soldOut ? " (품절)" : ""}`,
         value: `${won(t.price)} · 재고 ${t._count.artworks}개`,
       });
+    }
+    if (tiers.length > MAX_EMBED_FIELDS) {
+      embed.setDescription(
+        `${tiers.length - MAX_EMBED_FIELDS}개 상품이 더 있습니다. 패널의 [🛍️ 구매하기]에서 카테고리별로 전체를 볼 수 있습니다.`
+      );
     }
     await interaction.reply({ embeds: [embed] });
   },

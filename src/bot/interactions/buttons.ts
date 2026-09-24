@@ -15,6 +15,8 @@ import {
   showPartnerPromoModal,
 } from "@/bot/interactions/modals";
 import {
+  categorySelectRow,
+  listProductCategories,
   productSelectRow,
   tierDetailPayload,
   pointsPayload,
@@ -28,7 +30,8 @@ import {
 } from "@/bot/panels";
 
 async function handlePanelProducts(interaction: ButtonInteraction) {
-  const { embed, row } = await productSelectRow();
+  const categories = await listProductCategories();
+  const { embed, row } = categories.length > 1 ? await categorySelectRow() : await productSelectRow();
   await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
 }
 

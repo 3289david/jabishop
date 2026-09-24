@@ -126,6 +126,8 @@ model Tier {
   status               String   @default("ON_SALE") // ON_SALE | HIDDEN | SOLD_OUT
   purchaseLimitPerUser Int?
   sortOrder            Int      @default(0)
+  // 구매하기 패널에서 카테고리별로 나눠 보여주기 위한 분류. 비어있으면 "기타"로 묶인다.
+  category             String?
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 

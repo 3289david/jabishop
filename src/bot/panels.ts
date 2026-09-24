@@ -20,8 +20,8 @@ export function mainPanelEmbed() {
 
 export function mainPanelRows() {
   const row1 = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder().setCustomId("panel:products").setLabel("🛍️ 상품 보기").setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId("panel:points").setLabel("💰 내 포인트").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId("panel:products").setLabel("🛍️ 구매하기").setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId("panel:points").setLabel("💰 포인트").setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId("panel:cart").setLabel("🛒 장바구니").setStyle(ButtonStyle.Secondary)
   );
   const row2 = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -68,9 +68,37 @@ export function verifyPanelRow() {
 
 // ── 상품 목록 / 상세 ─────────────────────────────────────────
 
-export async function productSelectRow() {
+const UNCATEGORIZED_LABEL = "기타";
+
+/** 카테고리 선택 단계가 필요한지 판단하기 위해, 판매 중인 등급들의 고유 카테고리 목록을 반환한다. */
+export async function listProductCategories(): Promise<string[]> {
   const tiers = await prisma.tier.findMany({
     where: { status: { not: TIER_STATUS.HIDDEN } },
+    select: { category: true },
+  });
+  return Array.from(new Set(tiers.map((t) => t.category || UNCATEGORIZED_LABEL))).sort();
+}
+
+export async function categorySelectRow() {
+  const categories = await listProductCategories();
+
+  const menu = new StringSelectMenuBuilder()
+    .setCustomId("select:category")
+    .setPlaceholder("카테고리를 선택하세요")
+    .addOptions(categories.slice(0, 25).map((c) => ({ label: c, value: c })));
+
+  return {
+    embed: baseEmbed("🛍️ 구매하기").setDescription("카테고리를 선택하면 해당 카테고리의 상품 목록을 볼 수 있습니다."),
+    row: new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu),
+  };
+}
+
+export async function productSelectRow(category?: string) {
+  const tiers = await prisma.tier.findMany({
+    where: {
+      status: { not: TIER_STATUS.HIDDEN },
+      ...(category != null ? { category: category === UNCATEGORIZED_LABEL ? null : category } : {}),
+    },
     orderBy: { sortOrder: "asc" },
     include: { _count: { select: { artworks: { where: { status: ARTWORK_STATUS.AVAILABLE } } } } },
   });
@@ -86,7 +114,12 @@ export async function productSelectRow() {
       }))
     );
 
-  return { embed: baseEmbed("🛍️ 상품 목록").setDescription("아래 메뉴에서 등급을 선택하면 상세 정보를 볼 수 있습니다."), row: new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu) };
+  return {
+    embed: baseEmbed(category ? `🛍️ ${category} 상품 목록` : "🛍️ 상품 목록").setDescription(
+      "아래 메뉴에서 등급을 선택하면 상세 정보를 볼 수 있습니다."
+    ),
+    row: new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu),
+  };
 }
 
 export async function tierDetailPayload(slug: string) {
@@ -279,11 +312,17 @@ export async function tierListPayload() {
     include: { _count: { select: { artworks: true } } },
   });
   const embed = baseEmbed("📋 등급 목록");
-  for (const t of tiers) {
+  // 디스코드 임베드는 필드를 25개까지만 허용한다 - 그 이상이면 addFields가 에러를 던져
+  // 목록이 아예 안 보이는 상태가 되므로, 여기서 미리 잘라서 방지한다.
+  const MAX_EMBED_FIELDS = 25;
+  for (const t of tiers.slice(0, MAX_EMBED_FIELDS)) {
     embed.addFields({
       name: `${t.name} (${t.slug})`,
-      value: `${won(t.price)} · 재고 ${t._count.artworks}개 · ${t.status}`,
+      value: `${won(t.price)} · 재고 ${t._count.artworks}개 · ${t.status}${t.category ? ` · ${t.category}` : ""}`,
     });
+  }
+  if (tiers.length > MAX_EMBED_FIELDS) {
+    embed.setDescription(`전체 ${tiers.length}개 중 ${MAX_EMBED_FIELDS}개만 표시됩니다.`);
   }
   return { embed };
 }
