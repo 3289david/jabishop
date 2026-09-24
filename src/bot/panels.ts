@@ -21,7 +21,7 @@ export function mainPanelEmbed() {
 export function mainPanelRows() {
   const row1 = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder().setCustomId("panel:products").setLabel("🛍️ 구매하기").setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId("panel:points").setLabel("💰 포인트").setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId("panel:points").setLabel("💰 포인트 관리").setStyle(ButtonStyle.Secondary),
     new ButtonBuilder().setCustomId("panel:cart").setLabel("🛒 장바구니").setStyle(ButtonStyle.Secondary)
   );
   const row2 = new ActionRowBuilder<ButtonBuilder>().addComponents(
