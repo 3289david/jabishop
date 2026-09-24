@@ -23,6 +23,7 @@ import { startStatsChannelLoop } from "@/bot/statsChannels";
 import { handleAutoDeleteMessage } from "@/bot/autoDeleteChannel";
 import { startPartnerBroadcastLoop } from "@/bot/partnerBroadcast";
 import { startDailyStatsBroadcastLoop } from "@/bot/dailyStatsBroadcast";
+import { startRaffleAutoCloseLoop } from "@/bot/raffleAutoClose";
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
 
@@ -31,6 +32,7 @@ client.once(Events.ClientReady, (c) => {
   startStatsChannelLoop(client);
   startPartnerBroadcastLoop();
   startDailyStatsBroadcastLoop(client);
+  startRaffleAutoCloseLoop(client);
 });
 
 client.on(Events.MessageCreate, (message) => {

@@ -131,9 +131,10 @@ model Tier {
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
-  artworks  Artwork[]
-  orders    Order[]
-  cartItems CartItem[]
+  artworks     Artwork[]
+  orders       Order[]
+  cartItems    CartItem[]
+  raffleEvents RaffleEvent[]
 }
 
 model Artwork {
@@ -452,4 +453,53 @@ model Notification {
   isRead    Boolean  @default(false)
   broadcast Boolean  @default(false)
   createdAt DateTime @default(now())
+}
+
+// 서버 태그(디스코드 프로필의 "서버 태그" 배지) 착용자 대상 상품 자동 추첨 이벤트.
+// 채널에 참가 버튼이 달린 안내 패널을 올려두고, 참가 시점에 신청자가 우리 서버 태그를
+// 착용 중인지 확인한다. 마감은 관리자가 수동으로 하거나(closesAt 없음), 지정한 시각에
+// 자동으로(closesAt 있음) 이뤄진다.
+model RaffleEvent {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  tierId      String
+  tier        Tier     @relation(fields: [tierId], references: [id])
+  channelId   String
+  messageId   String?
+  winnerCount Int      @default(1)
+  status      String   @default("OPEN") // OPEN | DRAWN
+  // 설정하면 이 시각에 자동으로 마감/추첨된다. null이면 관리자가 수동으로만 마감한다.
+  closesAt    DateTime?
+  closedAt    DateTime?
+
+  createdByAdminId String
+  createdAt         DateTime @default(now())
+
+  entries RaffleEntry[]
+  winners RaffleWinner[]
+}
+
+model RaffleEntry {
+  id            String      @id @default(cuid())
+  raffleId      String
+  raffle        RaffleEvent @relation(fields: [raffleId], references: [id])
+  discordUserId String
+  discordTag    String
+  enteredAt     DateTime    @default(now())
+
+  @@unique([raffleId, discordUserId])
+}
+
+model RaffleWinner {
+  id            String      @id @default(cuid())
+  raffleId      String
+  raffle        RaffleEvent @relation(fields: [raffleId], references: [id])
+  discordUserId String
+  discordTag    String
+  // 실제 지급된 주문. 추첨 시점에 재고가 없어 지급에 실패하면 null로 남고 grantFailed가 true가 된다
+  // (관리자가 /계정지급으로 나중에 수동 지급해야 함을 나타낸다).
+  orderId       String?
+  grantFailed   Boolean     @default(false)
+  createdAt     DateTime    @default(now())
 }

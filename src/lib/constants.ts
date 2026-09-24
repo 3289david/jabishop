@@ -79,6 +79,11 @@ export const PARTNER_STATUS = {
   REJECTED: "REJECTED",
 } as const;
 
+export const RAFFLE_STATUS = {
+  OPEN: "OPEN",
+  DRAWN: "DRAWN",
+} as const;
+
 export const DISCOUNT_TYPE = {
   AMOUNT: "AMOUNT",
   RATE: "RATE",

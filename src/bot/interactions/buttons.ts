@@ -28,6 +28,8 @@ import {
   pendingInquiriesPayload,
   tierListPayload,
 } from "@/bot/panels";
+import { enterRaffle, RaffleError } from "@/lib/raffles";
+import { raffleEventEmbed } from "@/bot/raffleUI";
 
 async function handlePanelProducts(interaction: ButtonInteraction) {
   const categories = await listProductCategories();
@@ -230,6 +232,34 @@ async function handleRefundAction(interaction: ButtonInteraction, action: "appro
   await interaction.reply({ embeds: [successEmbed(action === "approve" ? "환불을 승인했습니다." : "환불 요청을 거절했습니다.")], ephemeral: true });
 }
 
+async function handleRaffleEnter(interaction: ButtonInteraction, raffleId: string) {
+  const guildId = process.env.DISCORD_GUILD_ID;
+  const primaryGuild = interaction.user.primaryGuild;
+  const wearingTag = !!primaryGuild?.identityEnabled && primaryGuild.identityGuildId === guildId;
+  if (!wearingTag) {
+    return interaction.reply({
+      embeds: [errorEmbed("이 서버의 서버 태그를 착용해야 참가할 수 있습니다. 디스코드 프로필에서 서버 태그를 켜주세요.")],
+      ephemeral: true,
+    });
+  }
+
+  let entryCount: number;
+  try {
+    entryCount = await enterRaffle(raffleId, interaction.user.id, interaction.user.tag);
+  } catch (e) {
+    const message = e instanceof RaffleError ? e.message : "참가 중 오류가 발생했습니다.";
+    return interaction.reply({ embeds: [errorEmbed(message)], ephemeral: true });
+  }
+
+  await interaction.reply({ embeds: [successEmbed(`참가 완료! 현재 참가자 ${entryCount}명`)], ephemeral: true });
+
+  const raffle = await prisma.raffleEvent.findUnique({ where: { id: raffleId }, include: { tier: true } });
+  if (raffle?.messageId && interaction.channel && "messages" in interaction.channel) {
+    const msg = await interaction.channel.messages.fetch(raffle.messageId).catch(() => null);
+    if (msg) await msg.edit({ embeds: [raffleEventEmbed(raffle, entryCount)] }).catch(() => {});
+  }
+}
+
 export async function handleButtonInteraction(interaction: ButtonInteraction) {
   const [ns, a, b] = interaction.customId.split(":");
 
@@ -250,6 +280,7 @@ export async function handleButtonInteraction(interaction: ButtonInteraction) {
   if (ns === "topup") return handleTopUpAction(interaction, a as "approve" | "reject", b);
   if (ns === "refund") return handleRefundAction(interaction, a as "approve" | "reject", b);
   if (ns === "inquiry" && a === "answer") return showAnswerModal(interaction, b);
+  if (ns === "raffle" && a === "enter") return handleRaffleEnter(interaction, b);
   if (ns === "partner" && a === "webhook") return showPartnerWebhookModal(interaction);
   if (ns === "partner" && a === "apply") return showPartnerApplyModal(interaction);
   if (ns === "partner" && a === "manage") return handlePartnerManage(interaction);

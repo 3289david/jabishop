@@ -31,7 +31,8 @@ import { partnerListCommand, partnerApproveCommand, partnerRejectCommand } from 
 import { couponCreateCommand, couponListAdminCommand, couponIssueCommand } from "@/bot/commands/adminCoupons";
 import { inquiryListAdminCommand, inquiryAnswerCommand } from "@/bot/commands/adminInquiries";
 import { reportListAdminCommand, reportResolveCommand } from "@/bot/commands/adminReports";
-import { broadcastCommand } from "@/bot/commands/adminNotify";
+import { broadcastCommand, channelAnnounceCommand } from "@/bot/commands/adminNotify";
+import { eventCreateCommand, eventDrawCommand } from "@/bot/commands/adminEvents";
 import { statsCommand } from "@/bot/commands/adminStats";
 import { settingsViewCommand, settingsUpdateCommand, purgeSeedDataCommand } from "@/bot/commands/adminSettings";
 import { memberViewCommand, memberStatusCommand, memberPointAdjustCommand } from "@/bot/commands/adminMembers";
@@ -102,6 +103,9 @@ export const commands: BotCommand[] = [
   reportListAdminCommand,
   reportResolveCommand,
   broadcastCommand,
+  channelAnnounceCommand,
+  eventCreateCommand,
+  eventDrawCommand,
   statsCommand,
   settingsViewCommand,
   settingsUpdateCommand,
