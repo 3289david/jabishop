@@ -2,8 +2,15 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { TIER_STATUS, ARTWORK_STATUS, ORDER_STATUS } from "@/lib/constants";
 
-export default async function HomePage() {
-  const [tiers, memberCount, buyerCount] = await Promise.all([
+const UNCATEGORIZED_LABEL = "기타";
+
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ category?: string }>;
+}) {
+  const sp = await searchParams;
+  const [allTiers, memberCount, buyerCount] = await Promise.all([
     prisma.tier.findMany({
       where: { status: { not: TIER_STATUS.HIDDEN } },
       orderBy: { sortOrder: "asc" },
@@ -18,6 +25,10 @@ export default async function HomePage() {
       })
       .then((rows) => rows.length),
   ]);
+
+  const categories = Array.from(new Set(allTiers.map((t) => t.category || UNCATEGORIZED_LABEL))).sort();
+  const activeCategory = sp.category;
+  const tiers = activeCategory ? allTiers.filter((t) => (t.category || UNCATEGORIZED_LABEL) === activeCategory) : allTiers;
 
   return (
     <div>
@@ -35,6 +46,30 @@ export default async function HomePage() {
           </span>
         </div>
       </section>
+
+      {categories.length > 1 && (
+        <div className="flex flex-wrap gap-2 justify-center mb-6">
+          <Link
+            href="/"
+            className={`text-sm px-4 py-1.5 rounded-full border ${
+              !activeCategory ? "bg-neutral-900 text-white border-neutral-900" : "border-neutral-300 text-neutral-600 hover:bg-neutral-50"
+            }`}
+          >
+            전체
+          </Link>
+          {categories.map((c) => (
+            <Link
+              key={c}
+              href={`/?category=${encodeURIComponent(c)}`}
+              className={`text-sm px-4 py-1.5 rounded-full border ${
+                activeCategory === c ? "bg-neutral-900 text-white border-neutral-900" : "border-neutral-300 text-neutral-600 hover:bg-neutral-50"
+              }`}
+            >
+              {c}
+            </Link>
+          ))}
+        </div>
+      )}
 
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {tiers.map((tier) => {
@@ -64,7 +99,7 @@ export default async function HomePage() {
         })}
         {tiers.length === 0 && (
           <p className="text-neutral-400 col-span-full text-center py-16">
-            등록된 상품이 없습니다.
+            {activeCategory ? "이 카테고리에 상품이 없습니다." : "등록된 상품이 없습니다."}
           </p>
         )}
       </section>

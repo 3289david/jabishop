@@ -41,6 +41,15 @@ export function TierForm({ tier, stockCount }: { tier?: Tier; stockCount?: numbe
           />
         </div>
       </div>
+      <div>
+        <label className="block text-xs text-neutral-500 mb-1">카테고리 (비우면 기타)</label>
+        <input
+          name="category"
+          defaultValue={tier?.category ?? undefined}
+          placeholder="예: 스킨, 프리미엄"
+          className="w-full border rounded-md px-3 py-2 text-sm"
+        />
+      </div>
       {tier && (
         <p className="text-xs text-neutral-500">
           현재 재고: <span className="font-medium text-neutral-700">{stockCount ?? 0}개</span> (실제 등록된 계정

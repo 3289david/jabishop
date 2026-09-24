@@ -24,6 +24,7 @@ export async function createTierAction(_prev: ActionState, formData: FormData): 
   const purchaseLimitPerUser = formData.get("purchaseLimitPerUser")
     ? Number(formData.get("purchaseLimitPerUser"))
     : null;
+  const category = String(formData.get("category") || "").trim() || null;
 
   if (!name || price <= 0) {
     return { error: "입력값을 확인해주세요 (이름 / 가격)." };
@@ -35,7 +36,7 @@ export async function createTierAction(_prev: ActionState, formData: FormData): 
   if (exists) slug = `${slug}-${Date.now().toString().slice(-5)}`;
 
   const tier = await prisma.tier.create({
-    data: { slug, name, price, description, purchaseLimitPerUser },
+    data: { slug, name, price, description, purchaseLimitPerUser, category },
   });
   await logAdminActivity(admin.id, "TIER_CREATE", tier.id, name);
   revalidatePath("/admin/products");
@@ -52,6 +53,7 @@ export async function updateTierAction(_prev: ActionState, formData: FormData): 
   const purchaseLimitPerUser = formData.get("purchaseLimitPerUser")
     ? Number(formData.get("purchaseLimitPerUser"))
     : null;
+  const category = String(formData.get("category") || "").trim() || null;
 
   if (!name || price <= 0) {
     return { error: "입력값을 확인해주세요 (이름 / 가격)." };
@@ -59,7 +61,7 @@ export async function updateTierAction(_prev: ActionState, formData: FormData): 
 
   await prisma.tier.update({
     where: { id },
-    data: { name, price, description, status, purchaseLimitPerUser },
+    data: { name, price, description, status, purchaseLimitPerUser, category },
   });
   await logAdminActivity(admin.id, "TIER_UPDATE", id, `${name} / ${status}`);
   revalidatePath("/admin/products");
@@ -104,6 +106,7 @@ export async function duplicateAllTiersAction() {
         price: t.price,
         description: t.description,
         purchaseLimitPerUser: t.purchaseLimitPerUser,
+        category: t.category,
         status: "HIDDEN",
         sortOrder: t.sortOrder,
       },
