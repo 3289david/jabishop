@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireLinkedAdmin } from "@/bot/discordAuth";
 import { errorEmbed, successEmbed } from "@/bot/format";
 import { repostSticky } from "@/bot/stickyMessage";
+import { STICKY_KIND } from "@/lib/constants";
 import type { BotCommand } from "@/bot/types";
 
 const HEX_COLOR_RE = /^#?[0-9a-fA-F]{6}$/;
@@ -41,13 +42,14 @@ export const stickySetCommand: BotCommand = {
     await prisma.stickyMessage.upsert({
       where: { channelId: channel.id },
       update: {
+        kind: STICKY_KIND.CUSTOM,
         content,
         createdByAdminId: admin.id,
         ...(title != null ? { title } : {}),
         ...(imageUrl != null ? { imageUrl } : {}),
         ...(colorInput != null ? { color } : {}),
       },
-      create: { channelId: channel.id, title, content, imageUrl, color, createdByAdminId: admin.id },
+      create: { channelId: channel.id, kind: STICKY_KIND.CUSTOM, title, content, imageUrl, color, createdByAdminId: admin.id },
     });
 
     const sent = await repostSticky(channel.id, channel);

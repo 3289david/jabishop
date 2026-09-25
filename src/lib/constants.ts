@@ -79,6 +79,11 @@ export const PARTNER_STATUS = {
   REJECTED: "REJECTED",
 } as const;
 
+export const STICKY_KIND = {
+  CUSTOM: "CUSTOM",
+  ADMIN_PANEL: "ADMIN_PANEL",
+} as const;
+
 export const RAFFLE_STATUS = {
   OPEN: "OPEN",
   DRAWN: "DRAWN",

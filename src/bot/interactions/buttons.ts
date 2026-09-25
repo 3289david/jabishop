@@ -183,7 +183,10 @@ async function handleCartCheckout(interaction: ButtonInteraction) {
 
 async function handleAdminSection(interaction: ButtonInteraction, section: string) {
   await requireLinkedAdmin(interaction.user.id);
-  await interaction.deferUpdate();
+  // 관리자 패널이 이제 채널에 고정되어 모두에게 보이는 메시지라, 여기서 editReply로
+  // 원본을 고쳐버리면 다른 관리자들이 보는 패널까지 함께 바뀐다. 그래서 클릭한
+  // 관리자에게만 보이는 새 ephemeral 응답으로 대신한다 (패널 자체는 그대로 유지).
+  await interaction.deferReply({ ephemeral: true });
 
   if (section === "topups") {
     const { embed, rows } = await pendingTopUpsPayload();

@@ -1,6 +1,8 @@
 import { EmbedBuilder, type Message, type TextBasedChannel } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { BRAND_COLOR } from "@/bot/format";
+import { STICKY_KIND } from "@/lib/constants";
+import { adminPanelEmbed, adminPanelRows } from "@/bot/panels";
 import type { StickyMessage } from "@prisma/client";
 
 // 채널에 새 메시지가 올라올 때마다 고정 메시지를 지우고 다시 올려서, 항상 채널
@@ -32,7 +34,13 @@ export async function repostSticky(channelId: string, channel: TextBasedChannel)
     if (old) await old.delete().catch(() => {});
   }
 
-  const sent = await channel.send({ embeds: [buildStickyEmbed(sticky)] });
+  // ADMIN_PANEL은 저장된 content가 아니라 매번 최신 관리자 패널(버튼 포함)을 새로 만들어 올린다.
+  const payload =
+    sticky.kind === STICKY_KIND.ADMIN_PANEL
+      ? { embeds: [adminPanelEmbed()], components: adminPanelRows() }
+      : { embeds: [buildStickyEmbed(sticky)] };
+
+  const sent = await channel.send(payload);
   await prisma.stickyMessage.update({ where: { channelId }, data: { messageId: sent.id } });
   return sent;
 }

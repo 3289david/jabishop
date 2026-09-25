@@ -507,16 +507,19 @@ model RaffleWinner {
 // 특정 채널에서 새 메시지가 올라올 때마다 이전 게시물을 지우고 다시 올려서, 항상
 // 채널 맨 아래(가장 최근)에 고정되어 있는 것처럼 보이게 하는 메시지.
 model StickyMessage {
-  id                String   @id @default(cuid())
-  channelId         String   @unique
-  title             String?
-  content           String
-  imageUrl          String?
-  color             Int?
+  id        String  @id @default(cuid())
+  channelId String  @unique
+  // CUSTOM(기본) = title/content/imageUrl/color로 만든 임베드를 고정.
+  // ADMIN_PANEL = /관리자패널의 버튼 패널 자체를 고정 (내용은 매번 새로 만들어지므로 content는 안 쓴다).
+  kind      String  @default("CUSTOM")
+  title     String?
+  content   String?
+  imageUrl  String?
+  color     Int?
   // 채널에 실제로 올라가 있는 가장 최근 복사본의 메시지 ID. 다음에 재게시할 때
   // 이 메시지를 먼저 지운다.
-  messageId         String?
-  createdByAdminId  String
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  messageId        String?
+  createdByAdminId String
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 }
