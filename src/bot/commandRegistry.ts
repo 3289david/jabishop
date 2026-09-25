@@ -33,6 +33,7 @@ import { inquiryListAdminCommand, inquiryAnswerCommand } from "@/bot/commands/ad
 import { reportListAdminCommand, reportResolveCommand } from "@/bot/commands/adminReports";
 import { broadcastCommand, channelAnnounceCommand } from "@/bot/commands/adminNotify";
 import { eventCreateCommand, eventDrawCommand } from "@/bot/commands/adminEvents";
+import { stickySetCommand, stickyClearCommand } from "@/bot/commands/adminSticky";
 import { statsCommand } from "@/bot/commands/adminStats";
 import { settingsViewCommand, settingsUpdateCommand, purgeSeedDataCommand } from "@/bot/commands/adminSettings";
 import { memberViewCommand, memberStatusCommand, memberPointAdjustCommand } from "@/bot/commands/adminMembers";
@@ -106,6 +107,8 @@ export const commands: BotCommand[] = [
   channelAnnounceCommand,
   eventCreateCommand,
   eventDrawCommand,
+  stickySetCommand,
+  stickyClearCommand,
   statsCommand,
   settingsViewCommand,
   settingsUpdateCommand,

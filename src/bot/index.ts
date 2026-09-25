@@ -21,6 +21,7 @@ import { handleSelectMenuInteraction } from "@/bot/interactions/selects";
 import { errorEmbed } from "@/bot/format";
 import { startStatsChannelLoop } from "@/bot/statsChannels";
 import { handleAutoDeleteMessage } from "@/bot/autoDeleteChannel";
+import { handleStickyMessage } from "@/bot/stickyMessage";
 import { startPartnerBroadcastLoop } from "@/bot/partnerBroadcast";
 import { startDailyStatsBroadcastLoop } from "@/bot/dailyStatsBroadcast";
 import { startRaffleAutoCloseLoop } from "@/bot/raffleAutoClose";
@@ -37,6 +38,7 @@ client.once(Events.ClientReady, (c) => {
 
 client.on(Events.MessageCreate, (message) => {
   handleAutoDeleteMessage(message).catch(() => {});
+  handleStickyMessage(message);
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
