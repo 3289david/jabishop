@@ -4,10 +4,11 @@ import { fetchGuildMemberIdsWithRole } from "@/lib/discordNotify";
 import { baseEmbed, won } from "@/bot/format";
 
 /**
- * 관리자 역할(ShopSetting.discordAdminRoleId) 보유자의 구매는 공개 통계에서 제외하기 위해,
+ * 관리자 역할(ShopSetting.discordAdminRoleId) 보유자의 구매는 매출 통계에서 제외하기 위해,
  * 그 역할을 가진 멤버들의 내부 회원(User) ID 목록을 반환한다. 역할이 설정 안 돼있으면 빈 배열.
+ * 공개 통계 패널뿐 아니라 관리자 대시보드(/통계)의 누적 매출/순이익 계산에도 똑같이 쓰인다.
  */
-async function getExcludedUserIds(discordAdminRoleId: string | null): Promise<string[]> {
+export async function getAdminExcludedUserIds(discordAdminRoleId: string | null): Promise<string[]> {
   const guildId = process.env.DISCORD_GUILD_ID;
   if (!discordAdminRoleId || !guildId) return [];
 
@@ -21,43 +22,56 @@ async function getExcludedUserIds(discordAdminRoleId: string | null): Promise<st
 /** 일반 회원도 볼 수 있는 공개 통계 임베드 - 관리자 전용 정보(환불/문의 대기 등)는 포함하지 않는다. */
 export async function publicStatsEmbed() {
   const settings = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
-  const excludedUserIds = await getExcludedUserIds(settings?.discordAdminRoleId ?? null);
+  const excludedUserIds = await getAdminExcludedUserIds(settings?.discordAdminRoleId ?? null);
 
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-  const [todayOrders, allCompletedOrders, memberCount, buyerRows, stockCount, todayAdjustments, allAdjustments] = await Promise.all([
-    prisma.order.findMany({
-      where: { createdAt: { gte: todayStart }, status: ORDER_STATUS.COMPLETED, userId: { notIn: excludedUserIds } },
-      select: { finalAmount: true },
-    }),
-    prisma.order.findMany({
-      where: { status: ORDER_STATUS.COMPLETED, userId: { notIn: excludedUserIds } },
-      select: { finalAmount: true },
-    }),
-    prisma.user.count(),
-    prisma.order.findMany({
-      where: { status: ORDER_STATUS.COMPLETED, userId: { notIn: excludedUserIds } },
-      distinct: ["userId"],
-      select: { userId: true },
-    }),
-    prisma.artwork.count({ where: { status: ARTWORK_STATUS.AVAILABLE } }),
-    // 관리자가 /이익추가로 수동으로 더한 매출 (오프라인 판매 등)도 오늘/누적 매출에 반영한다.
-    prisma.manualRevenueAdjustment.findMany({ where: { createdAt: { gte: todayStart } }, select: { amount: true } }),
-    prisma.manualRevenueAdjustment.findMany({ select: { amount: true } }),
-  ]);
+  const [todayOrders, allCompletedOrders, memberCount, buyerRows, stockCount, todayRevAdj, allRevAdj, todayCostAdj, allCostAdj] =
+    await Promise.all([
+      prisma.order.findMany({
+        where: { createdAt: { gte: todayStart }, status: ORDER_STATUS.COMPLETED, userId: { notIn: excludedUserIds } },
+        select: { finalAmount: true, tier: { select: { costPrice: true } } },
+      }),
+      prisma.order.findMany({
+        where: { status: ORDER_STATUS.COMPLETED, userId: { notIn: excludedUserIds } },
+        select: { finalAmount: true, tier: { select: { costPrice: true } } },
+      }),
+      prisma.user.count(),
+      prisma.order.findMany({
+        where: { status: ORDER_STATUS.COMPLETED, userId: { notIn: excludedUserIds } },
+        distinct: ["userId"],
+        select: { userId: true },
+      }),
+      prisma.artwork.count({ where: { status: ARTWORK_STATUS.AVAILABLE } }),
+      // 관리자가 /이익추가·/원가추가로 수동으로 더한 매출/원가 (오프라인 판매 등)도 오늘/누적에 반영한다.
+      prisma.manualRevenueAdjustment.findMany({ where: { createdAt: { gte: todayStart } }, select: { amount: true } }),
+      prisma.manualRevenueAdjustment.findMany({ select: { amount: true } }),
+      prisma.manualCostAdjustment.findMany({ where: { createdAt: { gte: todayStart } }, select: { amount: true } }),
+      prisma.manualCostAdjustment.findMany({ select: { amount: true } }),
+    ]);
 
   const todayRevenue =
-    todayOrders.reduce((sum, o) => sum + o.finalAmount, 0) + todayAdjustments.reduce((sum, a) => sum + a.amount, 0);
+    todayOrders.reduce((sum, o) => sum + o.finalAmount, 0) + todayRevAdj.reduce((sum, a) => sum + a.amount, 0);
   const totalRevenue =
-    allCompletedOrders.reduce((sum, o) => sum + o.finalAmount, 0) + allAdjustments.reduce((sum, a) => sum + a.amount, 0);
+    allCompletedOrders.reduce((sum, o) => sum + o.finalAmount, 0) + allRevAdj.reduce((sum, a) => sum + a.amount, 0);
+
+  const todayCost =
+    todayOrders.reduce((sum, o) => sum + (o.tier.costPrice ?? 0), 0) + todayCostAdj.reduce((sum, a) => sum + a.amount, 0);
+  const totalCost =
+    allCompletedOrders.reduce((sum, o) => sum + (o.tier.costPrice ?? 0), 0) + allCostAdj.reduce((sum, a) => sum + a.amount, 0);
+
+  const todayProfit = todayRevenue - todayCost;
+  const totalProfit = totalRevenue - totalCost;
 
   return baseEmbed("📊 자비샵 실시간 현황")
     .setDescription("자비샵의 오늘/누적 판매 현황이에요. 몇 분마다 자동으로 갱신됩니다.")
     .addFields(
       { name: "💰 오늘 매출", value: won(todayRevenue), inline: true },
       { name: "🧾 오늘 판매", value: `${todayOrders.length}건`, inline: true },
+      { name: todayProfit >= 0 ? "🟢 오늘 순이익" : "🔴 오늘 적자", value: won(todayProfit), inline: true },
       { name: "🏆 누적 매출", value: won(totalRevenue), inline: true },
+      { name: totalProfit >= 0 ? "🟢 누적 순이익" : "🔴 누적 적자", value: won(totalProfit), inline: true },
       { name: "👥 회원 수", value: `${memberCount.toLocaleString()}명`, inline: true },
       { name: "🛍️ 구매자 수", value: `${buyerRows.length.toLocaleString()}명`, inline: true },
       { name: "📦 판매 중인 계정", value: `${stockCount.toLocaleString()}개`, inline: true }

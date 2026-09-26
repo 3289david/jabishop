@@ -42,6 +42,15 @@ export function TierForm({ tier, stockCount }: { tier?: Tier; stockCount?: numbe
         </div>
       </div>
       <div>
+        <label className="block text-xs text-neutral-500 mb-1">계정 1개당 원가 (비우면 0, 순이익/적자 계산용)</label>
+        <input
+          name="costPrice"
+          type="number"
+          defaultValue={tier?.costPrice ?? undefined}
+          className="w-full border rounded-md px-3 py-2 text-sm"
+        />
+      </div>
+      <div>
         <label className="block text-xs text-neutral-500 mb-1">카테고리 (비우면 기타)</label>
         <input
           name="category"

@@ -128,6 +128,8 @@ model Tier {
   sortOrder            Int      @default(0)
   // 구매하기 패널에서 카테고리별로 나눠 보여주기 위한 분류. 비어있으면 "기타"로 묶인다.
   category             String?
+  // 이 등급 계정 1개를 확보하는 데 든 원가. 관리자 대시보드에서 순이익/적자 계산에 쓰인다.
+  costPrice            Int?
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
@@ -450,6 +452,16 @@ model ShopSetting {
 // 관리자가 /이익추가로 수동으로 더한 매출. 실제 주문(Order)이 아닌 오프라인 판매 등을
 // 통계(오늘/누적 매출)에 반영하기 위한 용도.
 model ManualRevenueAdjustment {
+  id               String   @id @default(cuid())
+  amount           Int
+  memo             String?
+  createdByAdminId String
+  createdAt        DateTime @default(now())
+}
+
+// 관리자가 /원가추가로 수동으로 더한 원가 (등급에 안 걸린 서버비/외주비 등).
+// 등급별 원가(Tier.costPrice)와 합쳐서 관리자 대시보드의 순이익/적자를 계산한다.
+model ManualCostAdjustment {
   id               String   @id @default(cuid())
   amount           Int
   memo             String?
