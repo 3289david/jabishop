@@ -330,41 +330,6 @@ export async function addGuildMemberRole(guildId: string, discordUserId: string,
   }
 }
 
-/** 길드에서 특정 역할을 가진 멤버들의 디스코드 ID 목록을 가져온다 (최대 20,000명까지 페이지네이션). */
-export async function fetchGuildMemberIdsWithRole(guildId: string, roleId: string): Promise<string[]> {
-  const token = process.env.DISCORD_BOT_TOKEN;
-  if (!token) return [];
-
-  const ids: string[] = [];
-  let after: string | undefined;
-  const MAX_PAGES = 20;
-
-  try {
-    for (let page = 0; page < MAX_PAGES; page++) {
-      const url = new URL(`${API_BASE}/guilds/${guildId}/members`);
-      url.searchParams.set("limit", "1000");
-      if (after) url.searchParams.set("after", after);
-
-      const res = await fetch(url.toString(), { headers: { Authorization: `Bot ${token}` } });
-      if (!res.ok) break;
-
-      const members = (await res.json()) as { user: { id: string }; roles: string[] }[];
-      if (members.length === 0) break;
-
-      for (const m of members) {
-        if (m.roles.includes(roleId)) ids.push(m.user.id);
-      }
-
-      if (members.length < 1000) break;
-      after = members[members.length - 1].user.id;
-    }
-  } catch {
-    // 조회 실패 시 빈 배열 - 제외 대상이 없는 것으로 간주해 통계 자체는 계속 보여준다.
-  }
-
-  return ids;
-}
-
 /** 디스코드 웹훅 URL로 텍스트 메시지를 보낸다 (봇 토큰 불필요 - 웹훅 자체가 인증 수단). */
 export async function sendWebhookMessage(webhookUrl: string, content: string): Promise<boolean> {
   try {

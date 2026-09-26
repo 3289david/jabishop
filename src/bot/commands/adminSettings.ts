@@ -44,10 +44,7 @@ export const settingsViewCommand: BotCommand = {
       },
       {
         name: "공개 통계 패널",
-        value: [
-          `채널: ${s?.publicStatsChannelId ? `<#${s.publicStatsChannelId}>` : "미설정"} (5분마다 자동 갱신)`,
-          `매출 집계 제외 역할: ${s?.discordAdminRoleId ? `<@&${s.discordAdminRoleId}>` : "미설정"}`,
-        ].join("\n"),
+        value: `채널: ${s?.publicStatsChannelId ? `<#${s.publicStatsChannelId}>` : "미설정"} (5분마다 자동 갱신, 최고관리자 구매는 매출 집계에서 자동 제외)`,
       }
     );
     await interaction.reply({ embeds: [embed], ephemeral: true });
@@ -87,9 +84,6 @@ export const settingsUpdateCommand: BotCommand = {
         .setName("공지채널")
         .setDescription("매일 1회 오늘 매출/주문/재고/회원/환불/문의 통계를 자동 게시할 채널")
         .addChannelTypes(ChannelType.GuildText)
-    )
-    .addRoleOption((o) =>
-      o.setName("관리자통계제외역할").setDescription("이 역할을 가진 사람의 구매는 공개 통계 패널의 매출/판매건수에서 제외")
     ),
   async execute(interaction) {
     const admin = await requireLinkedAdmin(interaction.user.id);
@@ -111,7 +105,6 @@ export const settingsUpdateCommand: BotCommand = {
     const partnerRole = interaction.options.getRole("파트너역할");
     const partnerDailyMessage = interaction.options.getString("파트너일일문구");
     const announcementChannel = interaction.options.getChannel("공지채널");
-    const adminStatsExcludeRole = interaction.options.getRole("관리자통계제외역할");
 
     await prisma.shopSetting.upsert({
       where: { id: "singleton" },
@@ -132,7 +125,6 @@ export const settingsUpdateCommand: BotCommand = {
         ...(partnerRole ? { partnerRoleId: partnerRole.id } : {}),
         ...(partnerDailyMessage != null ? { partnerDailyMessage } : {}),
         ...(announcementChannel ? { announcementChannelId: announcementChannel.id } : {}),
-        ...(adminStatsExcludeRole ? { discordAdminRoleId: adminStatsExcludeRole.id } : {}),
       },
       create: {
         id: "singleton",
@@ -152,7 +144,6 @@ export const settingsUpdateCommand: BotCommand = {
         partnerRoleId: partnerRole?.id,
         partnerDailyMessage,
         announcementChannelId: announcementChannel?.id,
-        discordAdminRoleId: adminStatsExcludeRole?.id,
       },
     });
     await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "SETTINGS_UPDATE" } });

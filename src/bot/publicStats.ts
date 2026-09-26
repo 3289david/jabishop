@@ -1,18 +1,18 @@
 import { prisma } from "@/lib/prisma";
-import { ORDER_STATUS, ARTWORK_STATUS } from "@/lib/constants";
-import { fetchGuildMemberIdsWithRole } from "@/lib/discordNotify";
+import { ORDER_STATUS, ARTWORK_STATUS, ADMIN_ROLE, ADMIN_STATUS } from "@/lib/constants";
 import { baseEmbed, won } from "@/bot/format";
 
 /**
- * 관리자 역할(ShopSetting.discordAdminRoleId) 보유자의 구매는 매출 통계에서 제외하기 위해,
- * 그 역할을 가진 멤버들의 내부 회원(User) ID 목록을 반환한다. 역할이 설정 안 돼있으면 빈 배열.
+ * 최고관리자(AdminUser.role === SUPER, 연동된 계정)의 구매는 매출 통계에서 제외하기 위해,
+ * 그 계정들의 내부 회원(User) ID 목록을 반환한다. 최고관리자가 없으면 빈 배열.
  * 공개 통계 패널뿐 아니라 관리자 대시보드(/통계)의 누적 매출/순이익 계산에도 똑같이 쓰인다.
  */
-export async function getAdminExcludedUserIds(discordAdminRoleId: string | null): Promise<string[]> {
-  const guildId = process.env.DISCORD_GUILD_ID;
-  if (!discordAdminRoleId || !guildId) return [];
-
-  const discordIds = await fetchGuildMemberIdsWithRole(guildId, discordAdminRoleId);
+export async function getAdminExcludedUserIds(): Promise<string[]> {
+  const superAdmins = await prisma.adminUser.findMany({
+    where: { role: ADMIN_ROLE.SUPER, status: ADMIN_STATUS.ACTIVE, discordId: { not: null } },
+    select: { discordId: true },
+  });
+  const discordIds = superAdmins.map((a) => a.discordId).filter((id): id is string => !!id);
   if (discordIds.length === 0) return [];
 
   const users = await prisma.user.findMany({ where: { discordId: { in: discordIds } }, select: { id: true } });
@@ -21,8 +21,7 @@ export async function getAdminExcludedUserIds(discordAdminRoleId: string | null)
 
 /** 일반 회원도 볼 수 있는 공개 통계 임베드 - 관리자 전용 정보(환불/문의 대기 등)는 포함하지 않는다. */
 export async function publicStatsEmbed() {
-  const settings = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
-  const excludedUserIds = await getAdminExcludedUserIds(settings?.discordAdminRoleId ?? null);
+  const excludedUserIds = await getAdminExcludedUserIds();
 
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());

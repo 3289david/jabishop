@@ -11,10 +11,9 @@ export async function statsEmbed() {
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-  const settings = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
-  // 관리자 역할 보유자의 구매는 매출/원가/순이익 집계에서 제외한다 (공개 통계 패널과 동일한 기준,
-  // 과거 주문 포함 - 언제 결제했든 지금 그 역할을 가진 사람이면 전부 제외).
-  const excludedUserIds = await getAdminExcludedUserIds(settings?.discordAdminRoleId ?? null);
+  // 최고관리자(SUPER) 계정의 구매는 매출/원가/순이익 집계에서 제외한다 (공개 통계 패널과 동일한
+  // 기준, 과거 주문 포함 - 언제 결제했든 지금 SUPER 권한이면 전부 제외).
+  const excludedUserIds = await getAdminExcludedUserIds();
 
   const [todayOrders, stockCount, memberCount, pendingRefunds, waitingInquiries, todayRevenueOrders, allRevenueOrders, todayCostAdj, allCostAdj] =
     await Promise.all([
