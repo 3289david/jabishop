@@ -179,8 +179,11 @@ export const artworkGrantCommand: BotCommand = {
       await prisma.adminActivityLog.create({
         data: { adminId: admin.id, action: "ARTWORK_GRANT", target: order.id, detail: `${tier.name} → ${target.tag}` },
       });
+      const dmWarning = order.dmSent
+        ? ""
+        : "\n⚠️ DM 발송에 실패했습니다 (서버 멤버 DM 허용을 꺼뒀거나 봇을 차단한 것 같습니다). 마이페이지 주문내역에서 직접 확인하도록 안내해주세요.";
       await interaction.editReply({
-        embeds: [successEmbed(`${target.username}님에게 "${tier.name}" 계정을 지급했습니다. (주문 #${order.orderNo})`)],
+        embeds: [successEmbed(`${target.username}님에게 "${tier.name}" 계정을 지급했습니다. (주문 #${order.orderNo})${dmWarning}`)],
       });
     } catch (e) {
       const message = e instanceof OrderError ? e.message : "지급 중 오류가 발생했습니다.";

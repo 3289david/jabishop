@@ -32,17 +32,27 @@ async function openDmChannel(token: string, discordId: string): Promise<string |
   return channel.id;
 }
 
+/**
+ * DM 발송을 시도하고 성공 여부를 반환한다. 사용자가 "서버 멤버의 DM 허용"을 꺼두었거나
+ * 봇을 차단한 경우 디스코드가 메시지 전송 자체를 거부하는데(403 등), 예전에는 이걸
+ * 조용히 무시해서 "일부 회원에게만 DM이 안 온다"는 게 서버 로그에도 전혀 안 남는
+ * 문제가 있었다. 이제는 실패를 로그로 남기고 호출한 쪽에 boolean으로 알려줘서,
+ * 관리자 지급처럼 DM이 유일한 통지 수단인 곳에서 실패를 인지하고 안내할 수 있게 한다.
+ */
 export async function sendDiscordDM(
   discordId: string,
   payload: { content?: string; embeds?: SimpleEmbed[] },
   attachment?: { buffer: Buffer; fileName: string }
-): Promise<void> {
+): Promise<boolean> {
   const token = process.env.DISCORD_BOT_TOKEN;
-  if (!token) return;
+  if (!token) return false;
 
   try {
     const channelId = await openDmChannel(token, discordId);
-    if (!channelId) return;
+    if (!channelId) {
+      console.warn(`디스코드 DM 채널 생성 실패 (user=${discordId}) - DM을 차단했거나 서버 공유가 없을 수 있습니다.`);
+      return false;
+    }
 
     let body: BodyInit;
     let headers: Record<string, string>;
@@ -61,9 +71,15 @@ export async function sendDiscordDM(
       headers = { Authorization: `Bot ${token}`, "Content-Type": "application/json" };
     }
 
-    await fetch(`${API_BASE}/channels/${channelId}/messages`, { method: "POST", headers, body });
-  } catch {
-    // 네트워크 오류 등은 무시 - DM은 부가 기능이지 핵심 트랜잭션이 아니다.
+    const res = await fetch(`${API_BASE}/channels/${channelId}/messages`, { method: "POST", headers, body });
+    if (!res.ok) {
+      console.warn(`디스코드 DM 발송 실패 (user=${discordId}, status=${res.status}) - 서버 멤버 DM 허용을 꺼뒀거나 봇을 차단했을 수 있습니다.`);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.warn(`디스코드 DM 발송 중 오류 (user=${discordId}):`, e);
+    return false;
   }
 }
 
@@ -158,9 +174,9 @@ export async function notifyPurchaseByDM(
   userId: string,
   orderId?: string,
   override?: { title?: string; description?: string }
-) {
+): Promise<boolean> {
   const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user?.discordId) return;
+  if (!user?.discordId) return false;
 
   const order = orderId
     ? await prisma.order.findUnique({ where: { id: orderId }, include: { tier: true, artwork: true } })
@@ -169,7 +185,7 @@ export async function notifyPurchaseByDM(
         orderBy: { createdAt: "desc" },
         include: { tier: true, artwork: true },
       });
-  if (!order || !order.artwork) return;
+  if (!order || !order.artwork) return false;
 
   const mypageUrl = `${getAppOrigin()}/mypage/orders/${order.id}`;
 
@@ -189,16 +205,15 @@ export async function notifyPurchaseByDM(
   if (!isUploadKey(order.artwork.fileKey)) {
     // 파일 업로드가 아니라 텍스트/링크로 등록된 재고 - 그 내용 자체가 지급물이다.
     embed.fields!.push({ name: "지급 내용", value: order.artwork.fileKey });
-    await sendDiscordDM(user.discordId, { embeds: [embed] });
-    return;
+    return sendDiscordDM(user.discordId, { embeds: [embed] });
   }
 
   try {
     const buffer = await readUploadedFile(order.artwork.fileKey);
     const ext = order.artwork.fileKey.split(".").pop() || "png";
-    await sendDiscordDM(user.discordId, { embeds: [embed] }, { buffer, fileName: `${order.artwork.code}.${ext}` });
+    return await sendDiscordDM(user.discordId, { embeds: [embed] }, { buffer, fileName: `${order.artwork.code}.${ext}` });
   } catch {
-    await sendDiscordDM(user.discordId, { embeds: [embed] });
+    return sendDiscordDM(user.discordId, { embeds: [embed] });
   }
 }
 

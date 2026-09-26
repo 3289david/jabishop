@@ -276,12 +276,12 @@ export async function grantArtworkToUser(params: { tierId: string; userId: strin
     return completedOrder;
   });
 
-  notifyPurchaseByDM(userId, completedOrder.id, {
+  const dmSent = await notifyPurchaseByDM(userId, completedOrder.id, {
     title: "🎁 계정 지급 완료",
     description: `**${completedOrder.tier.name}** 계정이 관리자에 의해 지급되었습니다.`,
-  }).catch(() => {});
+  }).catch(() => false);
 
-  return completedOrder;
+  return { ...completedOrder, dmSent };
 }
 
 /**
@@ -348,14 +348,14 @@ export async function exchangeOrderArtwork(orderId: string) {
     return { oldArtwork, newArtwork, tierName: order.tier.name, userId: order.userId, orderNo: order.orderNo };
   });
 
-  if (result.userId) {
-    notifyPurchaseByDM(result.userId, orderId, {
-      title: "🔄 계정 교환 완료",
-      description: `**${result.tierName}** 계정이 새로 교환되어 재발송되었습니다.`,
-    }).catch(() => {});
-  }
+  const dmSent = result.userId
+    ? await notifyPurchaseByDM(result.userId, orderId, {
+        title: "🔄 계정 교환 완료",
+        description: `**${result.tierName}** 계정이 새로 교환되어 재발송되었습니다.`,
+      }).catch(() => false)
+    : false;
 
-  return result;
+  return { ...result, dmSent };
 }
 
 export async function cancelExpiredReservations() {
