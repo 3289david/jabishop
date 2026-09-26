@@ -447,6 +447,16 @@ model ShopSetting {
   discordAdminRoleId   String?
 }
 
+// 관리자가 /이익추가로 수동으로 더한 매출. 실제 주문(Order)이 아닌 오프라인 판매 등을
+// 통계(오늘/누적 매출)에 반영하기 위한 용도.
+model ManualRevenueAdjustment {
+  id               String   @id @default(cuid())
+  amount           Int
+  memo             String?
+  createdByAdminId String
+  createdAt        DateTime @default(now())
+}
+
 model Notification {
   id        String   @id @default(cuid())
   userId    String?

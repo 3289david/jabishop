@@ -26,7 +26,7 @@ export async function publicStatsEmbed() {
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-  const [todayOrders, allCompletedOrders, memberCount, buyerRows, stockCount] = await Promise.all([
+  const [todayOrders, allCompletedOrders, memberCount, buyerRows, stockCount, todayAdjustments, allAdjustments] = await Promise.all([
     prisma.order.findMany({
       where: { createdAt: { gte: todayStart }, status: ORDER_STATUS.COMPLETED, userId: { notIn: excludedUserIds } },
       select: { finalAmount: true },
@@ -42,10 +42,15 @@ export async function publicStatsEmbed() {
       select: { userId: true },
     }),
     prisma.artwork.count({ where: { status: ARTWORK_STATUS.AVAILABLE } }),
+    // 관리자가 /이익추가로 수동으로 더한 매출 (오프라인 판매 등)도 오늘/누적 매출에 반영한다.
+    prisma.manualRevenueAdjustment.findMany({ where: { createdAt: { gte: todayStart } }, select: { amount: true } }),
+    prisma.manualRevenueAdjustment.findMany({ select: { amount: true } }),
   ]);
 
-  const todayRevenue = todayOrders.reduce((sum, o) => sum + o.finalAmount, 0);
-  const totalRevenue = allCompletedOrders.reduce((sum, o) => sum + o.finalAmount, 0);
+  const todayRevenue =
+    todayOrders.reduce((sum, o) => sum + o.finalAmount, 0) + todayAdjustments.reduce((sum, a) => sum + a.amount, 0);
+  const totalRevenue =
+    allCompletedOrders.reduce((sum, o) => sum + o.finalAmount, 0) + allAdjustments.reduce((sum, a) => sum + a.amount, 0);
 
   return baseEmbed("📊 자비샵 실시간 현황")
     .setDescription("자비샵의 오늘/누적 판매 현황이에요. 몇 분마다 자동으로 갱신됩니다.")

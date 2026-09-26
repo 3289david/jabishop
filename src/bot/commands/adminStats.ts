@@ -4,6 +4,7 @@ import { requireLinkedAdmin } from "@/bot/discordAuth";
 import { baseEmbed, won, errorEmbed, successEmbed } from "@/bot/format";
 import { ORDER_STATUS, ARTWORK_STATUS, REFUND_STATUS, INQUIRY_STATUS } from "@/lib/constants";
 import { publicStatsEmbed } from "@/bot/publicStats";
+import { updatePublicStatsPanel } from "@/bot/publicStatsLoop";
 import type { BotCommand } from "@/bot/types";
 
 export async function statsEmbed() {
@@ -77,6 +78,35 @@ export const publicStatsPanelCommand: BotCommand = {
     await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "PUBLIC_STATS_PANEL_SET", target: channel.id } });
     await interaction.editReply({
       embeds: [successEmbed(`<#${channel.id}> 채널에 공개 통계 패널을 게시했습니다. 5분마다 자동으로 갱신됩니다.`)],
+    });
+  },
+};
+
+export const revenueAddCommand: BotCommand = {
+  data: new SlashCommandBuilder()
+    .setName("이익추가")
+    .setDescription("[관리자] 오프라인 판매 등 실제 주문이 아닌 금액을 매출 통계에 수동으로 더합니다.")
+    .addIntegerOption((o) => o.setName("금액").setDescription("더할 금액(원). 취소하려면 음수 입력").setRequired(true))
+    .addStringOption((o) => o.setName("메모").setDescription("어떤 이익인지 메모 (선택)")),
+  async execute(interaction) {
+    const admin = await requireLinkedAdmin(interaction.user.id);
+    const amount = interaction.options.getInteger("금액", true);
+    const memo = interaction.options.getString("메모") ?? undefined;
+    await interaction.deferReply({ ephemeral: true });
+
+    if (amount === 0) {
+      return interaction.editReply({ embeds: [errorEmbed("0원은 추가할 수 없습니다.")] });
+    }
+
+    await prisma.manualRevenueAdjustment.create({ data: { amount, memo, createdByAdminId: admin.id } });
+    await prisma.adminActivityLog.create({
+      data: { adminId: admin.id, action: "REVENUE_ADD", detail: `${amount.toLocaleString()}원${memo ? ` (${memo})` : ""}` },
+    });
+
+    await updatePublicStatsPanel(interaction.client).catch(() => {});
+
+    await interaction.editReply({
+      embeds: [successEmbed(`매출 통계에 ${amount.toLocaleString()}원을 추가했습니다.${memo ? ` (메모: ${memo})` : ""}`)],
     });
   },
 };
