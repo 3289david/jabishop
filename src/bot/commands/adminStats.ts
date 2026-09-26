@@ -1,8 +1,9 @@
-import { SlashCommandBuilder } from "discord.js";
+import { SlashCommandBuilder, ChannelType } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { requireLinkedAdmin } from "@/bot/discordAuth";
-import { baseEmbed, won } from "@/bot/format";
+import { baseEmbed, won, errorEmbed, successEmbed } from "@/bot/format";
 import { ORDER_STATUS, ARTWORK_STATUS, REFUND_STATUS, INQUIRY_STATUS } from "@/lib/constants";
+import { publicStatsEmbed } from "@/bot/publicStats";
 import type { BotCommand } from "@/bot/types";
 
 export async function statsEmbed() {
@@ -37,5 +38,45 @@ export const statsCommand: BotCommand = {
     await requireLinkedAdmin(interaction.user.id);
     const embed = await statsEmbed();
     await interaction.reply({ embeds: [embed], ephemeral: true });
+  },
+};
+
+export const publicStatsPanelCommand: BotCommand = {
+  data: new SlashCommandBuilder()
+    .setName("공개통계패널")
+    .setDescription("[관리자] 일반 회원도 볼 수 있는 실시간 매출/현황 패널을 채널에 올립니다 (자동 갱신).")
+    .addChannelOption((o) =>
+      o.setName("채널").setDescription("패널을 게시할 채널").setRequired(true).addChannelTypes(ChannelType.GuildText)
+    ),
+  async execute(interaction) {
+    const admin = await requireLinkedAdmin(interaction.user.id);
+    await interaction.deferReply({ ephemeral: true });
+
+    const channelOption = interaction.options.getChannel("채널", true);
+    const channel = await interaction.guild?.channels.fetch(channelOption.id).catch(() => null);
+    if (!channel || !channel.isTextBased() || !channel.isSendable()) {
+      return interaction.editReply({ embeds: [errorEmbed("텍스트 채널만 선택할 수 있습니다.")] });
+    }
+
+    const embed = await publicStatsEmbed();
+    const sent = await channel.send({ embeds: [embed] });
+
+    await prisma.shopSetting.upsert({
+      where: { id: "singleton" },
+      update: { publicStatsChannelId: channel.id, publicStatsMessageId: sent.id },
+      create: {
+        id: "singleton",
+        bankName: "",
+        bankAccountNumber: "",
+        bankAccountHolder: "",
+        publicStatsChannelId: channel.id,
+        publicStatsMessageId: sent.id,
+      },
+    });
+
+    await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "PUBLIC_STATS_PANEL_SET", target: channel.id } });
+    await interaction.editReply({
+      embeds: [successEmbed(`<#${channel.id}> 채널에 공개 통계 패널을 게시했습니다. 5분마다 자동으로 갱신됩니다.`)],
+    });
   },
 };

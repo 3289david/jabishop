@@ -34,7 +34,7 @@ import { reportListAdminCommand, reportResolveCommand } from "@/bot/commands/adm
 import { broadcastCommand, channelAnnounceCommand } from "@/bot/commands/adminNotify";
 import { eventCreateCommand, eventDrawCommand } from "@/bot/commands/adminEvents";
 import { stickySetCommand, stickyClearCommand } from "@/bot/commands/adminSticky";
-import { statsCommand } from "@/bot/commands/adminStats";
+import { statsCommand, publicStatsPanelCommand } from "@/bot/commands/adminStats";
 import { settingsViewCommand, settingsUpdateCommand, purgeSeedDataCommand } from "@/bot/commands/adminSettings";
 import { memberViewCommand, memberStatusCommand, memberPointAdjustCommand } from "@/bot/commands/adminMembers";
 import { loginLogsCommand, activityLogsCommand } from "@/bot/commands/adminSecurity";
@@ -111,6 +111,7 @@ export const commands: BotCommand[] = [
   stickySetCommand,
   stickyClearCommand,
   statsCommand,
+  publicStatsPanelCommand,
   settingsViewCommand,
   settingsUpdateCommand,
   purgeSeedDataCommand,

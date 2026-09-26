@@ -25,6 +25,7 @@ import { handleStickyMessage } from "@/bot/stickyMessage";
 import { startPartnerBroadcastLoop } from "@/bot/partnerBroadcast";
 import { startDailyStatsBroadcastLoop } from "@/bot/dailyStatsBroadcast";
 import { startRaffleAutoCloseLoop } from "@/bot/raffleAutoClose";
+import { startPublicStatsLoop } from "@/bot/publicStatsLoop";
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
 
@@ -34,6 +35,7 @@ client.once(Events.ClientReady, (c) => {
   startPartnerBroadcastLoop();
   startDailyStatsBroadcastLoop(client);
   startRaffleAutoCloseLoop(client);
+  startPublicStatsLoop(client);
 });
 
 client.on(Events.MessageCreate, (message) => {

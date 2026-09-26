@@ -439,6 +439,12 @@ model ShopSetting {
   announcementChannelId String?
   // 마지막으로 일일 통계 공지를 게시한 시각 - 봇이 재시작돼도 하루 1회를 지키기 위해 저장해둔다.
   dailyStatsLastPosted   DateTime?
+
+  // 일반 회원도 볼 수 있는 공개 통계 패널 (오늘/누적 매출 등). 몇 분마다 자동으로
+  // 메시지를 갱신한다. discordAdminRoleId를 가진 사람의 구매는 매출 집계에서 제외한다.
+  publicStatsChannelId String?
+  publicStatsMessageId String?
+  discordAdminRoleId   String?
 }
 
 model Notification {
