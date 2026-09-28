@@ -70,7 +70,7 @@ export const referralCodeCommand: BotCommand = {
       await interaction.reply({
         embeds: [
           baseEmbed("🎁 내 초대코드").setDescription(
-            `\`${code}\`\n\n친구가 처음 가입해서 이 코드를 \`/초대코드등록\`으로 입력하고 첫 구매를 완료하면\n나와 친구 모두에게 포인트가 지급됩니다.`
+            `\`${code}\`\n\n친구가 이 코드를 \`/초대코드등록\`으로 입력하면 **나는 즉시 200P**,\n친구가 첫 구매를 완료하면 **나는 800P 추가**(총 1,000P) + **친구는 500P**를 받아요!`
           ),
         ],
         ephemeral: true,
@@ -93,7 +93,11 @@ export const referralRegisterCommand: BotCommand = {
     try {
       const referrer = await linkReferral(user.id, code);
       await interaction.reply({
-        embeds: [successEmbed(`초대코드가 등록되었습니다! 첫 구매를 완료하면 ${referrer.name}님과 함께 포인트를 받습니다.`)],
+        embeds: [
+          successEmbed(
+            `초대코드가 등록되었습니다! ${referrer.name}님에게 등록 보상 200P가 지급됐어요.\n첫 구매를 완료하면 나에게 500P, ${referrer.name}님에게 800P가 추가로 지급됩니다.`
+          ),
+        ],
         ephemeral: true,
       });
     } catch (e) {

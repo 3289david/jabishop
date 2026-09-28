@@ -217,7 +217,11 @@ export async function handleReferralRegisterModalSubmit(interaction: ModalSubmit
     const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
     const referrer = await linkReferral(user.id, code);
     await interaction.editReply({
-      embeds: [successEmbed(`초대코드가 등록되었습니다! 첫 구매를 완료하면 ${referrer.name}님과 함께 포인트를 받습니다.`)],
+      embeds: [
+        successEmbed(
+          `초대코드가 등록되었습니다! ${referrer.name}님에게 등록 보상 200P가 지급됐어요.\n첫 구매를 완료하면 나에게 500P, ${referrer.name}님에게 800P가 추가로 지급됩니다.`
+        ),
+      ],
     });
   } catch (e) {
     const message = e instanceof ReferralError ? e.message : "처리 중 오류가 발생했습니다.";

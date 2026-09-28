@@ -4,7 +4,10 @@ import type { Prisma } from "@prisma/client";
 
 export class EventError extends Error {}
 
-const REFERRER_REWARD = 1000;
+// 초대자(나) 보상은 2단계로 나뉜다: 친구가 등록하는 즉시 REGISTER_REFERRER_REWARD,
+// 그 친구가 첫 결제를 완료하면 추가로 PURCHASE_REFERRER_REWARD (합쳐서 1000P).
+const REGISTER_REFERRER_REWARD = 200;
+const PURCHASE_REFERRER_REWARD = 800;
 const REFEREE_REWARD = 500;
 
 function generateCode(): string {
@@ -29,7 +32,10 @@ export async function getOrCreateReferralCode(userId: string): Promise<string> {
   throw new EventError("초대코드 생성에 실패했습니다. 다시 시도해주세요.");
 }
 
-/** 신규 회원이 초대자의 코드를 등록한다 (구매 이력이 없는 상태에서만, 1회만 가능). */
+/**
+ * 신규 회원이 초대자의 코드를 등록한다 (구매 이력이 없는 상태에서만, 1회만 가능).
+ * 등록되는 즉시 초대자에게 REGISTER_REFERRER_REWARD를 지급한다 (첫 구매 보상은 별개, 나중에).
+ */
 export async function linkReferral(userId: string, code: string) {
   const settings = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
   if (!settings?.referralEventEnabled) throw new EventError("현재 친구 초대 이벤트가 진행 중이지 않습니다.");
@@ -45,7 +51,30 @@ export async function linkReferral(userId: string, code: string) {
   if (!referrer) throw new EventError("존재하지 않는 초대코드입니다.");
   if (referrer.id === userId) throw new EventError("자신의 초대코드는 등록할 수 없습니다.");
 
-  await prisma.user.update({ where: { id: userId }, data: { referredByUserId: referrer.id } });
+  await prisma.$transaction(async (tx) => {
+    await tx.user.update({ where: { id: userId }, data: { referredByUserId: referrer.id } });
+
+    const newReferrerBalance = referrer.points + REGISTER_REFERRER_REWARD;
+    await tx.user.update({ where: { id: referrer.id }, data: { points: newReferrerBalance } });
+    await tx.pointTransaction.create({
+      data: {
+        userId: referrer.id,
+        type: POINT_TX_TYPE.EVENT_REWARD,
+        amount: REGISTER_REFERRER_REWARD,
+        balanceAfter: newReferrerBalance,
+        memo: `친구 초대 - ${user.name}님 등록 보상`,
+      },
+    });
+    await tx.notification.create({
+      data: {
+        userId: referrer.id,
+        type: "REFERRAL_REWARD",
+        title: "🎁 친구 초대 등록 보상",
+        message: `${user.name}님이 내 초대코드를 등록해서 ${REGISTER_REFERRER_REWARD}P를 받았습니다. 친구가 첫 구매를 완료하면 ${PURCHASE_REFERRER_REWARD}P를 추가로 받아요!`,
+      },
+    });
+  });
+
   return referrer;
 }
 
@@ -79,17 +108,17 @@ export async function maybeRewardReferral(
       type: POINT_TX_TYPE.EVENT_REWARD,
       amount: REFEREE_REWARD,
       balanceAfter: newRefereeBalance,
-      memo: "친구 초대 - 가입 보상",
+      memo: "친구 초대 - 첫 구매 보상",
     },
   });
 
-  const newReferrerBalance = referrer.points + REFERRER_REWARD;
+  const newReferrerBalance = referrer.points + PURCHASE_REFERRER_REWARD;
   await tx.user.update({ where: { id: referrer.id }, data: { points: newReferrerBalance } });
   await tx.pointTransaction.create({
     data: {
       userId: referrer.id,
       type: POINT_TX_TYPE.EVENT_REWARD,
-      amount: REFERRER_REWARD,
+      amount: PURCHASE_REFERRER_REWARD,
       balanceAfter: newReferrerBalance,
       memo: `친구 초대 - ${user.name}님 첫 구매 보상`,
     },
@@ -100,9 +129,9 @@ export async function maybeRewardReferral(
       userId: referrer.id,
       type: "REFERRAL_REWARD",
       title: "🎁 친구 초대 보상 지급",
-      message: `${user.name}님이 첫 구매를 완료해 ${REFERRER_REWARD}P를 받았습니다.`,
+      message: `${user.name}님이 첫 구매를 완료해 ${PURCHASE_REFERRER_REWARD}P를 받았습니다.`,
     },
   });
 
-  return { referrerId: referrer.id, referrerReward: REFERRER_REWARD, refereeReward: REFEREE_REWARD };
+  return { referrerId: referrer.id, referrerReward: PURCHASE_REFERRER_REWARD, refereeReward: REFEREE_REWARD };
 }

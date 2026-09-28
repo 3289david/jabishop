@@ -305,7 +305,7 @@ async function handleEventReferralCode(interaction: ButtonInteraction) {
     await interaction.reply({
       embeds: [
         baseEmbed("🎁 내 초대코드").setDescription(
-          `\`${code}\`\n\n친구가 처음 가입해서 이 코드를 [✏️ 친구 초대코드 등록] 버튼으로 입력하고 첫 구매를 완료하면\n나와 친구 모두에게 포인트가 지급됩니다.`
+          `\`${code}\`\n\n친구가 이 코드를 [✏️ 친구 초대코드 등록] 버튼으로 입력하면 **나는 즉시 200P**,\n친구가 첫 구매를 완료하면 **나는 800P 추가**(총 1,000P) + **친구는 500P**를 받아요!`
         ),
       ],
       ephemeral: true,
