@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { generateOrderNo } from "@/lib/orderNo";
-import { computeDiscount, CouponError } from "@/lib/coupon";
+import { computeDiscount, findBestAutoCoupon, CouponError } from "@/lib/coupon";
 import { ORDER_STATUS, ARTWORK_STATUS, POINT_TX_TYPE, TIER_STATUS, getPurchaseTierDiscountPercent } from "@/lib/constants";
 import {
   notifyPurchaseByDM,
@@ -57,8 +57,12 @@ export async function purchaseTier(params: {
     let discountAmount = 0;
     let couponId: string | null = null;
 
-    if (couponCode) {
-      const coupon = await tx.coupon.findUnique({ where: { code: couponCode } });
+    // 쿠폰 코드를 직접 지정하지 않은 경우 ("구매하기" 버튼/장바구니 결제처럼 쿠폰 입력 UI가
+    // 없는 경로), 보유한 미사용 쿠폰 중 지금 적용 가능한 걸 자동으로 찾아 적용한다.
+    const effectiveCouponCode = couponCode ?? (await findBestAutoCoupon(tx, userId, tierId, baseAmount))?.code;
+
+    if (effectiveCouponCode) {
+      const coupon = await tx.coupon.findUnique({ where: { code: effectiveCouponCode } });
       if (!coupon) throw new OrderError("INVALID_COUPON", "존재하지 않는 쿠폰입니다.");
 
       try {

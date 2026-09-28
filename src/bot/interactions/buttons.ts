@@ -116,6 +116,9 @@ async function handleBuy(interaction: ButtonInteraction, slug: string) {
     const embed = successEmbed(`${tier.name} 구매 완료!`)
       .setTitle(`주문 #${order.orderNo}`)
       .addFields({ name: "결제 금액", value: pt(order.finalAmount), inline: true }, { name: "지급된 계정", value: artwork?.title ?? "-", inline: true });
+    if (order.discountAmount > 0) {
+      embed.addFields({ name: "🎟️ 쿠폰 자동 적용", value: `-${pt(order.discountAmount)} 할인`, inline: true });
+    }
 
     const files = [];
     if (artwork) {

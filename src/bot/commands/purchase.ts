@@ -33,6 +33,13 @@ export const purchaseCommand: BotCommand = {
           { name: "결제 금액", value: pt(order.finalAmount), inline: true },
           { name: "지급된 계정", value: artwork?.title ?? "-", inline: true }
         );
+      if (order.discountAmount > 0) {
+        embed.addFields({
+          name: couponCode ? "🎟️ 쿠폰 적용" : "🎟️ 쿠폰 자동 적용",
+          value: `-${pt(order.discountAmount)} 할인`,
+          inline: true,
+        });
+      }
 
       const files = [];
       if (artwork) {
