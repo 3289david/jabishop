@@ -119,6 +119,9 @@ async function handleBuy(interaction: ButtonInteraction, slug: string) {
     if (order.discountAmount > 0) {
       embed.addFields({ name: "🎟️ 쿠폰 자동 적용", value: `-${pt(order.discountAmount)} 할인`, inline: true });
     }
+    if (order.luckyCoupon) {
+      embed.addFields({ name: "🎉 구매 축하 쿠폰 당첨!", value: `10% 할인 쿠폰 \`${order.luckyCoupon.code}\`이 지급되었습니다.` });
+    }
 
     const files = [];
     if (artwork) {
@@ -162,12 +165,14 @@ async function handleCartCheckout(interaction: ButtonInteraction) {
   if (items.length === 0) return interaction.editReply({ embeds: [errorEmbed("장바구니가 비어 있습니다.")], components: [] });
 
   let successCount = 0;
+  let luckyCouponCount = 0;
   let firstError: string | null = null;
   for (const item of items) {
     for (let i = 0; i < item.quantity; i++) {
       try {
-        await purchaseTier({ userId: user.id, tierId: item.tierId });
+        const order = await purchaseTier({ userId: user.id, tierId: item.tierId });
         successCount++;
+        if (order.luckyCoupon) luckyCouponCount++;
         await prisma.cartItem.update({ where: { id: item.id }, data: { quantity: { decrement: 1 } } }).catch(() => {});
       } catch (e) {
         firstError = `${item.tier.name}: ${e instanceof OrderError ? e.message : "구매 중 오류"}`;
@@ -178,9 +183,10 @@ async function handleCartCheckout(interaction: ButtonInteraction) {
   }
   await prisma.cartItem.deleteMany({ where: { userId: user.id, quantity: { lte: 0 } } });
 
+  const luckyNote = luckyCouponCount > 0 ? ` 🎉 10% 할인 쿠폰 ${luckyCouponCount}장 당첨! 쿠폰함에서 확인하세요.` : "";
   const embed = firstError
     ? errorEmbed(successCount > 0 ? `${successCount}건 완료 후 중단 - ${firstError}` : firstError)
-    : successEmbed(`${successCount}건 결제가 완료되었습니다. 계정은 DM 또는 /주문내역에서 확인하세요.`);
+    : successEmbed(`${successCount}건 결제가 완료되었습니다. 계정은 DM 또는 /주문내역에서 확인하세요.${luckyNote}`);
   await interaction.editReply({ embeds: [embed], components: [] });
 }
 

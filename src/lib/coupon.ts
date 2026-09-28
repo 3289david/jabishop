@@ -74,3 +74,43 @@ export async function findBestAutoCoupon(
 
   return best?.coupon ?? null;
 }
+
+const LUCKY_COUPON_CHANCE = 0.05; // 5% 확률
+const LUCKY_COUPON_DISCOUNT_PERCENT = 10; // 10% 할인
+const LUCKY_COUPON_VALID_DAYS = 7;
+
+function generateLuckyCouponCode(): string {
+  const random = Math.random().toString(36).slice(2, 8).toUpperCase();
+  return `LUCKY${random}`;
+}
+
+/**
+ * 관리자가 ShopSetting.purchaseCouponDropEnabled를 켜두면, 구매가 완료될 때마다 5% 확률로
+ * 구매자에게 10% 할인 쿠폰(1회용, 7일간 유효)을 즉시 발급한다. 안 당첨되거나 기능이
+ * 꺼져있으면 null. 구매 트랜잭션 안에서 호출해 주문 완료와 원자적으로 묶는다.
+ */
+export async function maybeGrantLuckyCoupon(tx: Prisma.TransactionClient, userId: string): Promise<Coupon | null> {
+  const settings = await tx.shopSetting.findUnique({ where: { id: "singleton" } });
+  if (!settings?.purchaseCouponDropEnabled) return null;
+  if (Math.random() >= LUCKY_COUPON_CHANCE) return null;
+
+  const now = new Date();
+  const validTo = new Date(now.getTime() + LUCKY_COUPON_VALID_DAYS * 24 * 60 * 60 * 1000);
+
+  const coupon = await tx.coupon.create({
+    data: {
+      code: generateLuckyCouponCode(),
+      name: "🎉 구매 축하 쿠폰",
+      discountType: "RATE",
+      discountValue: LUCKY_COUPON_DISCOUNT_PERCENT,
+      validFrom: now,
+      validTo,
+      usageLimitPerUser: 1,
+      usageLimitTotal: 1,
+      active: true,
+    },
+  });
+  await tx.userCoupon.create({ data: { userId, couponId: coupon.id } });
+
+  return coupon;
+}

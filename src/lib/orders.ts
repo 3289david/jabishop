@@ -1,11 +1,12 @@
 import { prisma } from "@/lib/prisma";
 import { generateOrderNo } from "@/lib/orderNo";
-import { computeDiscount, findBestAutoCoupon, CouponError } from "@/lib/coupon";
+import { computeDiscount, findBestAutoCoupon, maybeGrantLuckyCoupon, CouponError } from "@/lib/coupon";
 import { ORDER_STATUS, ARTWORK_STATUS, POINT_TX_TYPE, TIER_STATUS, getPurchaseTierDiscountPercent } from "@/lib/constants";
 import {
   notifyPurchaseByDM,
   notifyLowStockIfNeeded,
   announcePurchaseInChannel,
+  announceLuckyCouponInChannel,
   getCumulativeSpend,
   syncPurchaseTierRoles,
 } from "@/lib/discordNotify";
@@ -188,7 +189,19 @@ export async function purchaseTier(params: {
       },
     });
 
-    return completedOrder;
+    const luckyCoupon = await maybeGrantLuckyCoupon(tx, userId);
+    if (luckyCoupon) {
+      await tx.notification.create({
+        data: {
+          userId,
+          type: "LUCKY_COUPON",
+          title: "🎉 구매 축하 쿠폰 당첨!",
+          message: `10% 할인 쿠폰(${luckyCoupon.code})이 지급되었습니다. 쿠폰함에서 확인하세요.`,
+        },
+      });
+    }
+
+    return { ...completedOrder, luckyCoupon };
   });
 
   // 웹/봇 어느 쪽에서 구매하든, 디스코드 계정이 연동되어 있으면 결과를 DM으로도 보낸다.
@@ -203,6 +216,9 @@ export async function purchaseTier(params: {
 
   // 구매 로그 채널 공개 알림 + 누적 구매금액 등급 역할 동기화 (둘 다 실패해도 구매엔 영향 없음).
   announcePurchaseInChannel(userId, completedOrder.id).catch(() => {});
+  if (completedOrder.luckyCoupon) {
+    announceLuckyCouponInChannel(userId, completedOrder.luckyCoupon.code).catch(() => {});
+  }
   (async () => {
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user?.discordId) return;

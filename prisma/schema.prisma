@@ -446,6 +446,9 @@ model ShopSetting {
   // 갱신한다. 최고관리자(AdminUser.role === SUPER) 계정의 구매는 매출 집계에서 자동 제외된다.
   publicStatsChannelId String?
   publicStatsMessageId String?
+
+  // 켜두면 구매가 완료될 때마다 5% 확률로 10% 할인 쿠폰을 구매자에게 자동 지급한다.
+  purchaseCouponDropEnabled Boolean @default(false)
 }
 
 // 관리자가 /이익추가로 수동으로 더한 매출. 실제 주문(Order)이 아닌 오프라인 판매 등을

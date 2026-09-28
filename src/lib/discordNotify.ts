@@ -128,6 +128,24 @@ export async function announcePurchaseInChannel(userId: string, orderId: string)
   });
 }
 
+/** 구매 축하 쿠폰(5% 확률 당첨)에 당첨됐을 때 "구매 로그" 채널에도 함께 알린다. */
+export async function announceLuckyCouponInChannel(userId: string, couponCode: string) {
+  const settings = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
+  if (!settings?.discordPurchaseLogChannelId) return;
+
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  const name = user?.name ?? "익명";
+  await sendChannelMessage(settings.discordPurchaseLogChannelId, {
+    embeds: [
+      {
+        description: `🎉 **${name}**님이 구매 축하 쿠폰 이벤트에 당첨되어 10% 할인 쿠폰(\`${couponCode}\`)을 받았습니다!`,
+        color: 0xf59e0b,
+        timestamp: new Date().toISOString(),
+      },
+    ],
+  });
+}
+
 /** 해당 사용자의 누적 구매금액(환불 제외, 포인트 결제 완료 기준)을 계산한다. */
 export async function getCumulativeSpend(userId: string): Promise<number> {
   const result = await prisma.order.aggregate({

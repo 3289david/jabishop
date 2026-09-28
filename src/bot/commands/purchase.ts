@@ -40,6 +40,9 @@ export const purchaseCommand: BotCommand = {
           inline: true,
         });
       }
+      if (order.luckyCoupon) {
+        embed.addFields({ name: "🎉 구매 축하 쿠폰 당첨!", value: `10% 할인 쿠폰 \`${order.luckyCoupon.code}\`이 지급되었습니다.` });
+      }
 
       const files = [];
       if (artwork) {
