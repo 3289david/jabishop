@@ -48,6 +48,80 @@ export function partnerPanelRow() {
   );
 }
 
+// ── 이벤트 패널 ──────────────────────────────────────────────
+
+export async function eventPanelEmbed() {
+  const s = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
+  const status = (on: boolean | undefined) => (on ? "🟢 진행 중" : "⚪ 진행 안 함");
+
+  return baseEmbed("🎉 이벤트")
+    .setDescription("아래 버튼으로 진행 중인 이벤트에 바로 참여할 수 있어요.")
+    .addFields(
+      { name: "🗓️ 출석체크", value: status(s?.checkInEventEnabled), inline: true },
+      { name: "🎁 친구 초대", value: status(s?.referralEventEnabled), inline: true },
+      { name: "🎰 룰렛/뽑기", value: `${status(s?.gachaEventEnabled)} (1회 ${s?.gachaCostPoints ?? 100}P)`, inline: true }
+    );
+}
+
+export async function eventPanelRows() {
+  const s = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
+  const row1 = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId("event:checkin")
+      .setLabel("🗓️ 출석체크")
+      .setStyle(ButtonStyle.Primary)
+      .setDisabled(!s?.checkInEventEnabled),
+    new ButtonBuilder()
+      .setCustomId("event:gacha")
+      .setLabel("🎰 룰렛 돌리기")
+      .setStyle(ButtonStyle.Primary)
+      .setDisabled(!s?.gachaEventEnabled)
+  );
+  const row2 = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder()
+      .setCustomId("event:referral:code")
+      .setLabel("🎁 내 초대코드")
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(!s?.referralEventEnabled),
+    new ButtonBuilder()
+      .setCustomId("event:referral:register")
+      .setLabel("✏️ 친구 초대코드 등록")
+      .setStyle(ButtonStyle.Secondary)
+      .setDisabled(!s?.referralEventEnabled)
+  );
+  return [row1, row2];
+}
+
+/** 이벤트 패널과는 별개로, 채널에 게시하는 화려한 홍보용 공지 임베드 (버튼 없음). */
+export function eventPromoEmbed() {
+  return baseEmbed("🎉🎊 자비샵 신규 이벤트 4종 오픈! 🎊🎉")
+    .setColor(0xfbbf24)
+    .setDescription(
+      "가만히 있어도, 친구를 데려와도, 운이 좋으면 대박까지! 지금 바로 참여해보세요 ✨\n" +
+        "(각 이벤트 진행 여부는 아래 패널에서 실시간으로 확인할 수 있어요)"
+    )
+    .addFields(
+      {
+        name: "🗓️ 매일 출석체크",
+        value: "하루 한 번, `/출석체크`(또는 패널 버튼)만 눌러도 포인트 지급!\n연속 출석할수록 보너스가 쌓여 **최대 280P**까지 받을 수 있어요.",
+      },
+      {
+        name: "🎁 친구 초대 이벤트",
+        value: "내 초대코드를 친구에게 공유하고, 친구가 첫 구매를 완료하면\n**나는 1,000P**, **친구는 500P**를 즉시 받아요!",
+      },
+      {
+        name: "🎰 룰렛 뽑기",
+        value: "포인트를 걸고 룰렛 한 방! 최대 **300P**부터 **10% 할인쿠폰**까지\n다양한 보상이 기다리고 있어요.",
+      },
+      {
+        name: "💳 구매 축하 쿠폰",
+        value: "구매할 때마다 **5% 확률**로 **10% 할인쿠폰**이 자동 지급돼요. 잊지 말고 구매하기 버튼을 눌러보세요!",
+      }
+    )
+    .setFooter({ text: "이벤트 패널에서 바로 참여할 수 있어요" })
+    .setTimestamp();
+}
+
 // ── 인증 패널 ────────────────────────────────────────────────
 
 const VERIFY_URL = "https://restore.salv.me/1545755740658995261";

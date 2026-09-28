@@ -41,7 +41,14 @@ import { loginLogsCommand, activityLogsCommand } from "@/bot/commands/adminSecur
 import { panelCommand } from "@/bot/commands/panel";
 import { adminPanelCommand } from "@/bot/commands/adminPanel";
 import { verifyPanelCommand } from "@/bot/commands/verify";
-import { checkInCommand, referralCodeCommand, referralRegisterCommand, gachaSpinCommand } from "@/bot/commands/events";
+import {
+  checkInCommand,
+  referralCodeCommand,
+  referralRegisterCommand,
+  gachaSpinCommand,
+  eventPanelCommand,
+  eventPromoCommand,
+} from "@/bot/commands/events";
 import { flashSaleCreateCommand, flashSaleCancelCommand } from "@/bot/commands/adminFlashSale";
 
 export const commands: BotCommand[] = [
@@ -50,6 +57,7 @@ export const commands: BotCommand[] = [
   adminPanelCommand,
   partnerPanelCommand,
   verifyPanelCommand,
+  eventPanelCommand,
   // 사용자 기능
   productListCommand,
   productDetailCommand,
@@ -112,6 +120,7 @@ export const commands: BotCommand[] = [
   reportResolveCommand,
   broadcastCommand,
   channelAnnounceCommand,
+  eventPromoCommand,
   eventCreateCommand,
   eventDrawCommand,
   flashSaleCreateCommand,

@@ -1,10 +1,43 @@
-import { SlashCommandBuilder } from "discord.js";
-import { assertActiveShopUser } from "@/bot/discordAuth";
+import { SlashCommandBuilder, ChannelType, type TextChannel } from "discord.js";
+import { assertActiveShopUser, requireLinkedAdmin } from "@/bot/discordAuth";
 import { errorEmbed, successEmbed, baseEmbed, pt } from "@/bot/format";
 import { performCheckIn, EventError as CheckInError } from "@/lib/events/checkin";
 import { getOrCreateReferralCode, linkReferral, EventError as ReferralError } from "@/lib/events/referral";
 import { spinGacha, EventError as GachaError } from "@/lib/events/gacha";
+import { eventPanelEmbed, eventPanelRows, eventPromoEmbed } from "@/bot/panels";
 import type { BotCommand } from "@/bot/types";
+
+export const eventPanelCommand: BotCommand = {
+  data: new SlashCommandBuilder()
+    .setName("이벤트패널")
+    .setDescription("[관리자] 버튼으로 이벤트(출석체크/친구초대/룰렛)에 참여할 수 있는 패널을 엽니다."),
+  async execute(interaction) {
+    await requireLinkedAdmin(interaction.user.id);
+    await interaction.reply({ embeds: [await eventPanelEmbed()], components: await eventPanelRows() });
+  },
+};
+
+export const eventPromoCommand: BotCommand = {
+  data: new SlashCommandBuilder()
+    .setName("이벤트홍보")
+    .setDescription("[관리자] 신규 이벤트 4종을 소개하는 홍보 공지를 채널에 올립니다 (패널과는 별개).")
+    .addChannelOption((o) =>
+      o.setName("채널").setDescription("홍보 공지를 올릴 채널").setRequired(true).addChannelTypes(ChannelType.GuildText)
+    ),
+  async execute(interaction) {
+    const admin = await requireLinkedAdmin(interaction.user.id);
+    const channelOption = interaction.options.getChannel("채널", true);
+    await interaction.deferReply({ ephemeral: true });
+
+    const channel = await interaction.guild?.channels.fetch(channelOption.id).catch(() => null);
+    if (!channel || !channel.isTextBased() || !channel.isSendable()) {
+      return interaction.editReply({ embeds: [errorEmbed("텍스트 채널만 선택할 수 있습니다.")] });
+    }
+
+    await (channel as TextChannel).send({ embeds: [eventPromoEmbed()] });
+    await interaction.editReply({ embeds: [successEmbed(`<#${channel.id}> 채널에 이벤트 홍보 공지를 올렸습니다.`)] });
+  },
+};
 
 export const checkInCommand: BotCommand = {
   data: new SlashCommandBuilder().setName("출석체크").setDescription("하루 1회 출석체크하고 포인트를 받습니다."),

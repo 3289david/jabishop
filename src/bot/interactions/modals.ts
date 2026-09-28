@@ -12,6 +12,7 @@ import { errorEmbed, successEmbed } from "@/bot/format";
 import { createTopUpRequest } from "@/lib/points";
 import { createInquiry } from "@/lib/inquiries";
 import { updatePartnerWebhook, updatePartnerPromoMessage, requestPartner, PartnerError } from "@/lib/partners";
+import { linkReferral, EventError as ReferralError } from "@/lib/events/referral";
 
 export const TOPUP_MODAL_ID = "topup_modal";
 export const INQUIRY_MODAL_ID = "inquiry_modal";
@@ -19,6 +20,7 @@ export const ANSWER_MODAL_PREFIX = "answer_modal:";
 export const PARTNER_WEBHOOK_MODAL_ID = "partner_webhook_modal";
 export const PARTNER_APPLY_MODAL_ID = "partner_apply_modal";
 export const PARTNER_PROMO_MODAL_ID = "partner_promo_modal";
+export const REFERRAL_REGISTER_MODAL_ID = "referral_register_modal";
 
 export async function showTopUpModal(interaction: ButtonInteraction) {
   const modal = new ModalBuilder().setCustomId(TOPUP_MODAL_ID).setTitle("포인트 충전 신청");
@@ -194,4 +196,31 @@ export async function handlePartnerPromoModalSubmit(interaction: ModalSubmitInte
     return interaction.editReply({ embeds: [errorEmbed(errMessage)] });
   }
   await interaction.editReply({ embeds: [successEmbed("홍보 문구가 등록되었습니다. 다음 일일 발송부터 내 채널에 자동 게시됩니다.")] });
+}
+
+export async function showReferralRegisterModal(interaction: ButtonInteraction) {
+  const modal = new ModalBuilder().setCustomId(REFERRAL_REGISTER_MODAL_ID).setTitle("친구 초대코드 등록");
+  const code = new TextInputBuilder()
+    .setCustomId("code")
+    .setLabel("친구의 초대코드")
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true);
+  modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(code));
+  await interaction.showModal(modal);
+}
+
+export async function handleReferralRegisterModalSubmit(interaction: ModalSubmitInteraction) {
+  const code = interaction.fields.getTextInputValue("code").trim();
+  await interaction.deferReply({ ephemeral: true });
+
+  try {
+    const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
+    const referrer = await linkReferral(user.id, code);
+    await interaction.editReply({
+      embeds: [successEmbed(`초대코드가 등록되었습니다! 첫 구매를 완료하면 ${referrer.name}님과 함께 포인트를 받습니다.`)],
+    });
+  } catch (e) {
+    const message = e instanceof ReferralError ? e.message : "처리 중 오류가 발생했습니다.";
+    await interaction.editReply({ embeds: [errorEmbed(message)] });
+  }
 }

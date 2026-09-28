@@ -30,6 +30,10 @@ import {
 } from "@/bot/panels";
 import { enterRaffle, RaffleError } from "@/lib/raffles";
 import { raffleEventEmbed } from "@/bot/raffleUI";
+import { performCheckIn, EventError as CheckInError } from "@/lib/events/checkin";
+import { getOrCreateReferralCode, EventError as ReferralError } from "@/lib/events/referral";
+import { spinGacha, EventError as GachaError } from "@/lib/events/gacha";
+import { showReferralRegisterModal } from "@/bot/interactions/modals";
 
 async function handlePanelProducts(interaction: ButtonInteraction) {
   const categories = await listProductCategories();
@@ -275,6 +279,62 @@ async function handleRaffleEnter(interaction: ButtonInteraction, raffleId: strin
   }
 }
 
+async function handleEventCheckIn(interaction: ButtonInteraction) {
+  const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
+  try {
+    const result = await performCheckIn(user.id);
+    await interaction.reply({
+      embeds: [
+        successEmbed(`출석체크 완료! +${pt(result.reward)}`).addFields(
+          { name: "연속 출석", value: `${result.streak}일차`, inline: true },
+          { name: "보유 포인트", value: pt(result.balance), inline: true }
+        ),
+      ],
+      ephemeral: true,
+    });
+  } catch (e) {
+    const message = e instanceof CheckInError ? e.message : "출석체크 중 오류가 발생했습니다.";
+    await interaction.reply({ embeds: [errorEmbed(message)], ephemeral: true });
+  }
+}
+
+async function handleEventReferralCode(interaction: ButtonInteraction) {
+  const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
+  try {
+    const code = await getOrCreateReferralCode(user.id);
+    await interaction.reply({
+      embeds: [
+        baseEmbed("🎁 내 초대코드").setDescription(
+          `\`${code}\`\n\n친구가 처음 가입해서 이 코드를 [✏️ 친구 초대코드 등록] 버튼으로 입력하고 첫 구매를 완료하면\n나와 친구 모두에게 포인트가 지급됩니다.`
+        ),
+      ],
+      ephemeral: true,
+    });
+  } catch (e) {
+    const message = e instanceof ReferralError ? e.message : "처리 중 오류가 발생했습니다.";
+    await interaction.reply({ embeds: [errorEmbed(message)], ephemeral: true });
+  }
+}
+
+async function handleEventGacha(interaction: ButtonInteraction) {
+  const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
+  try {
+    const result = await spinGacha(user.id);
+    const embed =
+      result.prize.kind === "NONE"
+        ? errorEmbed(`꽝! ${pt(result.cost)}를 소모했습니다. 다음 기회에 도전해보세요.`)
+        : successEmbed(`🎉 ${result.prize.label} 당첨!`);
+    embed.addFields({ name: "보유 포인트", value: pt(result.balance), inline: true });
+    if (result.couponCode) {
+      embed.addFields({ name: "쿠폰 코드", value: `\`${result.couponCode}\` (쿠폰함에서 확인 가능)` });
+    }
+    await interaction.reply({ embeds: [embed], ephemeral: true });
+  } catch (e) {
+    const message = e instanceof GachaError ? e.message : "룰렛 진행 중 오류가 발생했습니다.";
+    await interaction.reply({ embeds: [errorEmbed(message)], ephemeral: true });
+  }
+}
+
 export async function handleButtonInteraction(interaction: ButtonInteraction) {
   const [ns, a, b] = interaction.customId.split(":");
 
@@ -296,6 +356,10 @@ export async function handleButtonInteraction(interaction: ButtonInteraction) {
   if (ns === "refund") return handleRefundAction(interaction, a as "approve" | "reject", b);
   if (ns === "inquiry" && a === "answer") return showAnswerModal(interaction, b);
   if (ns === "raffle" && a === "enter") return handleRaffleEnter(interaction, b);
+  if (ns === "event" && a === "checkin") return handleEventCheckIn(interaction);
+  if (ns === "event" && a === "gacha") return handleEventGacha(interaction);
+  if (ns === "event" && a === "referral" && b === "code") return handleEventReferralCode(interaction);
+  if (ns === "event" && a === "referral" && b === "register") return showReferralRegisterModal(interaction);
   if (ns === "partner" && a === "webhook") return showPartnerWebhookModal(interaction);
   if (ns === "partner" && a === "apply") return showPartnerApplyModal(interaction);
   if (ns === "partner" && a === "manage") return handlePartnerManage(interaction);
