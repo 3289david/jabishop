@@ -33,8 +33,11 @@ export function computeDiscount(coupon: Coupon, baseAmount: number, tierId: stri
 }
 
 /**
- * 구매 시 쿠폰 코드를 직접 입력하지 않아도, 보유한(UserCoupon) 미사용 쿠폰 중 이 등급에
- * 지금 적용 가능한 것을 자동으로 찾아 가장 할인액이 큰 쿠폰을 골라준다. 없으면 null.
+ * 구매 시 쿠폰 코드를 직접 입력하지 않아도, 지금 이 사용자가 쓸 수 있는 쿠폰(개인 발급된
+ * UserCoupon뿐 아니라, 아직 이 사용자가 안 쓴 활성 상태의 공개 코드 쿠폰까지 전부) 중
+ * 이 등급에 적용 가능한 것을 자동으로 찾아 가장 할인액이 큰 쿠폰을 골라준다. 없으면 null.
+ * (/구매의 쿠폰코드 옵션처럼 코드를 직접 입력해서 쓸 수 있는 쿠폰은 모두 여기서도 자동으로
+ * 후보가 된다 - 개인에게 발급된 쿠폰만 보면 실제로 존재하는 쿠폰 대부분을 놓치게 된다.)
  * "구매하기" 버튼/장바구니 결제처럼 쿠폰 코드를 입력할 UI가 없는 자동화된 구매 경로에서 쓴다.
  */
 export async function findBestAutoCoupon(
@@ -43,21 +46,23 @@ export async function findBestAutoCoupon(
   tierId: string,
   baseAmount: number
 ): Promise<Coupon | null> {
-  const userCoupons = await tx.userCoupon.findMany({
-    where: { userId, usedAt: null },
-    include: { coupon: true },
+  const now = new Date();
+  const candidates = await tx.coupon.findMany({
+    where: { active: true, validFrom: { lte: now }, validTo: { gte: now } },
   });
-  if (userCoupons.length === 0) return null;
+  if (candidates.length === 0) return null;
 
   let best: { coupon: Coupon; discount: number } | null = null;
-  for (const uc of userCoupons) {
-    const coupon = uc.coupon;
+  for (const coupon of candidates) {
     let discount: number;
     try {
       discount = computeDiscount(coupon, baseAmount, tierId);
     } catch {
       continue; // 이 쿠폰은 지금 조건에 안 맞음 - 다음 쿠폰 확인
     }
+
+    const usedByUser = await tx.couponUsage.count({ where: { couponId: coupon.id, userId } });
+    if (usedByUser >= coupon.usageLimitPerUser) continue;
 
     if (coupon.usageLimitTotal != null) {
       const totalUsed = await tx.couponUsage.count({ where: { couponId: coupon.id } });
