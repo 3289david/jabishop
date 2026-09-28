@@ -31,6 +31,17 @@ model User {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
+  // 출석체크 이벤트 - 마지막 출석일과 연속 출석 일수
+  lastCheckInAt  DateTime?
+  checkInStreak  Int       @default(0)
+
+  // 친구 초대 이벤트
+  referralCode       String?   @unique // 이 유저가 남에게 공유하는 내 초대코드 (최초 /초대코드 조회 시 생성)
+  referredByUserId   String? // 나를 초대한 사람 (한 번 등록하면 변경 불가)
+  referrer           User?     @relation("UserReferrals", fields: [referredByUserId], references: [id])
+  referrals          User[]    @relation("UserReferrals")
+  referralRewardedAt DateTime? // 초대 보상(첫 구매 시 지급)을 이미 지급했는지
+
   orders         Order[]
   pointTx        PointTransaction[]
   topUpRequests  PointTopUpRequest[]
@@ -137,6 +148,7 @@ model Tier {
   orders       Order[]
   cartItems    CartItem[]
   raffleEvents RaffleEvent[]
+  flashSales   FlashSale[]
 }
 
 model Artwork {
@@ -449,6 +461,26 @@ model ShopSetting {
 
   // 켜두면 구매가 완료될 때마다 5% 확률로 10% 할인 쿠폰을 구매자에게 자동 지급한다.
   purchaseCouponDropEnabled Boolean @default(false)
+
+  // 이벤트 기능 개별 on/off
+  checkInEventEnabled  Boolean @default(false) // 출석체크
+  flashSaleEventEnabled Boolean @default(false) // 타임세일 (개별 세일은 FlashSale로 관리, 이건 전체 스위치)
+  referralEventEnabled Boolean @default(false) // 친구 초대
+  gachaEventEnabled    Boolean @default(false) // 룰렛/뽑기
+  gachaCostPoints      Int     @default(100) // 룰렛 1회 비용(포인트)
+}
+
+// 등급별 한시적 할인(타임세일). 켜져 있는 동안(startsAt~endsAt) 구매하면 discountPercent만큼
+// 자동 할인되고, 쿠폰 자동적용과 비교해 더 큰 쪽 하나만 적용된다 (중복 적용 안 됨).
+model FlashSale {
+  id                String   @id @default(cuid())
+  tierId            String
+  tier              Tier     @relation(fields: [tierId], references: [id])
+  discountPercent   Int
+  startsAt          DateTime
+  endsAt            DateTime
+  createdByAdminId  String
+  createdAt         DateTime @default(now())
 }
 
 // 관리자가 /이익추가로 수동으로 더한 매출. 실제 주문(Order)이 아닌 오프라인 판매 등을

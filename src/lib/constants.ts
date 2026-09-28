@@ -52,6 +52,7 @@ export const POINT_TX_TYPE = {
   REFUND: "REFUND",
   ADMIN_ADJUST: "ADMIN_ADJUST",
   EXPIRE: "EXPIRE",
+  EVENT_REWARD: "EVENT_REWARD",
 } as const;
 
 export const TOPUP_STATUS = {

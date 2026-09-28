@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { generateOrderNo } from "@/lib/orderNo";
 import { computeDiscount, findBestAutoCoupon, maybeGrantLuckyCoupon, CouponError } from "@/lib/coupon";
+import { getFlashSaleDiscount } from "@/lib/events/flashSale";
+import { maybeRewardReferral } from "@/lib/events/referral";
 import { ORDER_STATUS, ARTWORK_STATUS, POINT_TX_TYPE, TIER_STATUS, getPurchaseTierDiscountPercent } from "@/lib/constants";
 import {
   notifyPurchaseByDM,
@@ -85,6 +87,14 @@ export async function purchaseTier(params: {
         throw new OrderError("COUPON_EXHAUSTED", "이미 사용한 쿠폰입니다.");
 
       couponId = coupon.id;
+    }
+
+    // 타임세일이 켜져 있고 이 등급에 진행 중인 세일이 있으면, 쿠폰 할인과 비교해 더 큰 쪽을
+    // 적용한다 (중복 적용 안 함 - 타임세일이 이기면 쿠폰은 소비하지 않는다).
+    const flashSale = await getFlashSaleDiscount(tx, tierId, baseAmount);
+    if (flashSale && flashSale.discount > discountAmount) {
+      discountAmount = flashSale.discount;
+      couponId = null;
     }
 
     // 누적 구매금액(이 주문 이전 기준) 등급에 따른 자동 할인. 쿠폰 할인 이후 금액에 추가로 적용된다.
@@ -201,7 +211,9 @@ export async function purchaseTier(params: {
       });
     }
 
-    return { ...completedOrder, luckyCoupon };
+    const referralReward = await maybeRewardReferral(tx, userId);
+
+    return { ...completedOrder, luckyCoupon, referralReward };
   });
 
   // 웹/봇 어느 쪽에서 구매하든, 디스코드 계정이 연동되어 있으면 결과를 DM으로도 보낸다.

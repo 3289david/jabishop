@@ -49,6 +49,15 @@ export const settingsViewCommand: BotCommand = {
       {
         name: "구매 축하 쿠폰 추첨",
         value: `${s?.purchaseCouponDropEnabled ? "🟢 켜짐" : "⚪ 꺼짐"} (구매 완료 시 5% 확률로 10% 할인 쿠폰 지급)`,
+      },
+      {
+        name: "이벤트 기능",
+        value: [
+          `출석체크: ${s?.checkInEventEnabled ? "🟢 켜짐" : "⚪ 꺼짐"}`,
+          `타임세일: ${s?.flashSaleEventEnabled ? "🟢 켜짐" : "⚪ 꺼짐"}`,
+          `친구 초대: ${s?.referralEventEnabled ? "🟢 켜짐" : "⚪ 꺼짐"}`,
+          `룰렛/뽑기: ${s?.gachaEventEnabled ? "🟢 켜짐" : "⚪ 꺼짐"} (1회 ${s?.gachaCostPoints ?? 100}P)`,
+        ].join("\n"),
       }
     );
     await interaction.reply({ embeds: [embed], ephemeral: true });
@@ -91,7 +100,14 @@ export const settingsUpdateCommand: BotCommand = {
     )
     .addBooleanOption((o) =>
       o.setName("구매쿠폰추첨").setDescription("켜면 구매 완료 시마다 5% 확률로 10% 할인 쿠폰을 자동 지급")
-    ),
+    )
+    .addBooleanOption((o) => o.setName("출석체크이벤트").setDescription("켜면 /출석체크로 하루 1회 포인트 지급"))
+    .addBooleanOption((o) =>
+      o.setName("타임세일이벤트").setDescription("켜면 /타임세일생성으로 만든 타임세일이 실제로 적용됨")
+    )
+    .addBooleanOption((o) => o.setName("친구초대이벤트").setDescription("켜면 /초대코드등록·첫 구매 보상 지급이 작동"))
+    .addBooleanOption((o) => o.setName("룰렛이벤트").setDescription("켜면 /룰렛돌리기 사용 가능"))
+    .addIntegerOption((o) => o.setName("룰렛비용").setDescription("룰렛 1회 참가 비용 (포인트, 기본 100)").setMinValue(1)),
   async execute(interaction) {
     const admin = await requireLinkedAdmin(interaction.user.id);
     requireSuperRole(admin.role);
@@ -113,6 +129,11 @@ export const settingsUpdateCommand: BotCommand = {
     const partnerDailyMessage = interaction.options.getString("파트너일일문구");
     const announcementChannel = interaction.options.getChannel("공지채널");
     const purchaseCouponDropEnabled = interaction.options.getBoolean("구매쿠폰추첨");
+    const checkInEventEnabled = interaction.options.getBoolean("출석체크이벤트");
+    const flashSaleEventEnabled = interaction.options.getBoolean("타임세일이벤트");
+    const referralEventEnabled = interaction.options.getBoolean("친구초대이벤트");
+    const gachaEventEnabled = interaction.options.getBoolean("룰렛이벤트");
+    const gachaCostPoints = interaction.options.getInteger("룰렛비용");
 
     await prisma.shopSetting.upsert({
       where: { id: "singleton" },
@@ -134,6 +155,11 @@ export const settingsUpdateCommand: BotCommand = {
         ...(partnerDailyMessage != null ? { partnerDailyMessage } : {}),
         ...(announcementChannel ? { announcementChannelId: announcementChannel.id } : {}),
         ...(purchaseCouponDropEnabled != null ? { purchaseCouponDropEnabled } : {}),
+        ...(checkInEventEnabled != null ? { checkInEventEnabled } : {}),
+        ...(flashSaleEventEnabled != null ? { flashSaleEventEnabled } : {}),
+        ...(referralEventEnabled != null ? { referralEventEnabled } : {}),
+        ...(gachaEventEnabled != null ? { gachaEventEnabled } : {}),
+        ...(gachaCostPoints != null ? { gachaCostPoints } : {}),
       },
       create: {
         id: "singleton",
@@ -154,6 +180,11 @@ export const settingsUpdateCommand: BotCommand = {
         partnerDailyMessage,
         announcementChannelId: announcementChannel?.id,
         purchaseCouponDropEnabled: purchaseCouponDropEnabled ?? false,
+        checkInEventEnabled: checkInEventEnabled ?? false,
+        flashSaleEventEnabled: flashSaleEventEnabled ?? false,
+        referralEventEnabled: referralEventEnabled ?? false,
+        gachaEventEnabled: gachaEventEnabled ?? false,
+        ...(gachaCostPoints != null ? { gachaCostPoints } : {}),
       },
     });
     await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "SETTINGS_UPDATE" } });

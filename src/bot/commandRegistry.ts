@@ -41,6 +41,8 @@ import { loginLogsCommand, activityLogsCommand } from "@/bot/commands/adminSecur
 import { panelCommand } from "@/bot/commands/panel";
 import { adminPanelCommand } from "@/bot/commands/adminPanel";
 import { verifyPanelCommand } from "@/bot/commands/verify";
+import { checkInCommand, referralCodeCommand, referralRegisterCommand, gachaSpinCommand } from "@/bot/commands/events";
+import { flashSaleCreateCommand, flashSaleCancelCommand } from "@/bot/commands/adminFlashSale";
 
 export const commands: BotCommand[] = [
   // 패널 (버튼 UI)
@@ -69,6 +71,10 @@ export const commands: BotCommand[] = [
   refundRequestCommand,
   exchangeRequestCommand,
   partnerRequestCommand,
+  checkInCommand,
+  referralCodeCommand,
+  referralRegisterCommand,
+  gachaSpinCommand,
   // 관리자 연동
   adminLinkCommand,
   adminUnlinkCommand,
@@ -108,6 +114,8 @@ export const commands: BotCommand[] = [
   channelAnnounceCommand,
   eventCreateCommand,
   eventDrawCommand,
+  flashSaleCreateCommand,
+  flashSaleCancelCommand,
   stickySetCommand,
   stickyClearCommand,
   statsCommand,
