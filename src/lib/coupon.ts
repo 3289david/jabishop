@@ -76,7 +76,7 @@ export async function findBestAutoCoupon(
 }
 
 const LUCKY_COUPON_CHANCE = 0.05; // 5% 확률
-const LUCKY_COUPON_DISCOUNT_PERCENT = 10; // 10% 할인
+const LUCKY_COUPON_DISCOUNT_PERCENT = 5; // 5% 할인
 const LUCKY_COUPON_VALID_DAYS = 7;
 
 function generateLuckyCouponCode(): string {
@@ -86,7 +86,7 @@ function generateLuckyCouponCode(): string {
 
 /**
  * 관리자가 ShopSetting.purchaseCouponDropEnabled를 켜두면, 구매가 완료될 때마다 5% 확률로
- * 구매자에게 10% 할인 쿠폰(1회용, 7일간 유효)을 즉시 발급한다. 안 당첨되거나 기능이
+ * 구매자에게 5% 할인 쿠폰(1회용, 7일간 유효)을 즉시 발급한다. 안 당첨되거나 기능이
  * 꺼져있으면 null. 구매 트랜잭션 안에서 호출해 주문 완료와 원자적으로 묶는다.
  */
 export async function maybeGrantLuckyCoupon(tx: Prisma.TransactionClient, userId: string): Promise<Coupon | null> {

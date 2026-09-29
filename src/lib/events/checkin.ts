@@ -3,9 +3,9 @@ import { POINT_TX_TYPE } from "@/lib/constants";
 
 export class EventError extends Error {}
 
-const BASE_REWARD = 100;
-const STREAK_BONUS_PER_DAY = 20;
-const MAX_STREAK_BONUS_DAYS = 10; // 연속 10일차부터는 보너스가 더 안 늘어남 (최대 100+9*20=280P)
+const BASE_REWARD = 7; // 1일차 보상
+const STREAK_BONUS_PER_DAY = 5;
+const MAX_REWARD = 50; // 아무리 연속 출석해도 최대 이 이상은 안 오름
 
 function isSameCalendarDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
@@ -31,7 +31,7 @@ export async function performCheckIn(userId: string) {
   }
 
   const streak = user.lastCheckInAt && isYesterday(user.lastCheckInAt, now) ? user.checkInStreak + 1 : 1;
-  const reward = BASE_REWARD + Math.min(streak - 1, MAX_STREAK_BONUS_DAYS - 1) * STREAK_BONUS_PER_DAY;
+  const reward = Math.min(BASE_REWARD + (streak - 1) * STREAK_BONUS_PER_DAY, MAX_REWARD);
 
   return prisma.$transaction(async (tx) => {
     const newBalance = user.points + reward;

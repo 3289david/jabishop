@@ -48,7 +48,7 @@ export const settingsViewCommand: BotCommand = {
       },
       {
         name: "구매 축하 쿠폰 추첨",
-        value: `${s?.purchaseCouponDropEnabled ? "🟢 켜짐" : "⚪ 꺼짐"} (구매 완료 시 5% 확률로 10% 할인 쿠폰 지급)`,
+        value: `${s?.purchaseCouponDropEnabled ? "🟢 켜짐" : "⚪ 꺼짐"} (구매 완료 시 5% 확률로 5% 할인 쿠폰 지급)`,
       },
       {
         name: "이벤트 기능",
@@ -99,7 +99,7 @@ export const settingsUpdateCommand: BotCommand = {
         .addChannelTypes(ChannelType.GuildText)
     )
     .addBooleanOption((o) =>
-      o.setName("구매쿠폰추첨").setDescription("켜면 구매 완료 시마다 5% 확률로 10% 할인 쿠폰을 자동 지급")
+      o.setName("구매쿠폰추첨").setDescription("켜면 구매 완료 시마다 5% 확률로 5% 할인 쿠폰을 자동 지급")
     )
     .addBooleanOption((o) => o.setName("출석체크이벤트").setDescription("켜면 /출석체크로 하루 1회 포인트 지급"))
     .addBooleanOption((o) =>

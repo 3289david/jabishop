@@ -125,7 +125,7 @@ async function handleBuy(interaction: ButtonInteraction, slug: string) {
       embed.addFields({ name: "🎟️ 쿠폰 자동 적용", value: `-${pt(order.discountAmount)} 할인`, inline: true });
     }
     if (order.luckyCoupon) {
-      embed.addFields({ name: "🎉 구매 축하 쿠폰 당첨!", value: `10% 할인 쿠폰 \`${order.luckyCoupon.code}\`이 지급되었습니다.` });
+      embed.addFields({ name: "🎉 구매 축하 쿠폰 당첨!", value: `5% 할인 쿠폰 \`${order.luckyCoupon.code}\`이 지급되었습니다.` });
     }
     if (order.referralReward) {
       embed.addFields({ name: "🎁 친구 초대 보상", value: `첫 구매 보상 +${pt(order.referralReward.refereeReward)}가 지급되었습니다.` });
@@ -191,7 +191,7 @@ async function handleCartCheckout(interaction: ButtonInteraction) {
   }
   await prisma.cartItem.deleteMany({ where: { userId: user.id, quantity: { lte: 0 } } });
 
-  const luckyNote = luckyCouponCount > 0 ? ` 🎉 10% 할인 쿠폰 ${luckyCouponCount}장 당첨! 쿠폰함에서 확인하세요.` : "";
+  const luckyNote = luckyCouponCount > 0 ? ` 🎉 5% 할인 쿠폰 ${luckyCouponCount}장 당첨! 쿠폰함에서 확인하세요.` : "";
   const embed = firstError
     ? errorEmbed(successCount > 0 ? `${successCount}건 완료 후 중단 - ${firstError}` : firstError)
     : successEmbed(`${successCount}건 결제가 완료되었습니다. 계정은 DM 또는 /주문내역에서 확인하세요.${luckyNote}`);

@@ -138,7 +138,7 @@ export async function announceLuckyCouponInChannel(userId: string, couponCode: s
   await sendChannelMessage(settings.discordPurchaseLogChannelId, {
     embeds: [
       {
-        description: `🎉 **${name}**님이 구매 축하 쿠폰 이벤트에 당첨되어 10% 할인 쿠폰(\`${couponCode}\`)을 받았습니다!`,
+        description: `🎉 **${name}**님이 구매 축하 쿠폰 이벤트에 당첨되어 5% 할인 쿠폰(\`${couponCode}\`)을 받았습니다!`,
         color: 0xf59e0b,
         timestamp: new Date().toISOString(),
       },

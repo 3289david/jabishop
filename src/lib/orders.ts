@@ -206,7 +206,7 @@ export async function purchaseTier(params: {
           userId,
           type: "LUCKY_COUPON",
           title: "🎉 구매 축하 쿠폰 당첨!",
-          message: `10% 할인 쿠폰(${luckyCoupon.code})이 지급되었습니다. 쿠폰함에서 확인하세요.`,
+          message: `5% 할인 쿠폰(${luckyCoupon.code})이 지급되었습니다. 쿠폰함에서 확인하세요.`,
         },
       });
     }

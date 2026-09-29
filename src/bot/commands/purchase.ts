@@ -41,7 +41,7 @@ export const purchaseCommand: BotCommand = {
         });
       }
       if (order.luckyCoupon) {
-        embed.addFields({ name: "🎉 구매 축하 쿠폰 당첨!", value: `10% 할인 쿠폰 \`${order.luckyCoupon.code}\`이 지급되었습니다.` });
+        embed.addFields({ name: "🎉 구매 축하 쿠폰 당첨!", value: `5% 할인 쿠폰 \`${order.luckyCoupon.code}\`이 지급되었습니다.` });
       }
       if (order.referralReward) {
         embed.addFields({ name: "🎁 친구 초대 보상", value: `첫 구매 보상 +${pt(order.referralReward.refereeReward)}가 지급되었습니다.` });
