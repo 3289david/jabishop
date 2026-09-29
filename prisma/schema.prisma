@@ -42,6 +42,9 @@ model User {
   referrals          User[]    @relation("UserReferrals")
   referralRewardedAt DateTime? // 초대 보상(첫 구매 시 지급)을 이미 지급했는지
 
+  // 누적구매 리더보드에서 내 이름 대신 "익명"으로 표시할지
+  leaderboardAnonymous Boolean @default(false)
+
   orders         Order[]
   pointTx        PointTransaction[]
   topUpRequests  PointTopUpRequest[]
@@ -55,6 +58,7 @@ model User {
   exchangeRequests ExchangeRequest[]
   sessions         UserSession[]
   cartItems        CartItem[]
+  restockSubscriptions RestockSubscription[]
 }
 
 model UserSession {
@@ -144,11 +148,12 @@ model Tier {
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
-  artworks     Artwork[]
-  orders       Order[]
-  cartItems    CartItem[]
-  raffleEvents RaffleEvent[]
-  flashSales   FlashSale[]
+  artworks             Artwork[]
+  orders               Order[]
+  cartItems            CartItem[]
+  raffleEvents         RaffleEvent[]
+  flashSales           FlashSale[]
+  restockSubscriptions RestockSubscription[]
 }
 
 model Artwork {
@@ -263,6 +268,8 @@ model RefundRequest {
   processedByAdminId String?
   processedAt        DateTime?
   createdAt          DateTime  @default(now())
+  // 방치된 요청 알림을 마지막으로 보낸 시각 (같은 건으로 반복 스팸하지 않기 위해 기록)
+  remindedAt         DateTime?
 }
 
 // 계정 교환(재추첨) 요청. 구매자가 사유 + 증빙 파일과 함께 신청하면, 관리자 승인이
@@ -280,6 +287,8 @@ model ExchangeRequest {
   processedByAdminId String?
   processedAt        DateTime?
   createdAt          DateTime  @default(now())
+  // 방치된 요청 알림을 마지막으로 보낸 시각 (같은 건으로 반복 스팸하지 않기 위해 기록)
+  remindedAt         DateTime?
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -584,4 +593,16 @@ model StickyMessage {
   createdByAdminId String
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
+}
+
+// 품절된 등급에 재입고 알림을 신청한 회원. 재고가 1개 이상 생기면 알림 보내고 구독을 지운다.
+model RestockSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  tierId    String
+  tier      Tier     @relation(fields: [tierId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([userId, tierId])
 }

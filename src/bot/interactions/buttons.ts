@@ -34,6 +34,7 @@ import { performCheckIn, EventError as CheckInError } from "@/lib/events/checkin
 import { getOrCreateReferralCode, EventError as ReferralError } from "@/lib/events/referral";
 import { spinGacha, EventError as GachaError } from "@/lib/events/gacha";
 import { showReferralRegisterModal } from "@/bot/interactions/modals";
+import { subscribeRestock, RestockError } from "@/lib/restock";
 
 async function handlePanelProducts(interaction: ButtonInteraction) {
   const categories = await listProductCategories();
@@ -335,6 +336,23 @@ async function handleEventGacha(interaction: ButtonInteraction) {
   }
 }
 
+async function handleRestockSubscribe(interaction: ButtonInteraction, slug: string) {
+  const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
+  const tier = await prisma.tier.findUnique({ where: { slug } });
+  if (!tier) return interaction.reply({ embeds: [errorEmbed("존재하지 않는 등급입니다.")], ephemeral: true });
+
+  try {
+    await subscribeRestock(user.id, tier.id);
+    await interaction.reply({
+      embeds: [successEmbed(`"${tier.name}" 재입고 시 알려드릴게요! 재고가 다시 생기면 DM/알림으로 바로 알려드립니다.`)],
+      ephemeral: true,
+    });
+  } catch (e) {
+    const message = e instanceof RestockError ? e.message : "신청 중 오류가 발생했습니다.";
+    await interaction.reply({ embeds: [errorEmbed(message)], ephemeral: true });
+  }
+}
+
 export async function handleButtonInteraction(interaction: ButtonInteraction) {
   const [ns, a, b] = interaction.customId.split(":");
 
@@ -348,6 +366,7 @@ export async function handleButtonInteraction(interaction: ButtonInteraction) {
     return;
   }
   if (ns === "buy") return handleBuy(interaction, a);
+  if (ns === "restock") return handleRestockSubscribe(interaction, a);
   if (ns === "cartadd") return handleCartAdd(interaction, a);
   if (ns === "cart" && a === "checkout") return handleCartCheckout(interaction);
   if (ns === "modal" && a === "topup") return showTopUpModal(interaction);

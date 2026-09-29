@@ -50,6 +50,8 @@ import {
   eventPromoCommand,
 } from "@/bot/commands/events";
 import { flashSaleCreateCommand, flashSaleCancelCommand } from "@/bot/commands/adminFlashSale";
+import { leaderboardCommand, leaderboardPrivacyCommand } from "@/bot/commands/leaderboard";
+import { salesExportCommand } from "@/bot/commands/adminExport";
 
 export const commands: BotCommand[] = [
   // 패널 (버튼 UI)
@@ -83,6 +85,8 @@ export const commands: BotCommand[] = [
   referralCodeCommand,
   referralRegisterCommand,
   gachaSpinCommand,
+  leaderboardCommand,
+  leaderboardPrivacyCommand,
   // 관리자 연동
   adminLinkCommand,
   adminUnlinkCommand,
@@ -131,6 +135,7 @@ export const commands: BotCommand[] = [
   publicStatsPanelCommand,
   revenueAddCommand,
   costAddCommand,
+  salesExportCommand,
   settingsViewCommand,
   settingsUpdateCommand,
   purgeSeedDataCommand,

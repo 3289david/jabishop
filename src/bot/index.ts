@@ -28,6 +28,8 @@ import { startPartnerBroadcastLoop } from "@/bot/partnerBroadcast";
 import { startDailyStatsBroadcastLoop } from "@/bot/dailyStatsBroadcast";
 import { startRaffleAutoCloseLoop } from "@/bot/raffleAutoClose";
 import { startPublicStatsLoop } from "@/bot/publicStatsLoop";
+import { startRestockCheckLoop } from "@/bot/restockLoop";
+import { startStaleRequestsLoop } from "@/bot/staleRequestsLoop";
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
 
@@ -38,6 +40,8 @@ client.once(Events.ClientReady, (c) => {
   startDailyStatsBroadcastLoop(client);
   startRaffleAutoCloseLoop(client);
   startPublicStatsLoop(client);
+  startRestockCheckLoop();
+  startStaleRequestsLoop();
 });
 
 client.on(Events.MessageCreate, (message) => {
