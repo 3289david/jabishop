@@ -48,7 +48,7 @@ export const settingsViewCommand: BotCommand = {
       },
       {
         name: "구매 축하 쿠폰 추첨",
-        value: `${s?.purchaseCouponDropEnabled ? "🟢 켜짐" : "⚪ 꺼짐"} (구매 완료 시 5% 확률로 5% 할인 쿠폰 지급)`,
+        value: `${s?.purchaseCouponDropEnabled ? "🟢 켜짐" : "⚪ 꺼짐"} (100원 이상 상품 구매 완료 시 5% 확률로 5% 할인 쿠폰 지급)`,
       },
       {
         name: "이벤트 기능",

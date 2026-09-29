@@ -174,7 +174,7 @@ async function handleCartCheckout(interaction: ButtonInteraction) {
 
   let successCount = 0;
   let luckyCouponCount = 0;
-  let firstError: string | null = null;
+  const errors: string[] = [];
   for (const item of items) {
     for (let i = 0; i < item.quantity; i++) {
       try {
@@ -183,18 +183,19 @@ async function handleCartCheckout(interaction: ButtonInteraction) {
         if (order.luckyCoupon) luckyCouponCount++;
         await prisma.cartItem.update({ where: { id: item.id }, data: { quantity: { decrement: 1 } } }).catch(() => {});
       } catch (e) {
-        firstError = `${item.tier.name}: ${e instanceof OrderError ? e.message : "구매 중 오류"}`;
+        // 이 상품은 더 못 사니(품절 등) 이 상품만 중단하고, 장바구니의 다른 상품은 계속 진행한다.
+        errors.push(`${item.tier.name}: ${e instanceof OrderError ? e.message : "구매 중 오류"}`);
         break;
       }
     }
-    if (firstError) break;
   }
   await prisma.cartItem.deleteMany({ where: { userId: user.id, quantity: { lte: 0 } } });
 
   const luckyNote = luckyCouponCount > 0 ? ` 🎉 5% 할인 쿠폰 ${luckyCouponCount}장 당첨! 쿠폰함에서 확인하세요.` : "";
-  const embed = firstError
-    ? errorEmbed(successCount > 0 ? `${successCount}건 완료 후 중단 - ${firstError}` : firstError)
-    : successEmbed(`${successCount}건 결제가 완료되었습니다. 계정은 DM 또는 /주문내역에서 확인하세요.${luckyNote}`);
+  const embed =
+    errors.length > 0
+      ? errorEmbed(`${successCount}건 결제 완료.${luckyNote}\n실패: ${errors.join(" / ")}`)
+      : successEmbed(`${successCount}건 결제가 완료되었습니다. 계정은 DM 또는 /주문내역에서 확인하세요.${luckyNote}`);
   await interaction.editReply({ embeds: [embed], components: [] });
 }
 

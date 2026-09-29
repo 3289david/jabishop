@@ -199,7 +199,7 @@ export async function purchaseTier(params: {
       },
     });
 
-    const luckyCoupon = await maybeGrantLuckyCoupon(tx, userId);
+    const luckyCoupon = await maybeGrantLuckyCoupon(tx, userId, tier.price);
     if (luckyCoupon) {
       await tx.notification.create({
         data: {

@@ -78,6 +78,7 @@ export async function findBestAutoCoupon(
 const LUCKY_COUPON_CHANCE = 0.05; // 5% 확률
 const LUCKY_COUPON_DISCOUNT_PERCENT = 5; // 5% 할인
 const LUCKY_COUPON_VALID_DAYS = 7;
+const LUCKY_COUPON_MIN_TIER_PRICE = 100; // 이 가격(원) 미만인 상품은 추첨 대상에서 제외
 
 function generateLuckyCouponCode(): string {
   const random = Math.random().toString(36).slice(2, 8).toUpperCase();
@@ -85,11 +86,18 @@ function generateLuckyCouponCode(): string {
 }
 
 /**
- * 관리자가 ShopSetting.purchaseCouponDropEnabled를 켜두면, 구매가 완료될 때마다 5% 확률로
- * 구매자에게 5% 할인 쿠폰(1회용, 7일간 유효)을 즉시 발급한다. 안 당첨되거나 기능이
- * 꺼져있으면 null. 구매 트랜잭션 안에서 호출해 주문 완료와 원자적으로 묶는다.
+ * 관리자가 ShopSetting.purchaseCouponDropEnabled를 켜두면, 100원 이상인 상품을 구매 완료할
+ * 때마다 5% 확률로 구매자에게 5% 할인 쿠폰(1회용, 7일간 유효)을 즉시 발급한다. 100원 미만
+ * 상품이거나 안 당첨되거나 기능이 꺼져있으면 null. 구매 트랜잭션 안에서 호출해 주문 완료와
+ * 원자적으로 묶는다.
  */
-export async function maybeGrantLuckyCoupon(tx: Prisma.TransactionClient, userId: string): Promise<Coupon | null> {
+export async function maybeGrantLuckyCoupon(
+  tx: Prisma.TransactionClient,
+  userId: string,
+  tierPrice: number
+): Promise<Coupon | null> {
+  if (tierPrice < LUCKY_COUPON_MIN_TIER_PRICE) return null;
+
   const settings = await tx.shopSetting.findUnique({ where: { id: "singleton" } });
   if (!settings?.purchaseCouponDropEnabled) return null;
   if (Math.random() >= LUCKY_COUPON_CHANCE) return null;
