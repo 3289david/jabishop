@@ -1,6 +1,7 @@
 import type { AutocompleteInteraction } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { RAFFLE_STATUS } from "@/lib/constants";
+import { listUsableCoupons } from "@/lib/coupon";
 
 export async function tierAutocomplete(interaction: AutocompleteInteraction) {
   const focused = interaction.options.getFocused().toString();
@@ -17,6 +18,33 @@ export async function tierAutocomplete(interaction: AutocompleteInteraction) {
   await interaction.respond(
     tiers.map((t) => ({ name: `${t.name} (${t.price.toLocaleString()}원)`, value: t.slug }))
   );
+}
+
+/** /구매의 "쿠폰코드" 옵션 자동완성 - 자동 적용 없이, 지금 쓸 수 있는 쿠폰을 직접 고르게 한다. */
+export async function couponAutocomplete(interaction: AutocompleteInteraction) {
+  const focused = interaction.options.getFocused().toString().toLowerCase();
+  const slug = interaction.options.getString("등급");
+  const user = slug ? await prisma.user.findUnique({ where: { discordId: interaction.user.id } }) : null;
+  const tier = slug ? await prisma.tier.findUnique({ where: { slug } }) : null;
+  if (!user || !tier) return interaction.respond([]);
+
+  const usable = await listUsableCoupons(user.id, tier.id, tier.price);
+  const filtered = usable
+    .filter(({ coupon }) => coupon.code.toLowerCase().includes(focused) || coupon.name.toLowerCase().includes(focused))
+    .slice(0, 25);
+  await interaction.respond(
+    filtered.map(({ coupon, discount }) => ({
+      name: `${coupon.name} (${coupon.code}) - ${discount.toLocaleString()}원 할인`,
+      value: coupon.code,
+    }))
+  );
+}
+
+/** /구매는 "등급"과 "쿠폰코드" 둘 다 자동완성을 쓰므로, 지금 입력 중인 옵션이 뭔지 보고 분기한다. */
+export async function purchaseAutocomplete(interaction: AutocompleteInteraction) {
+  const focused = interaction.options.getFocused(true);
+  if (focused.name === "쿠폰코드") return couponAutocomplete(interaction);
+  return tierAutocomplete(interaction);
 }
 
 export async function openRaffleAutocomplete(interaction: AutocompleteInteraction) {

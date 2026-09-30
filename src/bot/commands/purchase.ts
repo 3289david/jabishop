@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { purchaseTier, purchaseTierBulk, OrderError } from "@/lib/orders";
 import { assertActiveShopUser } from "@/bot/discordAuth";
 import { baseEmbed, errorEmbed, successEmbed, pt } from "@/bot/format";
-import { tierAutocomplete } from "@/bot/autocomplete";
+import { purchaseAutocomplete } from "@/bot/autocomplete";
 import { readUploadedFile, isUploadKey } from "@/bot/fileStorage";
 import type { BotCommand } from "@/bot/types";
 
@@ -12,11 +12,13 @@ export const purchaseCommand: BotCommand = {
     .setName("구매")
     .setDescription("등급을 선택해 랜덤 계정을 구매합니다 (포인트 결제).")
     .addStringOption((o) => o.setName("등급").setDescription("구매할 등급").setRequired(true).setAutocomplete(true))
-    .addStringOption((o) => o.setName("쿠폰코드").setDescription("적용할 쿠폰 코드 (선택)").setRequired(false))
+    .addStringOption((o) =>
+      o.setName("쿠폰코드").setDescription("사용할 쿠폰 (선택, 입력 시 목록에서 골라주세요)").setRequired(false).setAutocomplete(true)
+    )
     .addIntegerOption((o) =>
       o.setName("수량").setDescription("구매할 수량 (기본 1, 최대 50)").setMinValue(1).setMaxValue(50).setRequired(false)
     ),
-  autocomplete: tierAutocomplete,
+  autocomplete: purchaseAutocomplete,
   async execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
     const slug = interaction.options.getString("등급", true);
@@ -61,7 +63,7 @@ export const purchaseCommand: BotCommand = {
         );
       if (order.discountAmount > 0) {
         embed.addFields({
-          name: couponCode ? "🎟️ 쿠폰 적용" : "🎟️ 쿠폰 자동 적용",
+          name: couponCode ? "🎟️ 쿠폰 적용" : "💸 할인 적용",
           value: `-${pt(order.discountAmount)} 할인`,
           inline: true,
         });

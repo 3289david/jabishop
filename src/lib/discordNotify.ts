@@ -39,7 +39,7 @@ async function openDmChannel(token: string, discordId: string): Promise<string |
  * 문제가 있었다. 이제는 실패를 로그로 남기고 호출한 쪽에 boolean으로 알려줘서,
  * 관리자 지급처럼 DM이 유일한 통지 수단인 곳에서 실패를 인지하고 안내할 수 있게 한다.
  */
-export async function sendDiscordDM(
+async function sendDiscordDMImmediate(
   discordId: string,
   payload: { content?: string; embeds?: SimpleEmbed[] },
   attachment?: { buffer: Buffer; fileName: string }
@@ -81,6 +81,41 @@ export async function sendDiscordDM(
     console.warn(`디스코드 DM 발송 중 오류 (user=${discordId}):`, e);
     return false;
   }
+}
+
+// 대량 구매(수량 지정 구매, 장바구니 결제) 시 구매 건수만큼 DM이 거의 동시에 발송되면
+// 디스코드 REST 레이트리밋(429)에 걸려 일부 DM이 조용히 유실된다("12개 샀는데 9개만 옴").
+// 그래서 모든 DM 발송을 이 큐 하나로 모아 5개씩 묶어 보내고, 배치 사이에 잠깐 쉰다.
+const DM_BATCH_SIZE = 5;
+const DM_BATCH_DELAY_MS = 2000;
+const dmQueue: (() => Promise<void>)[] = [];
+let dmQueueRunning = false;
+
+async function processDmQueue() {
+  if (dmQueueRunning) return;
+  dmQueueRunning = true;
+  while (dmQueue.length > 0) {
+    const batch = dmQueue.splice(0, DM_BATCH_SIZE);
+    await Promise.all(batch.map((task) => task()));
+    if (dmQueue.length > 0) {
+      await new Promise((resolve) => setTimeout(resolve, DM_BATCH_DELAY_MS));
+    }
+  }
+  dmQueueRunning = false;
+}
+
+export function sendDiscordDM(
+  discordId: string,
+  payload: { content?: string; embeds?: SimpleEmbed[] },
+  attachment?: { buffer: Buffer; fileName: string }
+): Promise<boolean> {
+  return new Promise((resolve) => {
+    dmQueue.push(async () => {
+      const ok = await sendDiscordDMImmediate(discordId, payload, attachment).catch(() => false);
+      resolve(ok);
+    });
+    processDmQueue();
+  });
 }
 
 /** 특정 채널에 임베드(+버튼 등 컴포넌트)를 직접 게시한다 (DM이 아니라 서버 채널용). */

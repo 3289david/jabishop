@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 import { ARTWORK_STATUS, REVIEW_STATUS } from "@/lib/constants";
+import { listUsableCoupons } from "@/lib/coupon";
 import { PurchaseForm } from "@/components/PurchaseForm";
 
 export default async function ProductDetailPage({
@@ -22,6 +23,7 @@ export default async function ProductDetailPage({
   if (!tier) notFound();
 
   const user = await getCurrentUser();
+  const usableCoupons = user ? await listUsableCoupons(user.id, tier.id, tier.price) : [];
 
   const [stock, reviews] = await Promise.all([
     prisma.artwork.count({ where: { tierId: tier.id, status: ARTWORK_STATUS.AVAILABLE } }),
@@ -83,7 +85,15 @@ export default async function ProductDetailPage({
           stock > 0 ? (
             <>
               <p className="text-sm text-neutral-500 mb-3">보유 포인트: {user.points.toLocaleString()}P</p>
-              <PurchaseForm tierId={tier.id} price={tier.price} />
+              <PurchaseForm
+                tierId={tier.id}
+                price={tier.price}
+                coupons={usableCoupons.map(({ coupon, discount }) => ({
+                  code: coupon.code,
+                  name: coupon.name,
+                  discount,
+                }))}
+              />
             </>
           ) : (
             <p className="text-center text-neutral-400 py-6">현재 품절된 상품입니다.</p>

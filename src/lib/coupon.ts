@@ -1,4 +1,5 @@
 import type { Coupon, Prisma } from "@prisma/client";
+import { prisma } from "@/lib/prisma";
 
 export class CouponError extends Error {}
 
@@ -33,26 +34,23 @@ export function computeDiscount(coupon: Coupon, baseAmount: number, tierId: stri
 }
 
 /**
- * 구매 시 쿠폰 코드를 직접 입력하지 않아도, 지금 이 사용자가 쓸 수 있는 쿠폰(개인 발급된
- * UserCoupon뿐 아니라, 아직 이 사용자가 안 쓴 활성 상태의 공개 코드 쿠폰까지 전부) 중
- * 이 등급에 적용 가능한 것을 자동으로 찾아 가장 할인액이 큰 쿠폰을 골라준다. 없으면 null.
- * (/구매의 쿠폰코드 옵션처럼 코드를 직접 입력해서 쓸 수 있는 쿠폰은 모두 여기서도 자동으로
- * 후보가 된다 - 개인에게 발급된 쿠폰만 보면 실제로 존재하는 쿠폰 대부분을 놓치게 된다.)
- * "구매하기" 버튼/장바구니 결제처럼 쿠폰 코드를 입력할 UI가 없는 자동화된 구매 경로에서 쓴다.
+ * 지금 이 사용자가 이 등급 구매에 쓸 수 있는 쿠폰(개인 발급된 UserCoupon뿐 아니라, 아직
+ * 이 사용자가 안 쓴 활성 상태의 공개 코드 쿠폰까지 전부) 목록을 예상 할인액과 함께 돌려준다.
+ * 자동으로 적용하지 않고, 구매 화면에서 사용자가 직접 골라 쓰도록(또는 안 쓰도록) 하기 위해 쓴다.
  */
-export async function findBestAutoCoupon(
-  tx: Prisma.TransactionClient,
+export async function listUsableCoupons(
   userId: string,
   tierId: string,
   baseAmount: number
-): Promise<Coupon | null> {
+): Promise<{ coupon: Coupon; discount: number }[]> {
   const now = new Date();
-  const candidates = await tx.coupon.findMany({
+  const candidates = await prisma.coupon.findMany({
     where: { active: true, validFrom: { lte: now }, validTo: { gte: now } },
+    orderBy: { createdAt: "desc" },
   });
-  if (candidates.length === 0) return null;
+  if (candidates.length === 0) return [];
 
-  let best: { coupon: Coupon; discount: number } | null = null;
+  const usable: { coupon: Coupon; discount: number }[] = [];
   for (const coupon of candidates) {
     let discount: number;
     try {
@@ -61,18 +59,18 @@ export async function findBestAutoCoupon(
       continue; // 이 쿠폰은 지금 조건에 안 맞음 - 다음 쿠폰 확인
     }
 
-    const usedByUser = await tx.couponUsage.count({ where: { couponId: coupon.id, userId } });
+    const usedByUser = await prisma.couponUsage.count({ where: { couponId: coupon.id, userId } });
     if (usedByUser >= coupon.usageLimitPerUser) continue;
 
     if (coupon.usageLimitTotal != null) {
-      const totalUsed = await tx.couponUsage.count({ where: { couponId: coupon.id } });
+      const totalUsed = await prisma.couponUsage.count({ where: { couponId: coupon.id } });
       if (totalUsed >= coupon.usageLimitTotal) continue;
     }
 
-    if (!best || discount > best.discount) best = { coupon, discount };
+    usable.push({ coupon, discount });
   }
 
-  return best?.coupon ?? null;
+  return usable;
 }
 
 const LUCKY_COUPON_CHANCE = 0.05; // 5% 확률

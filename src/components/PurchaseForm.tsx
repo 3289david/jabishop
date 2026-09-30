@@ -3,7 +3,15 @@
 import { useActionState, useState } from "react";
 import { purchaseAction, addToCartAction, type ActionState } from "@/lib/actions/shop";
 
-export function PurchaseForm({ tierId, price }: { tierId: string; price: number }) {
+export function PurchaseForm({
+  tierId,
+  price,
+  coupons,
+}: {
+  tierId: string;
+  price: number;
+  coupons: { code: string; name: string; discount: number }[];
+}) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(purchaseAction, undefined);
   const [cartState, cartAction, cartPending] = useActionState<ActionState, FormData>(addToCartAction, undefined);
   const [couponCode, setCouponCode] = useState("");
@@ -25,14 +33,20 @@ export function PurchaseForm({ tierId, price }: { tierId: string; price: number 
       <form action={formAction} className="space-y-2">
         <input type="hidden" name="tierId" value={tierId} />
         <input type="hidden" name="quantity" value={quantity} />
-        <label className="block text-xs text-neutral-500">쿠폰 코드 (선택)</label>
-        <input
+        <label className="block text-xs text-neutral-500">쿠폰 (선택)</label>
+        <select
           name="couponCode"
           value={couponCode}
           onChange={(e) => setCouponCode(e.target.value)}
-          placeholder="쿠폰 코드 입력"
           className="w-full border rounded-md px-3 py-2 text-sm"
-        />
+        >
+          <option value="">쿠폰 사용 안 함</option>
+          {coupons.map((c) => (
+            <option key={c.code} value={c.code}>
+              {c.name} (-{c.discount.toLocaleString()}P)
+            </option>
+          ))}
+        </select>
         {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
         <button
           type="submit"

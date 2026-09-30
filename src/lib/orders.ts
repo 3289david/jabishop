@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { generateOrderNo } from "@/lib/orderNo";
-import { computeDiscount, findBestAutoCoupon, maybeGrantLuckyCoupon, CouponError } from "@/lib/coupon";
+import { computeDiscount, maybeGrantLuckyCoupon, CouponError } from "@/lib/coupon";
 import { getFlashSaleDiscount } from "@/lib/events/flashSale";
 import { maybeRewardReferral } from "@/lib/events/referral";
 import { ORDER_STATUS, ARTWORK_STATUS, POINT_TX_TYPE, TIER_STATUS, getPurchaseTierDiscountPercent } from "@/lib/constants";
@@ -60,9 +60,10 @@ export async function purchaseTier(params: {
     let discountAmount = 0;
     let couponId: string | null = null;
 
-    // 쿠폰 코드를 직접 지정하지 않은 경우 ("구매하기" 버튼/장바구니 결제처럼 쿠폰 입력 UI가
-    // 없는 경로), 보유한 미사용 쿠폰 중 지금 적용 가능한 걸 자동으로 찾아 적용한다.
-    const effectiveCouponCode = couponCode ?? (await findBestAutoCoupon(tx, userId, tierId, baseAmount))?.code;
+    // 예전에는 쿠폰 코드를 지정하지 않으면 쓸 수 있는 쿠폰 중 가장 할인이 큰 걸 자동으로
+    // 적용했는데, 사용자가 모르는 사이에 쿠폰이 소모돼서 원치 않을 때도 써버리는 문제가
+    // 있었다. 이제는 항상 명시적으로 지정한 쿠폰만 적용하고, 지정하지 않으면 쿠폰 없이 구매한다.
+    const effectiveCouponCode = couponCode;
 
     if (effectiveCouponCode) {
       const coupon = await tx.coupon.findUnique({ where: { code: effectiveCouponCode } });

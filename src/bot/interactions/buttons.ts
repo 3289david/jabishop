@@ -122,7 +122,7 @@ async function handleBuy(interaction: ButtonInteraction, slug: string) {
       .setTitle(`주문 #${order.orderNo}`)
       .addFields({ name: "결제 금액", value: pt(order.finalAmount), inline: true }, { name: "지급된 계정", value: artwork?.title ?? "-", inline: true });
     if (order.discountAmount > 0) {
-      embed.addFields({ name: "🎟️ 쿠폰 자동 적용", value: `-${pt(order.discountAmount)} 할인`, inline: true });
+      embed.addFields({ name: "💸 할인 적용", value: `-${pt(order.discountAmount)} 할인`, inline: true });
     }
     if (order.luckyCoupon) {
       embed.addFields({ name: "🎉 구매 축하 쿠폰 당첨!", value: `5% 할인 쿠폰 \`${order.luckyCoupon.code}\`이 지급되었습니다.` });
