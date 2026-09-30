@@ -4,7 +4,7 @@ import { requireLinkedAdmin, getOrCreateShopUser } from "@/bot/discordAuth";
 import { baseEmbed, errorEmbed, successEmbed } from "@/bot/format";
 import { tierAutocomplete } from "@/bot/autocomplete";
 import { saveBufferToUploads, deleteUploadedFile, isUploadKey } from "@/bot/fileStorage";
-import { grantArtworkToUser, OrderError } from "@/lib/orders";
+import { grantArtworkToUser, grantArtworkToUserBulk, OrderError } from "@/lib/orders";
 import { ARTWORK_STATUS } from "@/lib/constants";
 import type { BotCommand } from "@/bot/types";
 
@@ -161,18 +161,48 @@ export const artworkGrantCommand: BotCommand = {
     .setName("계정지급")
     .setDescription("[관리자] 결제 없이 특정 회원에게 계정을 지급합니다.")
     .addStringOption((o) => o.setName("등급").setDescription("지급할 등급").setRequired(true).setAutocomplete(true))
-    .addUserOption((o) => o.setName("대상").setDescription("지급받을 디스코드 사용자").setRequired(true)),
+    .addUserOption((o) => o.setName("대상").setDescription("지급받을 디스코드 사용자").setRequired(true))
+    .addIntegerOption((o) =>
+      o.setName("수량").setDescription("지급할 개수 (기본 1, 최대 50)").setMinValue(1).setMaxValue(50).setRequired(false)
+    ),
   autocomplete: tierAutocomplete,
   async execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
     const admin = await requireLinkedAdmin(interaction.user.id);
     const slug = interaction.options.getString("등급", true);
     const target = interaction.options.getUser("대상", true);
+    const quantity = interaction.options.getInteger("수량") ?? 1;
 
     const tier = await prisma.tier.findUnique({ where: { slug } });
     if (!tier) return interaction.editReply({ embeds: [errorEmbed("존재하지 않는 등급입니다.")] });
 
     const user = await getOrCreateShopUser(target.id, target.tag);
+
+    if (quantity > 1) {
+      const result = await grantArtworkToUserBulk({ tierId: tier.id, userId: user.id, quantity });
+      if (result.successCount > 0) {
+        await prisma.adminActivityLog.create({
+          data: {
+            adminId: admin.id,
+            action: "ARTWORK_GRANT",
+            target: result.lastOrder?.id ?? "",
+            detail: `${tier.name} x${result.successCount} → ${target.tag}`,
+          },
+        });
+      }
+      const dmWarning =
+        result.dmFailCount > 0
+          ? `\n⚠️ 이 중 ${result.dmFailCount}건은 DM 발송에 실패했습니다 (DM 허용을 꺼뒀거나 봇을 차단한 것 같습니다). 마이페이지 주문내역에서 직접 확인하도록 안내해주세요.`
+          : "";
+      const embed =
+        result.failedCount > 0
+          ? errorEmbed(
+              `${target.username}님에게 "${tier.name}" 계정 ${result.successCount}개 지급 완료 후 중단됨 - ${result.lastError}${dmWarning}`
+            )
+          : successEmbed(`${target.username}님에게 "${tier.name}" 계정 ${result.successCount}개를 지급했습니다.${dmWarning}`);
+      await interaction.editReply({ embeds: [embed] });
+      return;
+    }
 
     try {
       const order = await grantArtworkToUser({ tierId: tier.id, userId: user.id });

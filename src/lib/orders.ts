@@ -360,6 +360,39 @@ export async function grantArtworkToUser(params: { tierId: string; userId: strin
 }
 
 /**
+ * 관리자가 한 번에 여러 개를 지급할 때 쓴다. grantArtworkToUser를 수량만큼 반복하되,
+ * 구매 쪽(purchaseTierBulk)과 동일하게 중간에 재고 부족 등으로 실패해도 그때까지
+ * 지급된 건 유지하고 중단한다.
+ */
+export async function grantArtworkToUserBulk(params: { tierId: string; userId: string; quantity: number }) {
+  const { tierId, userId, quantity } = params;
+  let successCount = 0;
+  let dmFailCount = 0;
+  let lastError: string | null = null;
+  let lastOrder: Awaited<ReturnType<typeof grantArtworkToUser>> | null = null;
+
+  for (let i = 0; i < quantity; i++) {
+    try {
+      const order = await grantArtworkToUser({ tierId, userId });
+      successCount++;
+      if (!order.dmSent) dmFailCount++;
+      lastOrder = order;
+    } catch (e) {
+      lastError = e instanceof OrderError || e instanceof Error ? e.message : "지급 중 오류가 발생했습니다.";
+      break;
+    }
+  }
+
+  return {
+    successCount,
+    failedCount: quantity - successCount,
+    dmFailCount,
+    lastError,
+    lastOrder,
+  };
+}
+
+/**
  * 완료된 주문에 지급된 계정을 같은 등급의 다른 재고로 교환(재추첨)한다.
  * 기존 계정은 재판매 방지를 위해 재고로 복구하지 않고 EXCHANGED 상태로 남긴다.
  */

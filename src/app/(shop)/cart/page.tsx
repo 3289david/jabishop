@@ -1,6 +1,7 @@
 import { requireUser } from "@/lib/actions/auth";
 import { prisma } from "@/lib/prisma";
 import { updateCartQtyAction, removeFromCartAction } from "@/lib/actions/shop";
+import { listUsableCoupons } from "@/lib/coupon";
 import { CheckoutButton } from "@/components/CheckoutButton";
 
 export default async function CartPage() {
@@ -12,6 +13,21 @@ export default async function CartPage() {
   });
 
   const total = items.reduce((sum, i) => sum + i.tier.price * i.quantity, 0);
+
+  // 장바구니에 담긴 등급들 각각에 적용 가능한 쿠폰을 모아 하나의 선택 목록으로 합친다
+  // (같은 쿠폰이 여러 등급에 적용 가능하면 더 큰 할인액으로 표시).
+  const uniqueTiers = Array.from(new Map(items.map((i) => [i.tierId, i.tier])).values());
+  const couponLists = await Promise.all(uniqueTiers.map((t) => listUsableCoupons(user.id, t.id, t.price)));
+  const couponMap = new Map<string, { code: string; name: string; discount: number }>();
+  for (const list of couponLists) {
+    for (const { coupon, discount } of list) {
+      const existing = couponMap.get(coupon.code);
+      if (!existing || existing.discount < discount) {
+        couponMap.set(coupon.code, { code: coupon.code, name: coupon.name, discount });
+      }
+    }
+  }
+  const availableCoupons = Array.from(couponMap.values());
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -52,7 +68,7 @@ export default async function CartPage() {
             <div className="text-sm text-neutral-400">보유 포인트 {user.points.toLocaleString()}P</div>
             <div className="text-lg font-bold">합계 {total.toLocaleString()}P</div>
           </div>
-          <CheckoutButton disabled={user.points < total} />
+          <CheckoutButton disabled={user.points < total} coupons={availableCoupons} />
         </div>
       )}
     </div>

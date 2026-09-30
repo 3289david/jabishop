@@ -21,7 +21,15 @@ type SimpleEmbed = {
   timestamp?: string;
 };
 
+// 같은 사용자에게 짧은 시간에 여러 번 DM을 보낼 때(대량 구매 등) 매번 채널을 새로 열
+// 필요가 없다 - 봇과 특정 유저 사이의 DM 채널 id는 사실상 고정이다. 캐싱해두면 대량
+// 발송 시 실제 REST 요청 수가 절반으로 줄어 레이트리밋에 덜 걸린다.
+const dmChannelCache = new Map<string, string>();
+
 async function openDmChannel(token: string, discordId: string): Promise<string | null> {
+  const cached = dmChannelCache.get(discordId);
+  if (cached) return cached;
+
   const res = await fetch(`${API_BASE}/users/@me/channels`, {
     method: "POST",
     headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
@@ -29,7 +37,20 @@ async function openDmChannel(token: string, discordId: string): Promise<string |
   });
   if (!res.ok) return null;
   const channel = (await res.json()) as { id: string };
+  dmChannelCache.set(discordId, channel.id);
   return channel.id;
+}
+
+/** 디스코드 429 응답에서 몇 초를 기다려야 하는지 읽어낸다 (JSON body 우선, 없으면 헤더). */
+async function readRetryAfterMs(res: Response): Promise<number> {
+  try {
+    const body = (await res.clone().json()) as { retry_after?: number };
+    if (typeof body.retry_after === "number") return Math.ceil(body.retry_after * 1000);
+  } catch {
+    // JSON이 아니면 헤더로 폴백
+  }
+  const header = res.headers.get("Retry-After");
+  return header ? Math.ceil(Number(header) * 1000) : 1000;
 }
 
 /**
@@ -38,6 +59,9 @@ async function openDmChannel(token: string, discordId: string): Promise<string |
  * 조용히 무시해서 "일부 회원에게만 DM이 안 온다"는 게 서버 로그에도 전혀 안 남는
  * 문제가 있었다. 이제는 실패를 로그로 남기고 호출한 쪽에 boolean으로 알려줘서,
  * 관리자 지급처럼 DM이 유일한 통지 수단인 곳에서 실패를 인지하고 안내할 수 있게 한다.
+ *
+ * 레이트리밋(429)은 실패로 치지 않고, 디스코드가 알려주는 시간만큼 기다렸다가 재시도한다
+ * (최대 3회) - 대량 구매 시 DM이 일부만 오는 문제("12개 샀는데 9개만 옴")의 근본 원인이었다.
  */
 async function sendDiscordDMImmediate(
   discordId: string,
@@ -47,45 +71,56 @@ async function sendDiscordDMImmediate(
   const token = process.env.DISCORD_BOT_TOKEN;
   if (!token) return false;
 
-  try {
-    const channelId = await openDmChannel(token, discordId);
-    if (!channelId) {
-      console.warn(`디스코드 DM 채널 생성 실패 (user=${discordId}) - DM을 차단했거나 서버 공유가 없을 수 있습니다.`);
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const channelId = await openDmChannel(token, discordId);
+      if (!channelId) {
+        console.warn(`디스코드 DM 채널 생성 실패 (user=${discordId}) - DM을 차단했거나 서버 공유가 없을 수 있습니다.`);
+        return false;
+      }
+
+      let body: BodyInit;
+      let headers: Record<string, string>;
+
+      if (attachment) {
+        const embeds = (payload.embeds ?? []).map((e, i) =>
+          i === 0 ? { ...e, image: { url: `attachment://${attachment.fileName}` } } : e
+        );
+        const form = new FormData();
+        form.append("payload_json", JSON.stringify({ ...payload, embeds }));
+        form.append("files[0]", new Blob([new Uint8Array(attachment.buffer)]), attachment.fileName);
+        body = form;
+        headers = { Authorization: `Bot ${token}` };
+      } else {
+        body = JSON.stringify(payload);
+        headers = { Authorization: `Bot ${token}`, "Content-Type": "application/json" };
+      }
+
+      const res = await fetch(`${API_BASE}/channels/${channelId}/messages`, { method: "POST", headers, body });
+      if (res.status === 429) {
+        const waitMs = await readRetryAfterMs(res);
+        console.warn(`디스코드 DM 레이트리밋 (user=${discordId}) - ${waitMs}ms 대기 후 재시도 (${attempt + 1}/3)`);
+        await new Promise((resolve) => setTimeout(resolve, waitMs));
+        continue;
+      }
+      if (!res.ok) {
+        console.warn(`디스코드 DM 발송 실패 (user=${discordId}, status=${res.status}) - 서버 멤버 DM 허용을 꺼뒀거나 봇을 차단했을 수 있습니다.`);
+        return false;
+      }
+      return true;
+    } catch (e) {
+      console.warn(`디스코드 DM 발송 중 오류 (user=${discordId}):`, e);
       return false;
     }
-
-    let body: BodyInit;
-    let headers: Record<string, string>;
-
-    if (attachment) {
-      const embeds = (payload.embeds ?? []).map((e, i) =>
-        i === 0 ? { ...e, image: { url: `attachment://${attachment.fileName}` } } : e
-      );
-      const form = new FormData();
-      form.append("payload_json", JSON.stringify({ ...payload, embeds }));
-      form.append("files[0]", new Blob([new Uint8Array(attachment.buffer)]), attachment.fileName);
-      body = form;
-      headers = { Authorization: `Bot ${token}` };
-    } else {
-      body = JSON.stringify(payload);
-      headers = { Authorization: `Bot ${token}`, "Content-Type": "application/json" };
-    }
-
-    const res = await fetch(`${API_BASE}/channels/${channelId}/messages`, { method: "POST", headers, body });
-    if (!res.ok) {
-      console.warn(`디스코드 DM 발송 실패 (user=${discordId}, status=${res.status}) - 서버 멤버 DM 허용을 꺼뒀거나 봇을 차단했을 수 있습니다.`);
-      return false;
-    }
-    return true;
-  } catch (e) {
-    console.warn(`디스코드 DM 발송 중 오류 (user=${discordId}):`, e);
-    return false;
   }
+  console.warn(`디스코드 DM 발송 실패 (user=${discordId}) - 레이트리밋 재시도 3회 초과`);
+  return false;
 }
 
 // 대량 구매(수량 지정 구매, 장바구니 결제) 시 구매 건수만큼 DM이 거의 동시에 발송되면
 // 디스코드 REST 레이트리밋(429)에 걸려 일부 DM이 조용히 유실된다("12개 샀는데 9개만 옴").
 // 그래서 모든 DM 발송을 이 큐 하나로 모아 5개씩 묶어 보내고, 배치 사이에 잠깐 쉰다.
+// (개별 요청도 위 sendDiscordDMImmediate에서 429를 만나면 재시도하므로 이중으로 방어된다.)
 const DM_BATCH_SIZE = 5;
 const DM_BATCH_DELAY_MS = 2000;
 const dmQueue: (() => Promise<void>)[] = [];

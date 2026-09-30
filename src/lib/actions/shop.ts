@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/actions/auth";
 import { purchaseTier, purchaseTierBulk, OrderError } from "@/lib/orders";
+import { computeDiscount } from "@/lib/coupon";
 
 export type ActionState = { error?: string } | undefined;
 
@@ -74,18 +75,40 @@ export async function removeFromCartAction(formData: FormData) {
   revalidatePath("/cart");
 }
 
-export async function checkoutCartAction(_prev: ActionState, _formData: FormData): Promise<ActionState> {
+export async function checkoutCartAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await requireUser();
+  const couponCode = String(formData.get("couponCode") || "").trim() || undefined;
   const items = await prisma.cartItem.findMany({ where: { userId: user.id }, include: { tier: true } });
   if (items.length === 0) return { error: "장바구니가 비어 있습니다." };
 
+  // 쿠폰은 장바구니 안의 여러 등급 중 실제로 적용 가능한 첫 항목에만 쓴다 - 맞지 않는
+  // 항목에 잘못 시도하면 그 항목 전체가 쿠폰 오류로 실패 처리돼버리기 때문이다.
+  let couponTargetTierId: string | null = null;
+  if (couponCode) {
+    const coupon = await prisma.coupon.findUnique({ where: { code: couponCode } });
+    if (coupon) {
+      for (const item of items) {
+        try {
+          computeDiscount(coupon, item.tier.price, item.tierId);
+          couponTargetTierId = item.tierId;
+          break;
+        } catch {
+          continue;
+        }
+      }
+    }
+  }
+
   let successCount = 0;
+  let couponConsumed = false;
   const errors: string[] = [];
 
   for (const item of items) {
     for (let i = 0; i < item.quantity; i++) {
+      const useCouponHere = !couponConsumed && couponCode !== undefined && item.tierId === couponTargetTierId;
       try {
-        await purchaseTier({ userId: user.id, tierId: item.tierId });
+        await purchaseTier({ userId: user.id, tierId: item.tierId, couponCode: useCouponHere ? couponCode : undefined });
+        if (useCouponHere) couponConsumed = true;
         successCount++;
         // 성공한 수량만큼 장바구니 수량을 줄여, 실패 시점까지의 진행 상황을 정확히 반영한다.
         await prisma.cartItem.update({
