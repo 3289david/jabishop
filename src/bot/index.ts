@@ -10,6 +10,7 @@ import {
   PARTNER_APPLY_MODAL_ID,
   PARTNER_PROMO_MODAL_ID,
   REFERRAL_REGISTER_MODAL_ID,
+  QUANTITY_BUY_MODAL_PREFIX,
   handleTopUpModalSubmit,
   handleInquiryModalSubmit,
   handleAnswerModalSubmit,
@@ -17,6 +18,7 @@ import {
   handlePartnerApplyModalSubmit,
   handlePartnerPromoModalSubmit,
   handleReferralRegisterModalSubmit,
+  handleQuantityBuyModalSubmit,
 } from "@/bot/interactions/modals";
 import { handleButtonInteraction } from "@/bot/interactions/buttons";
 import { handleSelectMenuInteraction } from "@/bot/interactions/selects";
@@ -86,6 +88,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (interaction.customId === PARTNER_APPLY_MODAL_ID) return handlePartnerApplyModalSubmit(interaction);
       if (interaction.customId === PARTNER_PROMO_MODAL_ID) return handlePartnerPromoModalSubmit(interaction);
       if (interaction.customId === REFERRAL_REGISTER_MODAL_ID) return handleReferralRegisterModalSubmit(interaction);
+      if (interaction.customId.startsWith(QUANTITY_BUY_MODAL_PREFIX)) {
+        return handleQuantityBuyModalSubmit(interaction, interaction.customId.slice(QUANTITY_BUY_MODAL_PREFIX.length));
+      }
       return;
     }
   } catch (err) {

@@ -242,6 +242,48 @@ export async function purchaseTier(params: {
 }
 
 /**
+ * /구매의 "수량" 옵션이나 향후 수량 지정 구매 버튼처럼, 같은 등급을 여러 개 연속으로
+ * 구매할 때 쓴다. purchaseTier를 수량만큼 반복 호출하되, 장바구니 결제와 동일하게
+ * 중간에 하나가 실패(품절 등)해도 그 시점까지 성공한 구매는 그대로 유지하고 중단한다.
+ * 쿠폰은 첫 번째 구매에만 적용한다(등급당 1개 구매에 적용되는 쿠폰을 여러 번 쓰면 안 됨).
+ */
+export async function purchaseTierBulk(params: {
+  userId: string;
+  tierId: string;
+  quantity: number;
+  couponCode?: string;
+}) {
+  const { userId, tierId, quantity, couponCode } = params;
+  let successCount = 0;
+  let luckyCouponCount = 0;
+  let totalPaid = 0;
+  let lastError: string | null = null;
+  let lastOrder: Awaited<ReturnType<typeof purchaseTier>> | null = null;
+
+  for (let i = 0; i < quantity; i++) {
+    try {
+      const order = await purchaseTier({ userId, tierId, couponCode: i === 0 ? couponCode : undefined });
+      successCount++;
+      totalPaid += order.finalAmount;
+      if (order.luckyCoupon) luckyCouponCount++;
+      lastOrder = order;
+    } catch (e) {
+      lastError = e instanceof OrderError || e instanceof Error ? e.message : "구매 중 오류가 발생했습니다.";
+      break;
+    }
+  }
+
+  return {
+    successCount,
+    luckyCouponCount,
+    totalPaid,
+    lastError,
+    failedCount: quantity - successCount,
+    lastOrder,
+  };
+}
+
+/**
  * 관리자가 결제 없이 특정 회원에게 특정 등급의 계정을 하나 지급한다.
  * 구매 제한 수량은 관리자 지급이므로 적용하지 않는다. 포인트도 차감하지 않는다.
  */

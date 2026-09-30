@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/actions/auth";
-import { purchaseTier, OrderError } from "@/lib/orders";
+import { purchaseTier, purchaseTierBulk, OrderError } from "@/lib/orders";
 
 export type ActionState = { error?: string } | undefined;
 
@@ -12,18 +12,34 @@ export async function purchaseAction(_prev: ActionState, formData: FormData): Pr
   const user = await requireUser();
   const tierId = String(formData.get("tierId") || "");
   const couponCode = String(formData.get("couponCode") || "").trim() || undefined;
+  const quantity = Math.min(50, Math.max(1, Math.trunc(Number(formData.get("quantity") || 1)) || 1));
 
-  let order;
-  try {
-    order = await purchaseTier({ userId: user.id, tierId, couponCode });
-  } catch (e) {
-    if (e instanceof OrderError) return { error: e.message };
-    throw e;
+  if (quantity === 1) {
+    let order;
+    try {
+      order = await purchaseTier({ userId: user.id, tierId, couponCode });
+    } catch (e) {
+      if (e instanceof OrderError) return { error: e.message };
+      throw e;
+    }
+
+    // 구매 직후 헤더의 포인트 잔액이 stale해지지 않도록 루트 레이아웃까지 갱신한다.
+    revalidatePath("/", "layout");
+    redirect(`/mypage/orders/${order.id}`);
   }
 
-  // 구매 직후 헤더의 포인트 잔액이 stale해지지 않도록 루트 레이아웃까지 갱신한다.
+  const result = await purchaseTierBulk({ userId: user.id, tierId, quantity, couponCode });
+  if (result.successCount === 0) {
+    return { error: result.lastError ?? "구매 중 오류가 발생했습니다." };
+  }
+
   revalidatePath("/", "layout");
-  redirect(`/mypage/orders/${order.id}`);
+  if (result.failedCount > 0) {
+    return {
+      error: `${result.successCount}개 구매 완료 (총 ${result.totalPaid.toLocaleString()}P) 후 중단됨 - ${result.lastError}`,
+    };
+  }
+  redirect("/mypage/orders");
 }
 
 export async function addToCartAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -64,7 +80,7 @@ export async function checkoutCartAction(_prev: ActionState, _formData: FormData
   if (items.length === 0) return { error: "장바구니가 비어 있습니다." };
 
   let successCount = 0;
-  let firstError: string | null = null;
+  const errors: string[] = [];
 
   for (const item of items) {
     for (let i = 0; i < item.quantity; i++) {
@@ -77,22 +93,21 @@ export async function checkoutCartAction(_prev: ActionState, _formData: FormData
           data: { quantity: { decrement: 1 } },
         }).catch(() => {});
       } catch (e) {
-        firstError = `${item.tier.name}: ${e instanceof OrderError ? e.message : "구매 중 오류가 발생했습니다."}`;
+        errors.push(`${item.tier.name}: ${e instanceof OrderError ? e.message : "구매 중 오류가 발생했습니다."}`);
         break;
       }
     }
-    if (firstError) break;
   }
 
   await prisma.cartItem.deleteMany({ where: { userId: user.id, quantity: { lte: 0 } } });
 
-  if (firstError) {
+  if (errors.length > 0) {
     if (successCount > 0) revalidatePath("/", "layout");
     return {
       error:
         successCount > 0
-          ? `${successCount}건 주문 완료 후 중단됨 - ${firstError}`
-          : firstError,
+          ? `${successCount}건 주문 완료. 실패: ${errors.join(" / ")}`
+          : errors.join(" / "),
     };
   }
 

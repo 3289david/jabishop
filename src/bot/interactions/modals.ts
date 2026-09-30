@@ -8,11 +8,12 @@ import {
 } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { assertActiveShopUser, requireLinkedAdmin } from "@/bot/discordAuth";
-import { errorEmbed, successEmbed } from "@/bot/format";
+import { errorEmbed, successEmbed, pt } from "@/bot/format";
 import { createTopUpRequest } from "@/lib/points";
 import { createInquiry } from "@/lib/inquiries";
 import { updatePartnerWebhook, updatePartnerPromoMessage, requestPartner, PartnerError } from "@/lib/partners";
 import { linkReferral, EventError as ReferralError } from "@/lib/events/referral";
+import { purchaseTierBulk, OrderError } from "@/lib/orders";
 
 export const TOPUP_MODAL_ID = "topup_modal";
 export const INQUIRY_MODAL_ID = "inquiry_modal";
@@ -21,6 +22,7 @@ export const PARTNER_WEBHOOK_MODAL_ID = "partner_webhook_modal";
 export const PARTNER_APPLY_MODAL_ID = "partner_apply_modal";
 export const PARTNER_PROMO_MODAL_ID = "partner_promo_modal";
 export const REFERRAL_REGISTER_MODAL_ID = "referral_register_modal";
+export const QUANTITY_BUY_MODAL_PREFIX = "qtybuy_modal:";
 
 export async function showTopUpModal(interaction: ButtonInteraction) {
   const modal = new ModalBuilder().setCustomId(TOPUP_MODAL_ID).setTitle("포인트 충전 신청");
@@ -99,6 +101,53 @@ export async function handleAnswerModalSubmit(interaction: ModalSubmitInteractio
   });
   await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "INQUIRY_ANSWER", target: inquiryId } });
   await interaction.editReply({ embeds: [successEmbed("답변이 등록되었습니다.")] });
+}
+
+export async function showQuantityBuyModal(interaction: ButtonInteraction, slug: string) {
+  const modal = new ModalBuilder().setCustomId(`${QUANTITY_BUY_MODAL_PREFIX}${slug}`).setTitle("수량 지정 구매");
+  const quantity = new TextInputBuilder()
+    .setCustomId("quantity")
+    .setLabel("구매할 수량 (1~50)")
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true);
+  modal.addComponents(new ActionRowBuilder<TextInputBuilder>().addComponents(quantity));
+  await interaction.showModal(modal);
+}
+
+export async function handleQuantityBuyModalSubmit(interaction: ModalSubmitInteraction, slug: string) {
+  const quantity = Number(interaction.fields.getTextInputValue("quantity").replace(/[^0-9]/g, ""));
+  await interaction.deferReply({ ephemeral: true });
+
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > 50) {
+    return interaction.editReply({ embeds: [errorEmbed("수량은 1~50 사이의 숫자로 입력해주세요.")] });
+  }
+
+  try {
+    const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
+    const tier = await prisma.tier.findUnique({ where: { slug } });
+    if (!tier) throw new OrderError("TIER_NOT_FOUND", "존재하지 않는 등급입니다.");
+
+    const result = await purchaseTierBulk({ userId: user.id, tierId: tier.id, quantity });
+    const luckyNote =
+      result.luckyCouponCount > 0 ? ` 🎉 5% 할인 쿠폰 ${result.luckyCouponCount}장 당첨! 쿠폰함에서 확인하세요.` : "";
+
+    if (result.successCount === 0) {
+      return interaction.editReply({ embeds: [errorEmbed(result.lastError ?? "구매 중 오류가 발생했습니다.")] });
+    }
+
+    const embed =
+      result.failedCount > 0
+        ? errorEmbed(
+            `${tier.name} ${result.successCount}개 구매 완료 (총 ${pt(result.totalPaid)}).${luckyNote}\n나머지 ${result.failedCount}개 실패: ${result.lastError}`
+          )
+        : successEmbed(
+            `${tier.name} ${result.successCount}개 구매가 완료되었습니다 (총 ${pt(result.totalPaid)}).${luckyNote}\n계정은 DM 또는 /주문내역에서 확인하세요.`
+          );
+    await interaction.editReply({ embeds: [embed] });
+  } catch (e) {
+    const message = e instanceof OrderError || e instanceof Error ? e.message : "구매 중 오류가 발생했습니다.";
+    await interaction.editReply({ embeds: [errorEmbed(message)] });
+  }
 }
 
 export async function showPartnerWebhookModal(interaction: ButtonInteraction) {

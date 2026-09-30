@@ -33,7 +33,7 @@ import { raffleEventEmbed } from "@/bot/raffleUI";
 import { performCheckIn, EventError as CheckInError } from "@/lib/events/checkin";
 import { getOrCreateReferralCode, EventError as ReferralError } from "@/lib/events/referral";
 import { spinGacha, EventError as GachaError } from "@/lib/events/gacha";
-import { showReferralRegisterModal } from "@/bot/interactions/modals";
+import { showReferralRegisterModal, showQuantityBuyModal } from "@/bot/interactions/modals";
 import { subscribeRestock, RestockError } from "@/lib/restock";
 
 async function handlePanelProducts(interaction: ButtonInteraction) {
@@ -367,6 +367,7 @@ export async function handleButtonInteraction(interaction: ButtonInteraction) {
     return;
   }
   if (ns === "buy") return handleBuy(interaction, a);
+  if (ns === "qtybuy") return showQuantityBuyModal(interaction, a);
   if (ns === "restock") return handleRestockSubscribe(interaction, a);
   if (ns === "cartadd") return handleCartAdd(interaction, a);
   if (ns === "cart" && a === "checkout") return handleCartCheckout(interaction);

@@ -212,6 +212,7 @@ export async function tierDetailPayload(slug: string) {
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder().setCustomId(`buy:${slug}`).setLabel(`${won(tier.price)}로 구매`).setStyle(ButtonStyle.Success).setDisabled(stock === 0),
+    new ButtonBuilder().setCustomId(`qtybuy:${slug}`).setLabel("🔢 수량 지정 구매").setStyle(ButtonStyle.Success).setDisabled(stock === 0),
     new ButtonBuilder().setCustomId(`cartadd:${slug}`).setLabel("장바구니 담기").setStyle(ButtonStyle.Secondary).setDisabled(stock === 0),
     new ButtonBuilder()
       .setCustomId(`restock:${slug}`)

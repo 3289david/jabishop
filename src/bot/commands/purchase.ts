@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, AttachmentBuilder } from "discord.js";
 import { prisma } from "@/lib/prisma";
-import { purchaseTier, OrderError } from "@/lib/orders";
+import { purchaseTier, purchaseTierBulk, OrderError } from "@/lib/orders";
 import { assertActiveShopUser } from "@/bot/discordAuth";
 import { baseEmbed, errorEmbed, successEmbed, pt } from "@/bot/format";
 import { tierAutocomplete } from "@/bot/autocomplete";
@@ -12,17 +12,43 @@ export const purchaseCommand: BotCommand = {
     .setName("구매")
     .setDescription("등급을 선택해 랜덤 계정을 구매합니다 (포인트 결제).")
     .addStringOption((o) => o.setName("등급").setDescription("구매할 등급").setRequired(true).setAutocomplete(true))
-    .addStringOption((o) => o.setName("쿠폰코드").setDescription("적용할 쿠폰 코드 (선택)").setRequired(false)),
+    .addStringOption((o) => o.setName("쿠폰코드").setDescription("적용할 쿠폰 코드 (선택)").setRequired(false))
+    .addIntegerOption((o) =>
+      o.setName("수량").setDescription("구매할 수량 (기본 1, 최대 50)").setMinValue(1).setMaxValue(50).setRequired(false)
+    ),
   autocomplete: tierAutocomplete,
   async execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
     const slug = interaction.options.getString("등급", true);
     const couponCode = interaction.options.getString("쿠폰코드") ?? undefined;
+    const quantity = interaction.options.getInteger("수량") ?? 1;
 
     try {
       const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
       const tier = await prisma.tier.findUnique({ where: { slug } });
       if (!tier) throw new OrderError("TIER_NOT_FOUND", "존재하지 않는 등급입니다.");
+
+      if (quantity > 1) {
+        const result = await purchaseTierBulk({ userId: user.id, tierId: tier.id, quantity, couponCode });
+        const luckyNote =
+          result.luckyCouponCount > 0 ? ` 🎉 5% 할인 쿠폰 ${result.luckyCouponCount}장 당첨! 쿠폰함에서 확인하세요.` : "";
+
+        if (result.successCount === 0) {
+          await interaction.editReply({ embeds: [errorEmbed(result.lastError ?? "구매 중 오류가 발생했습니다.")] });
+          return;
+        }
+
+        const embed =
+          result.failedCount > 0
+            ? errorEmbed(
+                `${tier.name} ${result.successCount}개 구매 완료 (총 ${pt(result.totalPaid)}).${luckyNote}\n나머지 ${result.failedCount}개 실패: ${result.lastError}`
+              )
+            : successEmbed(
+                `${tier.name} ${result.successCount}개 구매가 완료되었습니다 (총 ${pt(result.totalPaid)}).${luckyNote}\n계정은 DM 또는 /주문내역에서 확인하세요.`
+              );
+        await interaction.editReply({ embeds: [embed] });
+        return;
+      }
 
       const order = await purchaseTier({ userId: user.id, tierId: tier.id, couponCode });
       const artwork = order.artwork;
