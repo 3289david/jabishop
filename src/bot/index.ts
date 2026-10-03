@@ -32,8 +32,21 @@ import { startRaffleAutoCloseLoop } from "@/bot/raffleAutoClose";
 import { startPublicStatsLoop } from "@/bot/publicStatsLoop";
 import { startRestockCheckLoop } from "@/bot/restockLoop";
 import { startStaleRequestsLoop } from "@/bot/staleRequestsLoop";
+import { startAdminDutyPanelLoop, updateAdminDutyPanel } from "@/bot/adminDutyPanel";
+import { syncAdminDutyFromPresence } from "@/lib/adminDuty";
 
-const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages] });
+// 관리자 근무 현황 자동 감지(온라인=출근/오프라인=일시중지)에는 Presence Intent가 필요하다.
+// 디스코드 개발자 포털 > Bot > Privileged Gateway Intents에서 "PRESENCE INTENT"를 켜지
+// 않으면 이 봇은 presenceUpdate 이벤트 자체를 받지 못한다 (자동 감지만 동작 안 함,
+// 수동 출근/퇴근/일시중지 버튼 패널은 이 설정과 무관하게 항상 동작한다).
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.GuildPresences,
+    GatewayIntentBits.GuildMembers,
+  ],
+});
 
 client.once(Events.ClientReady, (c) => {
   console.log(`✅ 자비샵 봇 로그인 완료: ${c.user.tag}`);
@@ -44,11 +57,22 @@ client.once(Events.ClientReady, (c) => {
   startPublicStatsLoop(client);
   startRestockCheckLoop();
   startStaleRequestsLoop();
+  startAdminDutyPanelLoop(client);
 });
 
 client.on(Events.MessageCreate, (message) => {
   handleAutoDeleteMessage(message).catch(() => {});
   handleStickyMessage(message);
+});
+
+client.on(Events.PresenceUpdate, (_oldPresence, newPresence) => {
+  if (!newPresence.userId) return;
+  const isOnline = newPresence.status !== "offline";
+  syncAdminDutyFromPresence(newPresence.userId, isOnline)
+    .then((changed) => {
+      if (changed) updateAdminDutyPanel(client).catch(() => {});
+    })
+    .catch((e) => console.error("관리자 근무 상태 자동 감지 실패:", e));
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {

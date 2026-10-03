@@ -89,6 +89,11 @@ model AdminUser {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  // 근무 상태 패널용. ON_DUTY | OFF_DUTY | PAUSED - 디스코드 온라인/오프라인 감지로
+  // ON_DUTY/PAUSED는 자동 전환되고, OFF_DUTY(퇴근)는 관리자 패널에서 직접 눌러야 바뀐다.
+  dutyStatus          String    @default("OFF_DUTY")
+  dutyStatusUpdatedAt DateTime?
+
   loginLogs    AdminLoginLog[]
   activityLogs AdminActivityLog[]
   sessions     AdminSession[]
@@ -467,6 +472,15 @@ model ShopSetting {
   // 갱신한다. 최고관리자(AdminUser.role === SUPER) 계정의 구매는 매출 집계에서 자동 제외된다.
   publicStatsChannelId String?
   publicStatsMessageId String?
+
+  // 관리자 근무 상태(출근/퇴근/일시중지) 현황판. presenceUpdate로 상태가 바뀔 때마다
+  // 이 메시지를 편집해서 갱신한다.
+  adminDutyChannelId String?
+  adminDutyMessageId String?
+
+  // 관리자가 직접 출근/퇴근/일시중지를 누르는 버튼 패널. 메시지는 고정이고 버튼만 쓴다.
+  adminDutyControlChannelId String?
+  adminDutyControlMessageId String?
 
   // 켜두면 구매가 완료될 때마다 5% 확률로 10% 할인 쿠폰을 구매자에게 자동 지급한다.
   purchaseCouponDropEnabled Boolean @default(false)

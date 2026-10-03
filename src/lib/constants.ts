@@ -19,6 +19,14 @@ export const ADMIN_STATUS = {
   DISABLED: "DISABLED",
 } as const;
 
+// 관리자 근무 상태. ON_DUTY/PAUSED는 디스코드 온라인/오프라인 감지로 자동 전환되고,
+// OFF_DUTY(퇴근)는 관리자가 직접 눌러야만 되는 "고정" 상태라 자동 감지로 덮어쓰지 않는다.
+export const ADMIN_DUTY_STATUS = {
+  ON_DUTY: "ON_DUTY",
+  OFF_DUTY: "OFF_DUTY",
+  PAUSED: "PAUSED",
+} as const;
+
 export const TIER_STATUS = {
   ON_SALE: "ON_SALE",
   HIDDEN: "HIDDEN",
