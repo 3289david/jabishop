@@ -89,14 +89,19 @@ model AdminUser {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  // 근무 상태 패널용. ON_DUTY | OFF_DUTY | PAUSED - 디스코드 온라인/오프라인 감지로
-  // ON_DUTY/PAUSED는 자동 전환되고, OFF_DUTY(퇴근)는 관리자 패널에서 직접 눌러야 바뀐다.
-  dutyStatus          String    @default("OFF_DUTY")
-  dutyStatusUpdatedAt DateTime?
-
   loginLogs    AdminLoginLog[]
   activityLogs AdminActivityLog[]
   sessions     AdminSession[]
+}
+
+// 근무 상태(출근/퇴근/일시중지) 패널용. 웹 관리자 계정(AdminUser)과는 별개로, 디스코드
+// 서버에서 관리자 역할(DISCORD_ADMIN_ROLE_ID)을 가진 사람이면 누구나 대상이 된다 -
+// 웹 로그인 계정이 있는지와 무관하다. discordId 자체를 키로 쓴다.
+model AdminDutyStatus {
+  discordId String   @id
+  name      String // 패널 표시용 - 상태가 바뀔 때마다 그 시점의 서버 닉네임으로 갱신
+  status    String   @default("OFF_DUTY") // ON_DUTY | OFF_DUTY | PAUSED
+  updatedAt DateTime @updatedAt
 }
 
 model AdminSession {

@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { purchaseTier, OrderError } from "@/lib/orders";
 import { confirmTopUp, rejectTopUp, TopUpError } from "@/lib/points";
 import { approveRefund, rejectRefund, RefundError } from "@/lib/refunds";
-import { assertActiveShopUser, requireLinkedAdmin } from "@/bot/discordAuth";
+import { assertActiveShopUser, requireLinkedAdmin, isDiscordGuildAdmin } from "@/bot/discordAuth";
 import { readUploadedFile, isUploadKey } from "@/bot/fileStorage";
 import { baseEmbed, errorEmbed, successEmbed, pt } from "@/bot/format";
 import {
@@ -357,8 +357,11 @@ async function handleRestockSubscribe(interaction: ButtonInteraction, slug: stri
 }
 
 async function handleDutyStatusChange(interaction: ButtonInteraction, status: string) {
-  const admin = await requireLinkedAdmin(interaction.user.id);
-  await setAdminDutyStatus(admin.id, status);
+  const isAdmin = await isDiscordGuildAdmin(interaction.user.id);
+  if (!isAdmin) throw new Error("관리자 역할이 있는 사람만 사용할 수 있습니다.");
+
+  const displayName = interaction.member && "displayName" in interaction.member ? interaction.member.displayName : interaction.user.tag;
+  await setAdminDutyStatus(interaction.user.id, displayName, status);
   await updateAdminDutyPanel(interaction.client);
   await interaction.reply({
     embeds: [successEmbed(`상태가 "${DUTY_STATUS_LABEL[status] ?? status}"(으)로 변경되었습니다.`)],

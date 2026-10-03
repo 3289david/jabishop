@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, Events, MessageFlags } from "discord.js";
+import { Client, GatewayIntentBits, Events, MessageFlags, PermissionFlagsBits } from "discord.js";
 import { BOT_TOKEN } from "@/bot/env";
 import { commandsByName } from "@/bot/commandRegistry";
 import { ADMIN_LINK_MODAL_ID, handleAdminLinkModalSubmit } from "@/bot/commands/adminLink";
@@ -67,8 +67,16 @@ client.on(Events.MessageCreate, (message) => {
 
 client.on(Events.PresenceUpdate, (_oldPresence, newPresence) => {
   if (!newPresence.userId) return;
+  const member = newPresence.member;
+  if (!member || member.user.bot) return;
+
+  const adminRoleId = process.env.DISCORD_ADMIN_ROLE_ID;
+  const isAdminRole =
+    (adminRoleId && member.roles.cache.has(adminRoleId)) || member.permissions.has(PermissionFlagsBits.Administrator);
+  if (!isAdminRole) return;
+
   const isOnline = newPresence.status !== "offline";
-  syncAdminDutyFromPresence(newPresence.userId, isOnline)
+  syncAdminDutyFromPresence(member.id, member.displayName, isOnline)
     .then((changed) => {
       if (changed) updateAdminDutyPanel(client).catch(() => {});
     })

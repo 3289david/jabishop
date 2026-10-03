@@ -1,29 +1,49 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, type Client } from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, type Client } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { baseEmbed } from "@/bot/format";
-import { listAdminDutyStatuses, DUTY_STATUS_LABEL } from "@/lib/adminDuty";
+import { listAdminDutyStatuses, reconcileAdminDutyRoster, DUTY_STATUS_LABEL } from "@/lib/adminDuty";
 import { ADMIN_DUTY_STATUS } from "@/lib/constants";
 
-/** 등록된 관리자 전원의 근무 상태 현황판. */
+/**
+ * 지금 디스코드 서버에서 관리자 역할(DISCORD_ADMIN_ROLE_ID) 또는 Administrator 권한을
+ * 가진 멤버 목록을 가져온다. 웹 관리자 계정(AdminUser) 연동 여부와 무관하다.
+ */
+export async function fetchAdminRoleMembers(client: Client): Promise<{ discordId: string; name: string }[]> {
+  const guildId = process.env.DISCORD_GUILD_ID;
+  if (!guildId) return [];
+
+  const guild = await client.guilds.fetch(guildId).catch(() => null);
+  if (!guild) return [];
+
+  await guild.members.fetch().catch(() => {});
+  const adminRoleId = process.env.DISCORD_ADMIN_ROLE_ID;
+
+  const members = guild.members.cache.filter(
+    (m) =>
+      !m.user.bot &&
+      ((adminRoleId && m.roles.cache.has(adminRoleId)) || m.permissions.has(PermissionFlagsBits.Administrator))
+  );
+  return members.map((m) => ({ discordId: m.id, name: m.displayName }));
+}
+
+/** 등록된 관리자(역할 보유자) 전원의 근무 상태 현황판. */
 export async function adminDutyStatusEmbed() {
   const admins = await listAdminDutyStatuses();
   const embed = baseEmbed("👮 관리자 근무 현황");
   if (admins.length === 0) {
-    embed.setDescription("등록된 관리자가 없습니다.");
+    embed.setDescription("관리자 역할을 가진 멤버가 없습니다.");
     return embed;
   }
 
   for (const admin of admins) {
-    const label = DUTY_STATUS_LABEL[admin.dutyStatus] ?? admin.dutyStatus;
-    const since = admin.dutyStatusUpdatedAt
-      ? `<t:${Math.floor(admin.dutyStatusUpdatedAt.getTime() / 1000)}:R>`
-      : "-";
-    embed.addFields({ name: `${admin.name} (${admin.loginId})`, value: `${label} · ${since}`, inline: true });
+    const label = DUTY_STATUS_LABEL[admin.status] ?? admin.status;
+    const since = `<t:${Math.floor(admin.updatedAt.getTime() / 1000)}:R>`;
+    embed.addFields({ name: admin.name, value: `${label} · ${since}`, inline: true });
   }
   return embed;
 }
 
-/** 관리자가 자기 상태를 직접 바꾸는 버튼 패널 (메시지는 고정, 버튼은 누구나 - 연동된 관리자만 - 누를 수 있음). */
+/** 관리자가 자기 상태를 직접 바꾸는 버튼 패널 (메시지는 고정, 관리자 역할 보유자만 사용 가능). */
 export function adminDutyControlRow() {
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder().setCustomId(`dutystatus:${ADMIN_DUTY_STATUS.ON_DUTY}`).setLabel("🟢 출근").setStyle(ButtonStyle.Success),
@@ -49,9 +69,16 @@ export async function updateAdminDutyPanel(client: Client) {
 
 const PANEL_REFRESH_INTERVAL_MS = 5 * 60 * 1000; // presence 이벤트를 놓쳐도 5분마다 다시 맞춰준다
 
+/** 역할 보유자 명단을 디스코드 기준으로 다시 맞추고(새로 역할 받은 사람 등록/뺏긴 사람 제거), 패널도 갱신한다. */
+export async function reconcileAndUpdateAdminDutyPanel(client: Client) {
+  const members = await fetchAdminRoleMembers(client);
+  await reconcileAdminDutyRoster(members);
+  await updateAdminDutyPanel(client);
+}
+
 export function startAdminDutyPanelLoop(client: Client) {
-  updateAdminDutyPanel(client).catch((e) => console.error("관리자 근무 현황판 초기 갱신 실패:", e));
+  reconcileAndUpdateAdminDutyPanel(client).catch((e) => console.error("관리자 근무 현황판 초기 갱신 실패:", e));
   setInterval(() => {
-    updateAdminDutyPanel(client).catch((e) => console.error("관리자 근무 현황판 갱신 실패:", e));
+    reconcileAndUpdateAdminDutyPanel(client).catch((e) => console.error("관리자 근무 현황판 갱신 실패:", e));
   }, PANEL_REFRESH_INTERVAL_MS);
 }
