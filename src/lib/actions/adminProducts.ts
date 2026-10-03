@@ -121,10 +121,11 @@ export async function duplicateAllTiersAction() {
 }
 
 const DISCOUNT_MODE_MIN_PRICE = 100;
+const DISCOUNT_MODE_MAX_PRICE = 4000;
 
 /**
  * "할인 모드" - 켜면 "한섭 " 등급들의 가격을 대응되는 일반 등급과 똑같이 낮춘다(프리미엄
- * 해제). 단, 아무리 낮아도 최저 100원은 받는다. 끄기 전 가격은 Tier.originalPrice에
+ * 해제). 단, 100원~4000원 범위로 clamp한다. 끄기 전 가격은 Tier.originalPrice에
  * 보관해뒀다가, 끄면 그 값으로 되돌린다.
  */
 export async function setDiscountModeAction(formData: FormData) {
@@ -141,7 +142,7 @@ export async function setDiscountModeAction(formData: FormData) {
       const base = byName.get(t.name.slice(DUPLICATE_PREFIX.length));
       if (!base || t.originalPrice != null) continue; // 대응 등급 없거나 이미 할인 모드 적용 중이면 건너뜀
 
-      const discountedPrice = Math.max(base.price, DISCOUNT_MODE_MIN_PRICE);
+      const discountedPrice = Math.min(Math.max(base.price, DISCOUNT_MODE_MIN_PRICE), DISCOUNT_MODE_MAX_PRICE);
       await prisma.tier.update({ where: { id: t.id }, data: { originalPrice: t.price, price: discountedPrice } });
       affected++;
     }
