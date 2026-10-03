@@ -384,15 +384,19 @@ export async function createGuildTextChannel(
         name: safeName,
         type: 0, // GUILD_TEXT
         parent_id: categoryId || undefined,
-        permission_overwrites: viewerDiscordId
-          ? [
-              {
-                id: viewerDiscordId,
-                type: 1, // member
-                allow: String(1024 | 2048 | 65536), // VIEW_CHANNEL | SEND_MESSAGES | READ_MESSAGE_HISTORY
-              },
-            ]
-          : undefined,
+        // @everyone은 메시지를 못 보내게 막아둔다 - 파트너 채널에 아무나 들어와서 쓰지 못하게.
+        permission_overwrites: [
+          { id: guildId, type: 0, deny: String(2048) }, // @everyone: SEND_MESSAGES 금지
+          ...(viewerDiscordId
+            ? [
+                {
+                  id: viewerDiscordId,
+                  type: 1, // member
+                  allow: String(1024 | 2048 | 65536), // VIEW_CHANNEL | SEND_MESSAGES | READ_MESSAGE_HISTORY
+                },
+              ]
+            : []),
+        ],
       }),
     });
     if (!res.ok) return null;
@@ -400,6 +404,26 @@ export async function createGuildTextChannel(
     return channel.id;
   } catch {
     return null;
+  }
+}
+
+/**
+ * 이미 만들어진 채널에 @everyone의 메시지 전송 권한만 추가로 막는다. 다른 권한 설정
+ * (파트너 본인에게 준 VIEW_CHANNEL 등)은 건드리지 않는다 - 기존 파트너 채널에 소급 적용할 때 쓴다.
+ */
+export async function denyEveryoneSendMessages(channelId: string, guildId: string): Promise<boolean> {
+  const token = process.env.DISCORD_BOT_TOKEN;
+  if (!token) return false;
+
+  try {
+    const res = await fetch(`${API_BASE}/channels/${channelId}/permissions/${guildId}`, {
+      method: "PUT",
+      headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ type: 0, deny: String(2048) }), // @everyone: SEND_MESSAGES 금지
+    });
+    return res.ok;
+  } catch {
+    return false;
   }
 }
 
