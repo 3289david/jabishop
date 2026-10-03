@@ -119,3 +119,42 @@ export async function duplicateAllTiersAction() {
   await logAdminActivity(admin.id, "TIER_DUPLICATE_ALL", undefined, `${created}건 복제`);
   revalidatePath("/admin/products");
 }
+
+/**
+ * "할인 모드" - 켜면 "한섭 " 등급들의 가격을 대응되는 일반 등급과 똑같이 낮춘다(프리미엄
+ * 해제). 끄기 전 가격은 Tier.originalPrice에 보관해뒀다가, 끄면 그 값으로 되돌린다.
+ */
+export async function setDiscountModeAction(formData: FormData) {
+  const admin = await requireAdmin();
+  const enabled = String(formData.get("enabled") || "") === "true";
+
+  const tiers = await prisma.tier.findMany();
+  const byName = new Map(tiers.map((t) => [t.name, t]));
+  let affected = 0;
+
+  if (enabled) {
+    for (const t of tiers) {
+      if (!t.name.startsWith(DUPLICATE_PREFIX)) continue;
+      const base = byName.get(t.name.slice(DUPLICATE_PREFIX.length));
+      if (!base || t.originalPrice != null) continue; // 대응 등급 없거나 이미 할인 모드 적용 중이면 건너뜀
+
+      await prisma.tier.update({ where: { id: t.id }, data: { originalPrice: t.price, price: base.price } });
+      affected++;
+    }
+  } else {
+    for (const t of tiers) {
+      if (t.originalPrice == null) continue;
+      await prisma.tier.update({ where: { id: t.id }, data: { price: t.originalPrice, originalPrice: null } });
+      affected++;
+    }
+  }
+
+  await prisma.shopSetting.upsert({
+    where: { id: "singleton" },
+    update: { discountModeEnabled: enabled },
+    create: { id: "singleton", bankName: "", bankAccountNumber: "", bankAccountHolder: "", discountModeEnabled: enabled },
+  });
+
+  await logAdminActivity(admin.id, "DISCOUNT_MODE_TOGGLE", undefined, `${enabled ? "ON" : "OFF"} (${affected}건)`);
+  revalidatePath("/admin/products");
+}

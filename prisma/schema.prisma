@@ -155,6 +155,9 @@ model Tier {
   category             String?
   // 이 등급 계정 1개를 확보하는 데 든 원가. 관리자 대시보드에서 순이익/적자 계산에 쓰인다.
   costPrice            Int?
+  // "할인 모드" 켜져 있는 동안 "한섭 " 등급의 원래(할인 전) 가격을 잠깐 보관해둔다 -
+  // 꺼지면 이 값으로 되돌린다. 할인 모드가 꺼져 있을 땐 항상 null.
+  originalPrice        Int?
   createdAt            DateTime @default(now())
   updatedAt            DateTime @updatedAt
 
@@ -489,6 +492,10 @@ model ShopSetting {
 
   // 켜두면 구매가 완료될 때마다 5% 확률로 10% 할인 쿠폰을 구매자에게 자동 지급한다.
   purchaseCouponDropEnabled Boolean @default(false)
+
+  // 켜면 "한섭 " 등급들의 가격을 전부 대응되는 일반 등급과 같게 낮추고(프리미엄 해제),
+  // 끄면 켜기 전 가격(Tier.originalPrice)으로 되돌린다.
+  discountModeEnabled Boolean @default(false)
 
   // 이벤트 기능 개별 on/off
   checkInEventEnabled  Boolean @default(false) // 출석체크

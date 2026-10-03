@@ -144,16 +144,18 @@ export async function bulkMarkSoldOutAction(formData: FormData) {
 export async function importArtworksTxtAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const admin = await requireAdmin();
   const tierId = String(formData.get("tierId") || "");
-  const file = formData.get("txt") as File | null;
+  const files = formData.getAll("txt").filter((f): f is File => f instanceof File && f.size > 0);
 
   if (!tierId) return { error: "등급을 선택해주세요." };
-  if (!file || file.size === 0) return { error: "TXT 파일을 선택해주세요." };
+  if (files.length === 0) return { error: "TXT 파일을 선택해주세요." };
 
   const tier = await prisma.tier.findUnique({ where: { id: tierId } });
   if (!tier) return { error: "존재하지 않는 등급입니다." };
 
-  const text = await file.text();
-  const lines = text
+  // 파일을 여러 개 올리면 전부 합쳐서 한 번에 등록한다.
+  const texts = await Promise.all(files.map((f) => f.text()));
+  const lines = texts
+    .join("\n")
     .split(/\r?\n/)
     .map((l) => l.trim())
     .filter((l) => l.length > 0);

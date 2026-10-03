@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { deleteTierAction, duplicateAllTiersAction } from "@/lib/actions/adminProducts";
+import { deleteTierAction, duplicateAllTiersAction, setDiscountModeAction } from "@/lib/actions/adminProducts";
 import { ARTWORK_STATUS } from "@/lib/constants";
 import { DuplicateTiersButton } from "@/components/admin/DuplicateTiersButton";
 import { BulkDeleteStockButton } from "@/components/admin/BulkDeleteStockButton";
+import { DiscountModeButton } from "@/components/admin/DiscountModeButton";
 
 const UNCATEGORIZED_LABEL = "기타";
 
@@ -13,6 +14,7 @@ export default async function AdminProductsPage({
   searchParams: Promise<{ category?: string }>;
 }) {
   const sp = await searchParams;
+  const settings = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
   const allTiers = await prisma.tier.findMany({
     orderBy: { sortOrder: "asc" },
     include: { _count: { select: { artworks: { where: { status: ARTWORK_STATUS.AVAILABLE } } } } },
@@ -29,6 +31,7 @@ export default async function AdminProductsPage({
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold">상품(등급) 관리</h1>
         <div className="flex gap-2">
+          <DiscountModeButton enabled={!!settings?.discountModeEnabled} action={setDiscountModeAction} />
           <DuplicateTiersButton action={duplicateAllTiersAction} />
           <Link href="/admin/products/new" className="bg-indigo-600 text-white text-sm px-3 py-2 rounded-md hover:bg-indigo-700">
             등급 추가
@@ -82,7 +85,16 @@ export default async function AdminProductsPage({
                   </Link>
                 </td>
                 <td className="px-4 py-2 text-neutral-500">{t.category || UNCATEGORIZED_LABEL}</td>
-                <td className="px-4 py-2">{t.price.toLocaleString()}원</td>
+                <td className="px-4 py-2">
+                  {t.originalPrice != null ? (
+                    <>
+                      <span className="line-through text-neutral-400 mr-1">{t.originalPrice.toLocaleString()}원</span>
+                      <span className="text-amber-600 font-semibold">{t.price.toLocaleString()}원</span>
+                    </>
+                  ) : (
+                    `${t.price.toLocaleString()}원`
+                  )}
+                </td>
                 <td className="px-4 py-2">{t._count.artworks}개</td>
                 <td className="px-4 py-2">{t.purchaseLimitPerUser ?? "-"}</td>
                 <td className="px-4 py-2">{t.status}</td>

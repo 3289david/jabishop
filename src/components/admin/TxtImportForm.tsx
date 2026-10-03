@@ -13,7 +13,7 @@ export function TxtImportForm({ tiers, defaultTierId }: { tiers: Tier[]; default
       <form action={formAction} className="mt-3 space-y-2">
         <p className="text-xs text-neutral-500">
           한 줄에 하나씩 - 구매 시 그대로 지급될 링크 또는 텍스트를 적으세요. 파일 업로드 없이 줄 수만큼 재고가 즉시
-          판매가능 상태로 등록됩니다.
+          판매가능 상태로 등록됩니다. 파일을 여러 개 선택하면 전부 합쳐서 등록됩니다.
         </p>
         <select name="tierId" required defaultValue={defaultTierId} className="border rounded-md px-2 py-1.5 text-sm">
           <option value="">등급 선택</option>
@@ -23,7 +23,7 @@ export function TxtImportForm({ tiers, defaultTierId }: { tiers: Tier[]; default
             </option>
           ))}
         </select>
-        <input name="txt" type="file" accept=".txt,text/plain" required className="text-sm block" />
+        <input name="txt" type="file" accept=".txt,text/plain" multiple required className="text-sm block" />
         {state?.error && <p className="text-sm text-amber-600">{state.error}</p>}
         <button
           type="submit"
