@@ -68,6 +68,7 @@ export const settingsUpdateCommand: BotCommand = {
   data: new SlashCommandBuilder()
     .setName("설정수정")
     .setDescription("[관리자/SUPER] 쇼핑몰 설정을 수정합니다.")
+    .addStringOption((o) => o.setName("샵이름").setDescription("쇼핑몰 이름 (웹사이트/봇 메시지 등에 표시됨)"))
     .addStringOption((o) => o.setName("은행명").setDescription("입금 은행명"))
     .addStringOption((o) => o.setName("계좌번호").setDescription("입금 계좌번호"))
     .addStringOption((o) => o.setName("예금주").setDescription("예금주명"))
@@ -112,6 +113,7 @@ export const settingsUpdateCommand: BotCommand = {
     const admin = await requireLinkedAdmin(interaction.user.id);
     requireSuperRole(admin.role);
 
+    const shopName = interaction.options.getString("샵이름");
     const bankName = interaction.options.getString("은행명");
     const bankAccountNumber = interaction.options.getString("계좌번호");
     const bankAccountHolder = interaction.options.getString("예금주");
@@ -138,6 +140,7 @@ export const settingsUpdateCommand: BotCommand = {
     await prisma.shopSetting.upsert({
       where: { id: "singleton" },
       update: {
+        ...(shopName != null ? { shopName } : {}),
         ...(bankName != null ? { bankName } : {}),
         ...(bankAccountNumber != null ? { bankAccountNumber } : {}),
         ...(bankAccountHolder != null ? { bankAccountHolder } : {}),
@@ -163,6 +166,7 @@ export const settingsUpdateCommand: BotCommand = {
       },
       create: {
         id: "singleton",
+        ...(shopName != null ? { shopName } : {}),
         bankName: bankName ?? "",
         bankAccountNumber: bankAccountNumber ?? "",
         bankAccountHolder: bankAccountHolder ?? "",

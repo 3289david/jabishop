@@ -141,6 +141,7 @@ async function purchaseShopSubscriptionTier(userId: string, tier: Tier) {
     `1) 봇을 본인 디스코드 서버에 초대`,
     `2) 그 서버에서 /샵연동 샵코드:${slug} 입력`,
     `3) 웹사이트 로그인을 쓰려면 /샵봇설정 으로 본인 디스코드 OAuth 앱(Client ID/Secret) 등록 (명령어 실행 시 등록할 Redirect URI도 함께 안내됨)`,
+    `4) (선택) /샵주소변경 으로 웹사이트 주소를, /설정수정 샵이름: 으로 쇼핑몰 이름을 원하는 대로 변경 가능`,
   ].join("\n");
 
   const artwork = await prisma.artwork.create({

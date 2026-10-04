@@ -310,6 +310,68 @@ export async function applyShopOAuthCredentials(slug: string, clientId: string, 
 }
 
 /**
+ * 샵 주인이 웹사이트 주소(서브도메인)를 원하는 이름으로 직접 바꿀 때 쓴다.
+ * 먼저 새 주소의 DNS/nginx를 만들어 기존 주소와 함께 같은 포트를 가리키게 해두고
+ * (이 시점까지는 기존 주소도 계속 멀쩡히 동작), 그 다음에만 프로세스를 새 슬러그
+ * 이름으로 내렸다 올리고, 마지막에 옛 주소의 DNS/nginx를 지운다 - 실패해도 최대한
+ * 기존 주소가 죽지 않게 하기 위한 순서다. OAuth 앱을 이미 등록했었다면 REDIRECT URI가
+ * 새 주소 기준으로 바뀌므로, 디스코드 개발자 포털에 다시 등록해야 한다(호출한 쪽에서 안내).
+ */
+export async function changeShopSlug(oldSlug: string, newSlug: string): Promise<{ url: string }> {
+  if (!/^[a-z0-9-]{3,30}$/.test(newSlug)) {
+    throw new Error("주소는 영문 소문자/숫자/하이픈 3~30자여야 합니다.");
+  }
+  if (newSlug === oldSlug) throw new Error("현재와 같은 주소입니다.");
+  if (await runWithTenant(null, () => prisma.shop.findUnique({ where: { slug: newSlug } }))) {
+    throw new Error("이미 사용 중인 주소입니다.");
+  }
+  const shop = await runWithTenant(null, () => prisma.shop.findUnique({ where: { slug: oldSlug } }));
+  if (!shop) throw new Error("존재하지 않는 샵입니다.");
+  if (shop.status !== "ACTIVE" || shop.port == null) {
+    throw new Error("활성 상태인 샵만 주소를 바꿀 수 있습니다.");
+  }
+
+  const oauth =
+    shop.discordOAuthClientId && shop.discordOAuthClientSecret
+      ? { clientId: shop.discordOAuthClientId, clientSecret: shop.discordOAuthClientSecret }
+      : undefined;
+
+  let newDnsCreated = false;
+  let newNginxWritten = false;
+  let oldProcessStopped = false;
+  try {
+    await createDnsRecord(newSlug);
+    newDnsCreated = true;
+    writeNginxConfig(newSlug, shop.port);
+    newNginxWritten = true;
+    await reloadNginx();
+
+    await stopTenantProcess(oldSlug);
+    oldProcessStopped = true;
+    writeTenantEcosystemFile(newSlug, shop.dbPath, shop.port, oauth);
+    await startTenantProcess(newSlug);
+
+    await deleteDnsRecord(oldSlug).catch(() => {});
+    removeNginxConfig(oldSlug);
+    await reloadNginx().catch(() => {});
+
+    await runWithTenant(null, () => prisma.shop.update({ where: { id: shop.id }, data: { slug: newSlug } }));
+    return { url: `https://${newSlug}.krl.kr` };
+  } catch (e) {
+    // 최대한 기존 주소가 계속 동작하도록 되돌린다.
+    if (oldProcessStopped) {
+      writeTenantEcosystemFile(oldSlug, shop.dbPath, shop.port, oauth);
+      await startTenantProcess(oldSlug).catch(() => {});
+    }
+    if (newNginxWritten) removeNginxConfig(newSlug);
+    if (newDnsCreated) await deleteDnsRecord(newSlug).catch(() => {});
+    await reloadNginx().catch(() => {});
+    const message = e instanceof Error ? e.message : String(e);
+    throw new Error(`주소 변경 실패 (기존 주소는 그대로 유지됩니다): ${message}`);
+  }
+}
+
+/**
  * 결제가 밀려서 즉시 취소할 때 쓴다. DNS/nginx/프로세스는 바로 내리지만, DB 파일은
  * 지우지 않고 남겨둔다 - 나중에 밀린 포인트를 채우면 관리자가 다시 provisionShop을
  * 호출해 그대로 복구할 수 있게 하기 위함 (Shop 행 자체도 지우지 않고 CANCELLED로만 표시).
