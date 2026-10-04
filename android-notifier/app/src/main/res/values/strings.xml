@@ -1,3 +1,5 @@
 <resources>
-    <string name="app_name">자비샵 입금알림</string>
+    <!-- 이 앱을 자기 샵 이름으로 쓰고 싶으면 여기 app_name만 바꾸고 빌드하면 됩니다
+         (예: "OO샵 입금알림"). 코드의 다른 부분은 안 건드려도 됩니다. -->
+    <string name="app_name">입금알림 자동전달</string>
 </resources>

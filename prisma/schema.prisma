@@ -446,6 +446,10 @@ model ShopSetting {
   bankName                   String  @default("")
   bankAccountNumber          String  @default("")
   bankAccountHolder          String  @default("")
+  // 입금알림 안드로이드 앱이 보내는 웹훅의 서명 검증용 비밀키. 샵마다 다른 값을 써야
+  // 한 샵의 비밀키가 새도 다른 샵 웹훅을 위조할 수 없다 (자판기 판매로 생긴 테넌트
+  // 샵은 생성 시점에 자동으로 발급됨 - src/lib/provisionShop.ts).
+  bankWebhookSecret          String?
   refundAllowedAfterDownload Boolean @default(false)
   noticeMessage              String?
 

@@ -150,6 +150,13 @@ export async function handleShopBuyModalSubmit(interaction: ModalSubmitInteracti
             "1) 봇을 자신의 디스코드 서버에 초대하세요.\n" +
             `2) 그 서버에서 \`/샵연동 서브도메인:${slug}\`를 입력해 이 샵과 연결하세요.\n` +
             "3) 연결되면 그 서버에서 자비샵의 모든 기능을 그대로 쓸 수 있습니다.",
+        },
+        {
+          name: "💳 입금 자동승인 앱 설정값 (선택)",
+          value:
+            `서버 웹훅 URL: \`${shop.url}/api/webhooks/bank-topup\`\n` +
+            `비밀키: ||${shop.bankWebhookSecret}||\n` +
+            "이 값은 이 샵 전용이라 다른 샵과 안 겹칩니다. 앱 사용법은 관리자에게 안내 채널 위치를 물어보세요.",
         }
       );
     await interaction.editReply({ embeds: [embed] });

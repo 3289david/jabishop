@@ -50,7 +50,7 @@ class MainActivity : AppCompatActivity() {
                 secret = settings.secret,
                 amount = 1L,
                 depositorName = "테스트",
-                rawText = "[테스트 전송] 자비샵 입금알림 앱에서 보낸 연결 확인용 요청입니다.",
+                rawText = "[테스트 전송] 입금알림 앱에서 보낸 연결 확인용 요청입니다.",
             ) { success, message ->
                 runOnUiThread {
                     statusText.text = "테스트 결과: $message"

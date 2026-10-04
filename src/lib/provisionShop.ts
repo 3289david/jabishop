@@ -16,6 +16,7 @@ import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import fs from "node:fs";
 import path from "node:path";
+import crypto from "node:crypto";
 import { prisma, runWithTenant } from "@/lib/prisma";
 
 const execFileAsync = promisify(execFile);
@@ -147,19 +148,23 @@ async function reloadNginx() {
   await execFileAsync("systemctl", ["reload", "nginx"]);
 }
 
-async function createTenantDb(dbPath: string) {
+async function createTenantDb(dbPath: string): Promise<string> {
   fs.mkdirSync(path.dirname(dbPath), { recursive: true });
   await execFileAsync("npx", ["prisma", "migrate", "deploy"], {
     cwd: "/root/jabishop",
     env: { ...process.env, DATABASE_URL: `file:${dbPath}` },
   });
+  // 입금알림 앱 웹훅용 비밀키를 이 샵만의 값으로 자동 발급한다 - 다른 샵(자비샵 본인
+  // 포함)과 절대 겹치지 않게, 그리고 사람이 따로 정해서 공유할 필요가 없게 하기 위함.
+  const bankWebhookSecret = crypto.randomBytes(24).toString("hex");
   await runWithTenant(dbPath, async () => {
     await prisma.shopSetting.upsert({
       where: { id: "singleton" },
-      update: {},
-      create: { id: "singleton", bankName: "", bankAccountNumber: "", bankAccountHolder: "" },
+      update: { bankWebhookSecret },
+      create: { id: "singleton", bankName: "", bankAccountNumber: "", bankAccountHolder: "", bankWebhookSecret },
     });
   });
+  return bankWebhookSecret;
 }
 
 function ecosystemConfigPath(slug: string) {
@@ -230,7 +235,7 @@ export async function provisionShop(params: {
   });
 
   try {
-    await createTenantDb(dbPath);
+    const bankWebhookSecret = await createTenantDb(dbPath);
     await createDnsRecord(slug);
     writeNginxConfig(slug, port);
     await reloadNginx();
@@ -239,7 +244,15 @@ export async function provisionShop(params: {
 
     const nextBillingAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
     await prisma.shop.update({ where: { id: shop.id }, data: { status: "ACTIVE", nextBillingAt } });
-    return { id: shop.id, slug, port, dbPath, url: `https://${slug}.krl.kr`, status: "ACTIVE" as const };
+    return {
+      id: shop.id,
+      slug,
+      port,
+      dbPath,
+      url: `https://${slug}.krl.kr`,
+      status: "ACTIVE" as const,
+      bankWebhookSecret,
+    };
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
     await cleanupShop(slug, dbPath);

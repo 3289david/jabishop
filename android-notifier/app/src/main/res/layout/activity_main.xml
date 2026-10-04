@@ -12,7 +12,7 @@
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="자비샵 입금 알림 자동전달"
+            android:text="입금 알림 자동전달"
             android:textSize="20sp"
             android:textStyle="bold"
             android:layout_marginBottom="4dp" />
@@ -32,7 +32,7 @@
             android:id="@+id/edit_webhook_url"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="https://jabishop.krl.kr/api/webhooks/bank-topup"
+            android:hint="https://내샵주소.krl.kr/api/webhooks/bank-topup"
             android:inputType="textUri"
             android:layout_marginBottom="12dp" />
 

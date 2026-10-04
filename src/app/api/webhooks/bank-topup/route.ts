@@ -22,7 +22,11 @@ function verifySignature(rawBody: string, signatureHeader: string | null, secret
 }
 
 export async function POST(req: NextRequest) {
-  const secret = process.env.BANK_WEBHOOK_SECRET;
+  // 샵마다 다른 비밀키를 쓴다 - 한 샵(특히 자판기 판매로 생긴 테넌트 샵)의 비밀키가
+  // 새도 다른 샵 웹훅을 위조할 수 없게 하기 위함. ShopSetting에 값이 있으면 그걸 쓰고,
+  // 없으면(아직 발급 전인 자비샵 본인 기존 설정) 기존처럼 환경변수로 폴백한다.
+  const settings = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
+  const secret = settings?.bankWebhookSecret || process.env.BANK_WEBHOOK_SECRET;
   if (!secret) {
     return NextResponse.json({ error: "not configured" }, { status: 503 });
   }
