@@ -20,6 +20,7 @@ import {
   syncPurchaseTierRoles,
 } from "@/lib/discordNotify";
 import { provisionShop } from "@/lib/provisionShop";
+import { getAppOrigin } from "@/lib/appUrl";
 import type { Tier } from "@prisma/client";
 
 export class OrderError extends Error {
@@ -43,7 +44,7 @@ export async function ensureShopSubscriptionTier() {
       name: "🏪 자판기(샵) 통째로 구매",
       price: 4000,
       description:
-        "이 샵을 통째로 복사해서 내 이름으로 운영합니다. 전용 웹사이트 주소 + 이 봇을 그대로 쓸 수 있고, 매달 자동으로 4,000P가 결제됩니다.",
+        "이 봇을 자기 디스코드 서버에 초대해서 자기 이름의 샵으로 그대로 운영합니다 (디스코드 전용 - 별도 웹사이트는 없습니다). 매달 자동으로 4,000P가 결제됩니다.",
       category: "자판기",
       status: TIER_STATUS.ON_SALE,
     },
@@ -52,7 +53,7 @@ export async function ensureShopSubscriptionTier() {
 
 /**
  * "자판기(샵) 통째로 구매" 전용 분기. 일반 등급처럼 미리 채워둔 재고(Artwork)에서
- * 하나를 꺼내는 게 아니라, 구매하는 그 순간 전용 샵(서브도메인+DB+프로세스)을 직접
+ * 하나를 꺼내는 게 아니라, 구매하는 그 순간 전용 샵(전용 DB)을 직접
  * 만들어서 지급한다. DNS/nginx/프로세스 생성 같은 외부 작업은 DB 트랜잭션으로 묶을
  * 수 없어서(롤백 불가능, 오래 걸림), 포인트를 먼저 차감하고(트랜잭션) -> 외부에서
  * 실제로 만들고 -> 실패하면 포인트를 그대로 환불하는 순서로 처리한다.
@@ -128,10 +129,11 @@ async function purchaseShopSubscriptionTier(userId: string, tier: Tier) {
   }
 
   const now = new Date();
+  const webhookUrl = `${getAppOrigin()}/api/webhooks/bank-topup/${slug}`;
   const fileKey = [
-    `주소: ${shop.url}`,
+    `샵 코드: ${slug}`,
     `다음 결제일: 30일 후 (자동 결제, 연체 시 즉시 중단)`,
-    `입금 자동승인 웹훅 URL: ${shop.url}/api/webhooks/bank-topup`,
+    `입금 자동승인 웹훅 URL: ${webhookUrl}`,
     `입금 자동승인 비밀키: ${shop.bankWebhookSecret}`,
     `다음 단계: 봇을 본인 디스코드 서버에 초대한 뒤, 그 서버에서 /샵연동 서브도메인:${slug} 입력`,
   ].join("\n");
@@ -140,7 +142,7 @@ async function purchaseShopSubscriptionTier(userId: string, tier: Tier) {
     data: {
       tierId: tier.id,
       code: `SHOP-${slug}`,
-      title: `${shopName} (${slug}.krl.kr)`,
+      title: `${shopName} (${slug})`,
       fileKey,
       status: ARTWORK_STATUS.SOLD,
       reservedOrderId: order.id,
