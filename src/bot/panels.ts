@@ -154,6 +154,13 @@ export async function listProductCategories(): Promise<string[]> {
   return Array.from(new Set(tiers.map((t) => t.category || UNCATEGORIZED_LABEL))).sort();
 }
 
+/** 상품 선택 화면 어디서나 같이 보여주는 "자판기 통째로 구매" 버튼. */
+export function shopBuyButtonRow() {
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder().setCustomId("shopbuy:open").setLabel("🏪 자판기(샵) 통째로 구매").setStyle(ButtonStyle.Secondary)
+  );
+}
+
 export async function categorySelectRow() {
   const categories = await listProductCategories();
 
@@ -165,6 +172,7 @@ export async function categorySelectRow() {
   return {
     embed: baseEmbed("🛍️ 구매하기").setDescription("카테고리를 선택하면 해당 카테고리의 상품 목록을 볼 수 있습니다."),
     row: new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu),
+    extraRow: shopBuyButtonRow(),
   };
 }
 
@@ -194,6 +202,7 @@ export async function productSelectRow(category?: string) {
       "아래 메뉴에서 등급을 선택하면 상세 정보를 볼 수 있습니다."
     ),
     row: new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu),
+    extraRow: shopBuyButtonRow(),
   };
 }
 

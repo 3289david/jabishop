@@ -14,8 +14,10 @@ import { createInquiry } from "@/lib/inquiries";
 import { updatePartnerWebhook, updatePartnerPromoMessage, requestPartner, PartnerError } from "@/lib/partners";
 import { linkReferral, EventError as ReferralError } from "@/lib/events/referral";
 import { purchaseTierBulk, OrderError } from "@/lib/orders";
+import { purchaseShopSubscription, ShopPurchaseError } from "@/lib/shopPurchase";
 
 export const TOPUP_MODAL_ID = "topup_modal";
+export const SHOP_BUY_MODAL_ID = "shop_buy_modal";
 export const INQUIRY_MODAL_ID = "inquiry_modal";
 export const ANSWER_MODAL_PREFIX = "answer_modal:";
 export const PARTNER_WEBHOOK_MODAL_ID = "partner_webhook_modal";
@@ -101,6 +103,60 @@ export async function handleAnswerModalSubmit(interaction: ModalSubmitInteractio
   });
   await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "INQUIRY_ANSWER", target: inquiryId } });
   await interaction.editReply({ embeds: [successEmbed("답변이 등록되었습니다.")] });
+}
+
+export async function showShopBuyModal(interaction: ButtonInteraction) {
+  const modal = new ModalBuilder().setCustomId(SHOP_BUY_MODAL_ID).setTitle("자판기(샵) 통째로 구매");
+  const slug = new TextInputBuilder()
+    .setCustomId("slug")
+    .setLabel("원하는 주소 (영문 소문자/숫자/하이픈, 3~30자)")
+    .setPlaceholder("예: myshop -> myshop.krl.kr")
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true);
+  const name = new TextInputBuilder()
+    .setCustomId("name")
+    .setLabel("샵 이름 (나중에 바꿀 수 있어요)")
+    .setStyle(TextInputStyle.Short)
+    .setRequired(true);
+  modal.addComponents(
+    new ActionRowBuilder<TextInputBuilder>().addComponents(slug),
+    new ActionRowBuilder<TextInputBuilder>().addComponents(name)
+  );
+  await interaction.showModal(modal);
+}
+
+export async function handleShopBuyModalSubmit(interaction: ModalSubmitInteraction) {
+  const slug = interaction.fields.getTextInputValue("slug").trim().toLowerCase();
+  const shopName = interaction.fields.getTextInputValue("name").trim();
+  await interaction.deferReply({ ephemeral: true });
+
+  const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
+  try {
+    const shop = await purchaseShopSubscription({
+      userId: user.id,
+      slug,
+      shopName,
+      claimDiscordId: interaction.user.id,
+    });
+
+    const embed = successEmbed(`"${shopName}" 샵이 생성되었습니다!`)
+      .setTitle("🎉 자판기 구매 완료")
+      .addFields(
+        { name: "주소", value: shop.url, inline: true },
+        { name: "다음 결제일", value: "30일 후 (자동으로 포인트 차감)", inline: true },
+        {
+          name: "다음 단계",
+          value:
+            "1) 봇을 자신의 디스코드 서버에 초대하세요.\n" +
+            `2) 그 서버에서 \`/샵연동 서브도메인:${slug}\`를 입력해 이 샵과 연결하세요.\n` +
+            "3) 연결되면 그 서버에서 자비샵의 모든 기능을 그대로 쓸 수 있습니다.",
+        }
+      );
+    await interaction.editReply({ embeds: [embed] });
+  } catch (e) {
+    const message = e instanceof ShopPurchaseError || e instanceof Error ? e.message : "샵 생성 중 오류가 발생했습니다.";
+    await interaction.editReply({ embeds: [errorEmbed(message)] });
+  }
 }
 
 export async function showQuantityBuyModal(interaction: ButtonInteraction, slug: string) {
