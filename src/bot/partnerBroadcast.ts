@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { sendWebhookMessage, sendChannelMessage } from "@/lib/discordNotify";
 import { PARTNER_STATUS } from "@/lib/constants";
+import { forEachShop } from "@/lib/shop";
 
 // 하루에 한 번, 양방향으로 파트너 홍보 문구를 자동 발송한다.
 //  1) 자비샵 -> 파트너 서버: 관리자가 설정한 문구(partnerDailyMessage)를 승인된 모든
@@ -46,9 +47,13 @@ export async function maybeSendDailyPartnerBroadcast() {
   }
 }
 
+async function maybeSendDailyPartnerBroadcastForAllShops() {
+  await forEachShop(() => maybeSendDailyPartnerBroadcast());
+}
+
 export function startPartnerBroadcastLoop() {
-  maybeSendDailyPartnerBroadcast().catch((e) => console.error("파트너 일일 발송 초기 실행 실패:", e));
+  maybeSendDailyPartnerBroadcastForAllShops().catch((e) => console.error("파트너 일일 발송 초기 실행 실패:", e));
   setInterval(() => {
-    maybeSendDailyPartnerBroadcast().catch((e) => console.error("파트너 일일 발송 실패:", e));
+    maybeSendDailyPartnerBroadcastForAllShops().catch((e) => console.error("파트너 일일 발송 실패:", e));
   }, CHECK_INTERVAL_MS);
 }

@@ -1,6 +1,7 @@
 import type { Client } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { publicStatsEmbed } from "@/bot/publicStats";
+import { forEachShop } from "@/lib/shop";
 
 // 공개 통계 패널이 항상 최신 상태를 보여주도록, 게시된 메시지를 주기적으로 편집한다.
 const UPDATE_INTERVAL_MS = 5 * 60 * 1000; // 5분마다 갱신
@@ -19,9 +20,13 @@ export async function updatePublicStatsPanel(client: Client) {
   await message.edit({ embeds: [embed] }).catch(() => {});
 }
 
+async function updatePublicStatsPanelForAllShops(client: Client) {
+  await forEachShop(() => updatePublicStatsPanel(client));
+}
+
 export function startPublicStatsLoop(client: Client) {
-  updatePublicStatsPanel(client).catch((e) => console.error("공개 통계 패널 갱신 초기 실행 실패:", e));
+  updatePublicStatsPanelForAllShops(client).catch((e) => console.error("공개 통계 패널 갱신 초기 실행 실패:", e));
   setInterval(() => {
-    updatePublicStatsPanel(client).catch((e) => console.error("공개 통계 패널 갱신 실패:", e));
+    updatePublicStatsPanelForAllShops(client).catch((e) => console.error("공개 통계 패널 갱신 실패:", e));
   }, UPDATE_INTERVAL_MS);
 }

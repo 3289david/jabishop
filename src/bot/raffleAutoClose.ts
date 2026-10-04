@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { RAFFLE_STATUS } from "@/lib/constants";
 import { drawRaffleWinners, RaffleError } from "@/lib/raffles";
 import { announceRaffleResult } from "@/bot/raffleAnnounce";
+import { forEachShop } from "@/lib/shop";
 
 // 관리자가 이벤트 생성 시 "마감시간분"을 지정한 경우, 그 시각이 지나면 여기서 자동으로
 // 마감 + 추첨 + 공지까지 처리한다. 1분마다 마감 시각이 지난 OPEN 이벤트가 있는지 확인한다.
@@ -31,9 +32,13 @@ export async function checkAutoCloseRaffles(client: Client) {
   }
 }
 
+async function checkAutoCloseRafflesForAllShops(client: Client) {
+  await forEachShop(() => checkAutoCloseRaffles(client));
+}
+
 export function startRaffleAutoCloseLoop(client: Client) {
-  checkAutoCloseRaffles(client).catch((e) => console.error("이벤트 자동 마감 초기 실행 실패:", e));
+  checkAutoCloseRafflesForAllShops(client).catch((e) => console.error("이벤트 자동 마감 초기 실행 실패:", e));
   setInterval(() => {
-    checkAutoCloseRaffles(client).catch((e) => console.error("이벤트 자동 마감 실패:", e));
+    checkAutoCloseRafflesForAllShops(client).catch((e) => console.error("이벤트 자동 마감 실패:", e));
   }, CHECK_INTERVAL_MS);
 }

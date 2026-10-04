@@ -1,6 +1,7 @@
 import { ChannelType, PermissionFlagsBits, type Client } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { ORDER_STATUS } from "@/lib/constants";
+import { forEachShop } from "@/lib/shop";
 
 // 서버 상단에 "🔊ㅣ회원수: N명" / "🔊ㅣ구매자수: N명" 음성채널을 만들어두고,
 // 실제로 들어갈 수는 없게(Connect 금지) 막아서 이름 자체가 실시간 통계판 역할을 하게 한다.
@@ -49,8 +50,7 @@ async function ensureStatChannel(
   return created?.id ?? null;
 }
 
-export async function updateStatsChannels(client: Client) {
-  const guildId = process.env.DISCORD_GUILD_ID;
+export async function updateStatsChannels(client: Client, guildId: string | null) {
   if (!guildId) return;
 
   const settings = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
@@ -89,9 +89,13 @@ export async function updateStatsChannels(client: Client) {
 
 const UPDATE_INTERVAL_MS = 10 * 60 * 1000; // Discord 채널명 변경 레이트리밋(10분당 2회)을 고려한 주기
 
+async function updateAllStatsChannels(client: Client) {
+  await forEachShop((guildId) => updateStatsChannels(client, guildId));
+}
+
 export function startStatsChannelLoop(client: Client) {
-  updateStatsChannels(client).catch((e) => console.error("통계 채널 초기화 실패:", e));
+  updateAllStatsChannels(client).catch((e) => console.error("통계 채널 초기화 실패:", e));
   setInterval(() => {
-    updateStatsChannels(client).catch((e) => console.error("통계 채널 갱신 실패:", e));
+    updateAllStatsChannels(client).catch((e) => console.error("통계 채널 갱신 실패:", e));
   }, UPDATE_INTERVAL_MS);
 }

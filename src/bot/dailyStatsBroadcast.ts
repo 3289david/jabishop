@@ -1,6 +1,7 @@
 import type { Client } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { statsEmbed } from "@/bot/commands/adminStats";
+import { forEachShop } from "@/lib/shop";
 
 // 하루에 한 번, 관리자가 설정한 공지 채널에 오늘 매출/주문/재고/회원/환불/문의 통계를 자동 게시한다.
 // 정확히 24시간마다 도는 타이머 대신, 마지막 게시 시각을 DB에 저장해두고 주기적으로
@@ -25,9 +26,13 @@ export async function maybeSendDailyStatsBroadcast(client: Client) {
   await prisma.shopSetting.update({ where: { id: "singleton" }, data: { dailyStatsLastPosted: new Date() } });
 }
 
+async function maybeSendDailyStatsBroadcastForAllShops(client: Client) {
+  await forEachShop(() => maybeSendDailyStatsBroadcast(client));
+}
+
 export function startDailyStatsBroadcastLoop(client: Client) {
-  maybeSendDailyStatsBroadcast(client).catch((e) => console.error("일일 통계 공지 초기 실행 실패:", e));
+  maybeSendDailyStatsBroadcastForAllShops(client).catch((e) => console.error("일일 통계 공지 초기 실행 실패:", e));
   setInterval(() => {
-    maybeSendDailyStatsBroadcast(client).catch((e) => console.error("일일 통계 공지 실패:", e));
+    maybeSendDailyStatsBroadcastForAllShops(client).catch((e) => console.error("일일 통계 공지 실패:", e));
   }, CHECK_INTERVAL_MS);
 }

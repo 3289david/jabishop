@@ -20,3 +20,30 @@ export async function runForGuild<T>(guildId: string | null, fn: () => Promise<T
   if (!shop || shop.status !== "ACTIVE") return fn();
   return runWithTenant(shop.dbPath, fn);
 }
+
+export type ShopContext = { dbPath: string | null; guildId: string | null };
+
+/**
+ * 봇의 주기적 백그라운드 작업(통계 채널 갱신, 일일 공지, 이벤트 자동 마감 등)을
+ * 자비샵 본인뿐 아니라 연동이 끝난(= discordGuildId가 있는) 테넌트 샵 전부에 대해서도
+ * 돌리기 위한 목록. 항상 자비샵 본인(dbPath: null)이 먼저 오고, 그 다음 각 테넌트 샵이 온다.
+ */
+export async function listShopContexts(): Promise<ShopContext[]> {
+  const tenants = await runWithTenant(null, () =>
+    prisma.shop.findMany({ where: { status: "ACTIVE", discordGuildId: { not: null } } })
+  );
+  return [
+    { dbPath: null, guildId: process.env.DISCORD_GUILD_ID ?? null },
+    ...tenants.map((t) => ({ dbPath: t.dbPath, guildId: t.discordGuildId })),
+  ];
+}
+
+/** listShopContexts()로 돈 각 샵에 대해 fn(guildId)을 그 샵의 DB로 실행한다. 하나가 실패해도 나머지는 계속 돈다. */
+export async function forEachShop(fn: (guildId: string | null) => Promise<unknown>): Promise<void> {
+  const contexts = await listShopContexts();
+  for (const ctx of contexts) {
+    await runWithTenant(ctx.dbPath, () => fn(ctx.guildId)).catch((e) =>
+      console.error(`샵 작업 실패 (dbPath=${ctx.dbPath ?? "default"}):`, e)
+    );
+  }
+}
