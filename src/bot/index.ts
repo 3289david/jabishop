@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, Events, MessageFlags, PermissionFlagsBits } from "discord.js";
+import { Client, GatewayIntentBits, Events, MessageFlags, PermissionFlagsBits, type Interaction } from "discord.js";
 import { BOT_TOKEN } from "@/bot/env";
 import { commandsByName } from "@/bot/commandRegistry";
 import { ADMIN_LINK_MODAL_ID, handleAdminLinkModalSubmit } from "@/bot/commands/adminLink";
@@ -34,6 +34,7 @@ import { startRestockCheckLoop } from "@/bot/restockLoop";
 import { startStaleRequestsLoop } from "@/bot/staleRequestsLoop";
 import { startAdminDutyPanelLoop, updateAdminDutyPanel } from "@/bot/adminDutyPanel";
 import { syncAdminDutyFromPresence } from "@/lib/adminDuty";
+import { runForGuild } from "@/lib/shop";
 
 // 관리자 근무 현황 자동 감지(온라인=출근/오프라인=일시중지)에는 Presence Intent가 필요하다.
 // 디스코드 개발자 포털 > Bot > Privileged Gateway Intents에서 "PRESENCE INTENT"를 켜지
@@ -61,14 +62,19 @@ client.once(Events.ClientReady, (c) => {
 });
 
 client.on(Events.MessageCreate, (message) => {
-  handleAutoDeleteMessage(message).catch(() => {});
-  handleStickyMessage(message);
+  runForGuild(message.guildId, async () => {
+    await handleAutoDeleteMessage(message).catch(() => {});
+    handleStickyMessage(message);
+  }).catch((e) => console.error("메시지 처리 중 오류:", e));
 });
 
 client.on(Events.PresenceUpdate, (_oldPresence, newPresence) => {
   if (!newPresence.userId) return;
   const member = newPresence.member;
   if (!member || member.user.bot) return;
+  // 관리자 근무 현황은 자비샵 본인 서버 전용 기능(DISCORD_ADMIN_ROLE_ID가 길드 하나 기준) -
+  // 테넌트 서버에서 온 presence 변화는 무시한다.
+  if (member.guild.id !== process.env.DISCORD_GUILD_ID) return;
 
   const adminRoleId = process.env.DISCORD_ADMIN_ROLE_ID;
   const isAdminRole =
@@ -84,6 +90,10 @@ client.on(Events.PresenceUpdate, (_oldPresence, newPresence) => {
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
+  await runForGuild(interaction.guildId, () => handleInteraction(interaction));
+});
+
+async function handleInteraction(interaction: Interaction) {
   try {
     if (interaction.isChatInputCommand()) {
       const command = commandsByName.get(interaction.commandName);
@@ -138,6 +148,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
       }
     }
   }
-});
+}
 
 client.login(BOT_TOKEN);

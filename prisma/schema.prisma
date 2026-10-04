@@ -601,6 +601,30 @@ model RaffleWinner {
   createdAt     DateTime    @default(now())
 }
 
+// ─────────────────────────────────────────────────────────────
+// 멀티테넌트 "자판기 판매" - 자비샵 자체를 구매해서 자기 이름으로 운영하게 판매한다.
+// 각 샵은 완전히 분리된 SQLite 파일(dbPath)을 쓴다 - 기존 34개 테이블에 shopId를 전부
+// 추가하는 대신, 프로세스는 하나(지금 이 jabishop-web/jabishop-bot)를 공유하되 요청마다
+// (웹은 Host 헤더, 봇은 interaction.guildId 기준으로) src/lib/prisma.ts의 runWithTenant로
+// 그 샵의 DB 파일만 바라보게 전환한다. 그래서 기존 코드 132개 파일 전부 수정할 필요가
+// 없고, 자비샵 본인의 데이터/스키마도 전혀 건드리지 않는다 - 안전한 쪽을 택함.
+// ─────────────────────────────────────────────────────────────
+
+model Shop {
+  id                String    @id @default(cuid())
+  slug              String    @unique // 서브도메인: slug.krl.kr
+  name              String
+  dbPath            String    @unique // 이 샵 전용 SQLite 파일 절대경로
+  discordGuildId    String?   @unique
+  ownerUserId       String? // 자비샵(본인) 기준 User.id - 구독료를 여기서 포인트 차감
+  status            String    @default("PROVISIONING") // PROVISIONING | ACTIVE | SUSPENDED | CANCELLED
+  subscriptionPrice Int       @default(4000)
+  nextBillingAt     DateTime?
+  provisionError    String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+}
+
 // 특정 채널에서 새 메시지가 올라올 때마다 이전 게시물을 지우고 다시 올려서, 항상
 // 채널 맨 아래(가장 최근)에 고정되어 있는 것처럼 보이게 하는 메시지.
 model StickyMessage {
