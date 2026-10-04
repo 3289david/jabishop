@@ -615,8 +615,12 @@ model Shop {
   slug              String    @unique // 서브도메인: slug.krl.kr
   name              String
   dbPath            String    @unique // 이 샵 전용 SQLite 파일 절대경로
+  port              Int?      @unique // 이 샵 전용 jabishop-web 프로세스가 듣는 포트
   discordGuildId    String?   @unique
   ownerUserId       String? // 자비샵(본인) 기준 User.id - 구독료를 여기서 포인트 차감
+  // 구매한 사람의 디스코드 ID. 아직 discordGuildId가 비어있을 때(= 자기 서버에 봇을
+  // 초대만 하고 아직 /샵연동을 안 한 상태) "이 사람이 맞게 연동하려는 게 맞는지" 확인하는 용도.
+  claimDiscordId    String?
   status            String    @default("PROVISIONING") // PROVISIONING | ACTIVE | SUSPENDED | CANCELLED
   subscriptionPrice Int       @default(4000)
   nextBillingAt     DateTime?

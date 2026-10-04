@@ -35,6 +35,7 @@ import { startStaleRequestsLoop } from "@/bot/staleRequestsLoop";
 import { startAdminDutyPanelLoop, updateAdminDutyPanel } from "@/bot/adminDutyPanel";
 import { syncAdminDutyFromPresence } from "@/lib/adminDuty";
 import { runForGuild } from "@/lib/shop";
+import { startShopBillingLoop } from "@/bot/shopBillingLoop";
 
 // 관리자 근무 현황 자동 감지(온라인=출근/오프라인=일시중지)에는 Presence Intent가 필요하다.
 // 디스코드 개발자 포털 > Bot > Privileged Gateway Intents에서 "PRESENCE INTENT"를 켜지
@@ -59,6 +60,7 @@ client.once(Events.ClientReady, (c) => {
   startRestockCheckLoop();
   startStaleRequestsLoop();
   startAdminDutyPanelLoop(client);
+  startShopBillingLoop();
 });
 
 client.on(Events.MessageCreate, (message) => {

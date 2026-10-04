@@ -53,6 +53,7 @@ import { flashSaleCreateCommand, flashSaleCancelCommand } from "@/bot/commands/a
 import { leaderboardCommand, leaderboardPrivacyCommand } from "@/bot/commands/leaderboard";
 import { salesExportCommand } from "@/bot/commands/adminExport";
 import { adminDutyStatusPanelCommand, adminDutyControlPanelCommand } from "@/bot/commands/adminDuty";
+import { shopBuyCommand, shopClaimCommand } from "@/bot/commands/shopSale";
 
 export const commands: BotCommand[] = [
   // 패널 (버튼 UI)
@@ -104,6 +105,8 @@ export const commands: BotCommand[] = [
   artworkBulkDeleteCommand,
   adminDutyStatusPanelCommand,
   adminDutyControlPanelCommand,
+  shopBuyCommand,
+  shopClaimCommand,
   topUpListCommand,
   topUpConfirmCommand,
   topUpRejectCommand,
