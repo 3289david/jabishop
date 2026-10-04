@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/prisma";
-import { ORDER_STATUS, ARTWORK_STATUS, ADMIN_ROLE, ADMIN_STATUS } from "@/lib/constants";
+import { ORDER_STATUS, ARTWORK_STATUS, ADMIN_ROLE, ADMIN_STATUS, TOPUP_STATUS } from "@/lib/constants";
 import { baseEmbed, won } from "@/bot/format";
 import { getShopName } from "@/lib/shop";
 
@@ -27,34 +27,54 @@ export async function publicStatsEmbed() {
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-  const [todayOrders, allCompletedOrders, memberCount, buyerRows, stockCount, todayRevAdj, allRevAdj, todayCostAdj, allCostAdj] =
-    await Promise.all([
-      prisma.order.findMany({
-        where: { createdAt: { gte: todayStart }, status: ORDER_STATUS.COMPLETED, userId: { notIn: excludedUserIds } },
-        select: { finalAmount: true, tier: { select: { costPrice: true } } },
-      }),
-      prisma.order.findMany({
-        where: { status: ORDER_STATUS.COMPLETED, userId: { notIn: excludedUserIds } },
-        select: { finalAmount: true, tier: { select: { costPrice: true } } },
-      }),
-      prisma.user.count(),
-      prisma.order.findMany({
-        where: { status: ORDER_STATUS.COMPLETED, userId: { notIn: excludedUserIds } },
-        distinct: ["userId"],
-        select: { userId: true },
-      }),
-      prisma.artwork.count({ where: { status: ARTWORK_STATUS.AVAILABLE } }),
-      // 관리자가 /이익추가·/원가추가로 수동으로 더한 매출/원가 (오프라인 판매 등)도 오늘/누적에 반영한다.
-      prisma.manualRevenueAdjustment.findMany({ where: { createdAt: { gte: todayStart } }, select: { amount: true } }),
-      prisma.manualRevenueAdjustment.findMany({ select: { amount: true } }),
-      prisma.manualCostAdjustment.findMany({ where: { createdAt: { gte: todayStart } }, select: { amount: true } }),
-      prisma.manualCostAdjustment.findMany({ select: { amount: true } }),
-    ]);
+  const [
+    todayOrders,
+    allCompletedOrders,
+    memberCount,
+    buyerRows,
+    stockCount,
+    todayRevAdj,
+    allRevAdj,
+    todayCostAdj,
+    allCostAdj,
+    todayTopups,
+    allTopups,
+  ] = await Promise.all([
+    prisma.order.findMany({
+      where: { createdAt: { gte: todayStart }, status: ORDER_STATUS.COMPLETED, userId: { notIn: excludedUserIds } },
+      select: { finalAmount: true, tier: { select: { costPrice: true } } },
+    }),
+    prisma.order.findMany({
+      where: { status: ORDER_STATUS.COMPLETED, userId: { notIn: excludedUserIds } },
+      select: { finalAmount: true, tier: { select: { costPrice: true } } },
+    }),
+    prisma.user.count(),
+    prisma.order.findMany({
+      where: { status: ORDER_STATUS.COMPLETED, userId: { notIn: excludedUserIds } },
+      distinct: ["userId"],
+      select: { userId: true },
+    }),
+    prisma.artwork.count({ where: { status: ARTWORK_STATUS.AVAILABLE } }),
+    // 관리자가 /이익추가·/원가추가로 수동으로 더한 매출/원가 (오프라인 판매 등)도 오늘/누적에 반영한다.
+    prisma.manualRevenueAdjustment.findMany({ where: { createdAt: { gte: todayStart } }, select: { amount: true } }),
+    prisma.manualRevenueAdjustment.findMany({ select: { amount: true } }),
+    prisma.manualCostAdjustment.findMany({ where: { createdAt: { gte: todayStart } }, select: { amount: true } }),
+    prisma.manualCostAdjustment.findMany({ select: { amount: true } }),
+    // 매출 = 포인트 구매(주문) 금액이 아니라 실제로 입금 확인된(계좌이체 승인된) 금액.
+    prisma.pointTopUpRequest.findMany({
+      where: { status: TOPUP_STATUS.CONFIRMED, confirmedAt: { gte: todayStart }, userId: { notIn: excludedUserIds } },
+      select: { amount: true },
+    }),
+    prisma.pointTopUpRequest.findMany({
+      where: { status: TOPUP_STATUS.CONFIRMED, userId: { notIn: excludedUserIds } },
+      select: { amount: true },
+    }),
+  ]);
 
   const todayRevenue =
-    todayOrders.reduce((sum, o) => sum + o.finalAmount, 0) + todayRevAdj.reduce((sum, a) => sum + a.amount, 0);
+    todayTopups.reduce((sum, t) => sum + t.amount, 0) + todayRevAdj.reduce((sum, a) => sum + a.amount, 0);
   const totalRevenue =
-    allCompletedOrders.reduce((sum, o) => sum + o.finalAmount, 0) + allRevAdj.reduce((sum, a) => sum + a.amount, 0);
+    allTopups.reduce((sum, t) => sum + t.amount, 0) + allRevAdj.reduce((sum, a) => sum + a.amount, 0);
 
   const todayCost =
     todayOrders.reduce((sum, o) => sum + (o.tier.costPrice ?? 0), 0) + todayCostAdj.reduce((sum, a) => sum + a.amount, 0);
