@@ -20,6 +20,7 @@ import {
   handleReferralRegisterModalSubmit,
   handleQuantityBuyModalSubmit,
 } from "@/bot/interactions/modals";
+import { SHOP_OAUTH_MODAL_ID, handleShopOAuthModalSubmit } from "@/bot/commands/shopOAuthSetup";
 import { handleButtonInteraction } from "@/bot/interactions/buttons";
 import { handleSelectMenuInteraction } from "@/bot/interactions/selects";
 import { errorEmbed } from "@/bot/format";
@@ -138,6 +139,9 @@ async function handleInteraction(interaction: Interaction) {
       if (interaction.customId === REFERRAL_REGISTER_MODAL_ID) return handleReferralRegisterModalSubmit(interaction);
       if (interaction.customId.startsWith(QUANTITY_BUY_MODAL_PREFIX)) {
         return handleQuantityBuyModalSubmit(interaction, interaction.customId.slice(QUANTITY_BUY_MODAL_PREFIX.length));
+      }
+      if (interaction.customId.startsWith(`${SHOP_OAUTH_MODAL_ID}:`)) {
+        return handleShopOAuthModalSubmit(interaction, interaction.customId.slice(`${SHOP_OAUTH_MODAL_ID}:`.length));
       }
       return;
     }

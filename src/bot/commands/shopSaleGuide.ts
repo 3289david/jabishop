@@ -7,16 +7,16 @@ function overviewEmbed() {
   return baseEmbed("🏪 자판기(샵) 통째로 구매하기 - ① 개요")
     .setDescription(
       "이 디스코드 샵(자비샵)을 **통째로 복사**해서 내 이름으로 운영할 수 있는 상품입니다.\n" +
-        "별도 웹사이트는 없고, **이 봇을 그대로 내 서버에 초대**해서 쓰는 디스코드 전용 서비스입니다 - 상품 구매, 장바구니, 쿠폰, 포인트 충전, 관리자 패널, 이벤트(출석체크/룰렛/친구초대/타임세일), 파트너 기능까지 전부 포함입니다."
+        "전용 웹사이트(`내샵코드.krl.kr`)와 **이 봇을 그대로 내 서버에 초대**해서 쓰는 디스코드 봇이 함께 제공됩니다 - 상품 구매, 장바구니, 쿠폰, 포인트 충전, 관리자 패널, 이벤트(출석체크/룰렛/친구초대/타임세일), 파트너 기능까지 전부 포함입니다."
     )
     .addFields(
       { name: "💰 가격", value: "월 4,000P\n(매달 자동으로 포인트 차감)", inline: true },
-      { name: "🤖 받는 것", value: "전용 샵 코드 + 전용 DB\n(이 봇을 내 서버에 초대해서 사용)", inline: true },
-      { name: "🌐 웹사이트", value: "없음 (디스코드 전용)", inline: true },
+      { name: "🤖 받는 것", value: "전용 샵 코드 + 전용 DB + 전용 웹사이트\n(이 봇을 내 서버에 초대해서 사용)", inline: true },
+      { name: "🌐 웹사이트", value: "`내샵코드.krl.kr`\n(로그인은 본인 디스코드 OAuth 앱 필요)", inline: true },
       {
         name: "📋 전체 순서 요약",
         value:
-          "**1.** 상품 목록에서 구매\n**2.** 안내된 샵 코드/비밀키 저장해두기\n**3.** 봇을 내 서버에 초대\n**4.** `/샵연동`으로 연결\n**5.** (선택) 입금 자동승인 앱 설정\n\n아래 안내를 하나씩 따라오시면 됩니다. 궁금한 점은 관리자에게 문의해주세요.",
+          "**1.** 상품 목록에서 구매\n**2.** 안내된 샵 코드/웹사이트 주소/비밀키 저장해두기\n**3.** 봇을 내 서버에 초대 후 `/샵연동`\n**4.** `/샵봇설정`으로 웹사이트 로그인용 OAuth 앱 등록\n**5.** (선택) 입금 자동승인 앱 설정\n\n아래 안내를 하나씩 따라오시면 됩니다. 궁금한 점은 관리자에게 문의해주세요.",
       }
     );
 }
@@ -44,7 +44,7 @@ function purchaseStepsEmbed() {
     {
       name: "5단계 - 지급 내용 꼭 저장하기",
       value:
-        "지급 내용(또는 DM)에 **샵 코드, 입금 자동승인 웹훅 URL, 비밀키**가 적혀 있습니다. 비밀키는 다시 보여주지 않으니(분실 시 관리자에게 재확인 요청) 스크린샷을 찍어두거나 메모해두세요.",
+        "지급 내용(또는 DM)에 **샵 코드, 웹사이트 주소, 입금 자동승인 웹훅 URL, 비밀키**가 적혀 있습니다. 비밀키는 다시 보여주지 않으니(분실 시 관리자에게 재확인 요청) 스크린샷을 찍어두거나 메모해두세요.",
     }
   );
 }
@@ -70,8 +70,42 @@ function linkStepsEmbed() {
     );
 }
 
+function websiteSetupEmbed() {
+  return baseEmbed("🌐 ④ 웹사이트 로그인 설정")
+    .setDescription(
+      "웹사이트(`내샵코드.krl.kr`)는 구매 즉시 열려있지만, **로그인은 자비샵과 공유하지 않습니다** - 보안상 각자 본인 소유의 디스코드 OAuth 앱으로 로그인하도록 되어있어서, 이 단계를 마쳐야 로그인 버튼이 동작합니다."
+    )
+    .addFields(
+      {
+        name: "1단계 - 디스코드 개발자 포털에서 앱 만들기",
+        value:
+          "https://discord.com/developers/applications 접속 → **New Application** → 이름은 아무거나 입력 → 생성.",
+      },
+      {
+        name: "2단계 - Client ID / Client Secret 확인",
+        value:
+          "왼쪽 메뉴 **OAuth2** → **General**에서 **CLIENT ID**를 복사하고, **CLIENT SECRET**은 **Reset Secret**을 눌러 발급 후 복사해둡니다 (한 번 벗어나면 다시 못 보니 바로 복사).",
+      },
+      {
+        name: "3단계 - 내 서버에서 /샵봇설정 실행",
+        value:
+          "봇을 초대한 **그 서버 안에서** `/샵봇설정`을 입력하면 입력창이 뜹니다. Client ID와 Client Secret을 붙여넣고 제출하세요.",
+      },
+      {
+        name: "4단계 - 안내된 REDIRECT URI 등록",
+        value:
+          "`/샵봇설정` 실행 결과로 2개의 REDIRECT URI가 안내됩니다 (일반 로그인용 / 관리자 로그인용). 다시 디스코드 개발자 포털 **OAuth2** 메뉴로 가서 **Redirect URIs**에 그 2개를 각각 추가하고 **Save Changes**를 누르면 끝입니다.",
+      },
+      {
+        name: "주의",
+        value:
+          "/샵봇설정을 실행하면 웹사이트가 10~20초 정도 재시작됩니다. Client ID/Secret을 바꾸고 싶을 때도 같은 명령어를 다시 실행하면 됩니다(기존 값이 자동으로 덮어쓰기됨).",
+      }
+    );
+}
+
 function appSetupEmbed() {
-  return baseEmbed("💳 ④ 입금 자동승인 앱 설정 (선택사항)")
+  return baseEmbed("💳 ⑤ 입금 자동승인 앱 설정 (선택사항)")
     .setDescription(
       "포인트 충전 시 입금 확인을 매번 수동으로 안 하고, 은행 알림을 감지해서 자동으로 승인해주는 안드로이드 앱입니다. 필수는 아니고, 켜두면 편합니다."
     )
@@ -107,7 +141,7 @@ function appSetupEmbed() {
 }
 
 function billingEmbed() {
-  return baseEmbed("⚠️ ⑤ 결제 / 해지 정책").addFields(
+  return baseEmbed("⚠️ ⑥ 결제 / 해지 정책").addFields(
     { name: "결제 주기", value: "구매일로부터 30일마다 자동으로 4,000P가 차감됩니다.", inline: true },
     { name: "연체 시", value: "결제일에 포인트가 부족하면 **그 즉시** 서비스가 중단됩니다.", inline: true },
     {
@@ -123,7 +157,7 @@ function billingEmbed() {
 }
 
 function faqEmbed() {
-  return baseEmbed("❓ ⑥ 자주 묻는 질문 / 문제 해결").addFields(
+  return baseEmbed("❓ ⑦ 자주 묻는 질문 / 문제 해결").addFields(
     {
       name: "/샵연동 했는데 '이미 다른 서버와 연동되어 있습니다'라고 떠요",
       value: "이 샵은 이미 다른 디스코드 서버와 연결이 끝난 상태입니다. 서버를 잘못 입력했는지, 또는 이미 연동을 마쳤는지 확인해주세요.",
@@ -131,6 +165,10 @@ function faqEmbed() {
     {
       name: "봇 명령어가 내 서버에서 안 보여요",
       value: "슬래시 커맨드가 새 서버에 반영되기까지 최대 1시간 정도 걸릴 수 있습니다. 그래도 안 보이면 관리자에게 문의해주세요.",
+    },
+    {
+      name: "웹사이트 로그인 버튼을 눌러도 안 돼요",
+      value: "`/샵봇설정`을 아직 안 했거나, REDIRECT URI 2개 중 하나를 등록하지 않은 경우입니다. 개발자 포털 OAuth2 화면에서 두 URI가 정확히(오타 없이) 등록되어 있는지 확인해주세요.",
     },
     {
       name: "입금 자동승인 앱 테스트가 실패해요",
@@ -165,10 +203,11 @@ export const shopSaleGuideChannelCommand: BotCommand = {
     await channel.send({ embeds: [overviewEmbed()] });
     await channel.send({ embeds: [purchaseStepsEmbed()] });
     await channel.send({ embeds: [linkStepsEmbed()] });
+    await channel.send({ embeds: [websiteSetupEmbed()] });
     await channel.send({ embeds: [appSetupEmbed()] });
     await channel.send({ embeds: [billingEmbed()] });
     await channel.send({ embeds: [faqEmbed()] });
 
-    await interaction.editReply({ embeds: [successEmbed(`<#${channel.id}> 채널을 만들고 상세 안내문 6개를 게시했습니다.`)] });
+    await interaction.editReply({ embeds: [successEmbed(`<#${channel.id}> 채널을 만들고 상세 안내문 7개를 게시했습니다.`)] });
   },
 };

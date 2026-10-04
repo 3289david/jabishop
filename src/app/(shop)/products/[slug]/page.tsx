@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/session";
 import { ARTWORK_STATUS, REVIEW_STATUS, SHOP_SUBSCRIPTION_TIER_SLUG } from "@/lib/constants";
 import { listUsableCoupons } from "@/lib/coupon";
 import { PurchaseForm } from "@/components/PurchaseForm";
+import { ShopSubscriptionShowcase } from "@/components/ShopSubscriptionShowcase";
 
 export default async function ProductDetailPage({
   params,
@@ -38,7 +39,9 @@ export default async function ProductDetailPage({
   const stock = isUnlimited ? 1 : rawStock;
 
   return (
-    <div className="grid md:grid-cols-3 gap-8">
+    <div>
+      {isUnlimited && <ShopSubscriptionShowcase />}
+      <div className="grid md:grid-cols-3 gap-8">
       <div className="md:col-span-2 space-y-6">
         <div>
           <h1 className="text-2xl font-bold">{tier.name}</h1>
@@ -111,6 +114,7 @@ export default async function ProductDetailPage({
             </Link>
           </div>
         )}
+      </div>
       </div>
     </div>
   );

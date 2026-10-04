@@ -55,6 +55,7 @@ import { salesExportCommand } from "@/bot/commands/adminExport";
 import { adminDutyStatusPanelCommand, adminDutyControlPanelCommand } from "@/bot/commands/adminDuty";
 import { shopClaimCommand } from "@/bot/commands/shopSale";
 import { shopSaleGuideChannelCommand } from "@/bot/commands/shopSaleGuide";
+import { shopOAuthSetupCommand } from "@/bot/commands/shopOAuthSetup";
 
 export const commands: BotCommand[] = [
   // 패널 (버튼 UI)
@@ -107,6 +108,7 @@ export const commands: BotCommand[] = [
   adminDutyStatusPanelCommand,
   adminDutyControlPanelCommand,
   shopClaimCommand,
+  shopOAuthSetupCommand,
   shopSaleGuideChannelCommand,
   topUpListCommand,
   topUpConfirmCommand,

@@ -4,8 +4,9 @@ import { errorEmbed, baseEmbed } from "@/bot/format";
 import type { BotCommand } from "@/bot/types";
 
 // "자판기 통째로 구매"는 슬래시 커맨드가 아니라 상품 목록의 다른 등급과 똑같이
-// "구매하기" 버튼으로 산다 - src/lib/orders.ts의 purchaseTier 참고. 디스코드 전용
-// 서비스라 별도 웹사이트는 없다.
+// "구매하기" 버튼으로 산다 - src/lib/orders.ts의 purchaseTier 참고. 구매하면 전용
+// 웹사이트(slug.krl.kr)와 디스코드 봇 연동이 함께 제공된다. 웹사이트 로그인은
+// /샵봇설정으로 등록한 구매자 본인의 디스코드 OAuth 앱을 사용한다 (src/bot/commands/shopOAuthSetup.ts).
 
 export const shopClaimCommand: BotCommand = {
   data: new SlashCommandBuilder()

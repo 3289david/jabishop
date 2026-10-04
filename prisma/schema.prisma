@@ -629,6 +629,10 @@ model Shop {
   subscriptionPrice Int       @default(4000)
   nextBillingAt     DateTime?
   provisionError    String?
+  // 이 샵 전용 웹사이트 로그인에 쓰는 디스코드 OAuth 앱 - 자비샵 것을 공유하지 않고,
+  // 각 테넌트가 /샵봇설정으로 본인 디스코드 개발자 포털에서 만든 앱을 직접 등록한다.
+  discordOAuthClientId     String?
+  discordOAuthClientSecret String?
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 }

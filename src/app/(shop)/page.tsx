@@ -82,20 +82,43 @@ export default async function HomePage({
             <Link
               key={tier.id}
               href={`/products/${tier.slug}`}
-              className="border border-neutral-200 rounded-xl p-5 bg-white hover:shadow-md transition-shadow"
+              className={
+                isUnlimited
+                  ? "relative overflow-hidden rounded-xl p-5 text-white hover:shadow-lg hover:shadow-indigo-500/20 transition-shadow"
+                  : "border border-neutral-200 rounded-xl p-5 bg-white hover:shadow-md transition-shadow"
+              }
+              style={
+                isUnlimited
+                  ? { background: "linear-gradient(135deg, #312e81 0%, #4c1d95 45%, #701a75 100%)" }
+                  : undefined
+              }
             >
               <div className="flex items-center justify-between mb-2">
-                <h2 className="text-lg font-semibold">{tier.name}</h2>
+                <h2 className="text-lg font-semibold">
+                  {isUnlimited ? "🏪 " : ""}
+                  {tier.name}
+                </h2>
                 {soldOut && (
                   <span className="text-xs bg-neutral-200 text-neutral-600 px-2 py-0.5 rounded-full">
                     품절
                   </span>
                 )}
+                {isUnlimited && (
+                  <span className="text-[11px] bg-white/15 border border-white/20 backdrop-blur-sm px-2 py-0.5 rounded-full">
+                    전용 웹사이트+봇
+                  </span>
+                )}
               </div>
-              <p className="text-sm text-neutral-500 mb-3 line-clamp-2">{tier.description}</p>
+              <p className={`text-sm mb-3 line-clamp-2 ${isUnlimited ? "text-white/70" : "text-neutral-500"}`}>
+                {tier.description}
+              </p>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-neutral-400 text-xs">{isUnlimited ? "무제한" : `재고 ${stock}개`}</span>
-                <span className="font-bold text-indigo-600">{tier.price.toLocaleString()}원</span>
+                <span className={isUnlimited ? "text-white/50 text-xs" : "text-neutral-400 text-xs"}>
+                  {isUnlimited ? "무제한" : `재고 ${stock}개`}
+                </span>
+                <span className={`font-bold ${isUnlimited ? "text-white" : "text-indigo-600"}`}>
+                  {tier.price.toLocaleString()}원
+                </span>
               </div>
             </Link>
           );
