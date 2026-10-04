@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { TIER_STATUS, ARTWORK_STATUS, ORDER_STATUS } from "@/lib/constants";
+import { TIER_STATUS, ARTWORK_STATUS, ORDER_STATUS, SHOP_SUBSCRIPTION_TIER_SLUG } from "@/lib/constants";
 
 const UNCATEGORIZED_LABEL = "기타";
 
@@ -10,7 +10,7 @@ export default async function HomePage({
   searchParams: Promise<{ category?: string }>;
 }) {
   const sp = await searchParams;
-  const [allTiers, memberCount, buyerCount] = await Promise.all([
+  const [allTiers, memberCount, buyerCount, settings] = await Promise.all([
     prisma.tier.findMany({
       where: { status: { not: TIER_STATUS.HIDDEN } },
       orderBy: { sortOrder: "asc" },
@@ -24,7 +24,9 @@ export default async function HomePage({
         select: { userId: true },
       })
       .then((rows) => rows.length),
+    prisma.shopSetting.findUnique({ where: { id: "singleton" } }),
   ]);
+  const shopName = settings?.shopName || "자비샵";
 
   const categories = Array.from(new Set(allTiers.map((t) => t.category || UNCATEGORIZED_LABEL))).sort();
   const activeCategory = sp.category;
@@ -33,7 +35,7 @@ export default async function HomePage({
   return (
     <div>
       <section className="text-center py-10">
-        <h1 className="text-3xl font-bold mb-2">🎨 자비샵</h1>
+        <h1 className="text-3xl font-bold mb-2">🎨 {shopName}</h1>
         <p className="text-neutral-500">
           등급을 선택해 구매하면, 해당 등급의 계정 중 하나가 무작위로 지급됩니다.
         </p>
@@ -73,8 +75,9 @@ export default async function HomePage({
 
       <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {tiers.map((tier) => {
+          const isUnlimited = tier.slug === SHOP_SUBSCRIPTION_TIER_SLUG;
           const stock = tier._count.artworks;
-          const soldOut = stock === 0 || tier.status === TIER_STATUS.SOLD_OUT;
+          const soldOut = !isUnlimited && (stock === 0 || tier.status === TIER_STATUS.SOLD_OUT);
           return (
             <Link
               key={tier.id}
@@ -91,7 +94,7 @@ export default async function HomePage({
               </div>
               <p className="text-sm text-neutral-500 mb-3 line-clamp-2">{tier.description}</p>
               <div className="flex items-center justify-between text-sm">
-                <span className="text-neutral-400 text-xs">재고 {stock}개</span>
+                <span className="text-neutral-400 text-xs">{isUnlimited ? "무제한" : `재고 ${stock}개`}</span>
                 <span className="font-bold text-indigo-600">{tier.price.toLocaleString()}원</span>
               </div>
             </Link>

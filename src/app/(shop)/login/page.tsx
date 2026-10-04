@@ -15,7 +15,7 @@ export default function LoginPage() {
     <div className="max-w-sm mx-auto bg-white border border-neutral-200 rounded-xl p-6 mt-8 text-center">
       <h1 className="text-xl font-bold mb-2">로그인 / 회원가입</h1>
       <p className="text-sm text-neutral-500 mb-4">
-        자비샵은 Discord 계정으로만 이용할 수 있습니다.
+        이 사이트는 Discord 계정으로만 이용할 수 있습니다.
         <br />
         버튼 하나로 로그인과 회원가입이 함께 처리됩니다.
       </p>

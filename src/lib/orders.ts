@@ -3,7 +3,14 @@ import { generateOrderNo } from "@/lib/orderNo";
 import { computeDiscount, maybeGrantLuckyCoupon, CouponError } from "@/lib/coupon";
 import { getFlashSaleDiscount } from "@/lib/events/flashSale";
 import { maybeRewardReferral } from "@/lib/events/referral";
-import { ORDER_STATUS, ARTWORK_STATUS, POINT_TX_TYPE, TIER_STATUS, getPurchaseTierDiscountPercent } from "@/lib/constants";
+import {
+  ORDER_STATUS,
+  ARTWORK_STATUS,
+  POINT_TX_TYPE,
+  TIER_STATUS,
+  SHOP_SUBSCRIPTION_TIER_SLUG,
+  getPurchaseTierDiscountPercent,
+} from "@/lib/constants";
 import {
   notifyPurchaseByDM,
   notifyLowStockIfNeeded,
@@ -12,6 +19,8 @@ import {
   getCumulativeSpend,
   syncPurchaseTierRoles,
 } from "@/lib/discordNotify";
+import { provisionShop } from "@/lib/provisionShop";
+import type { Tier } from "@prisma/client";
 
 export class OrderError extends Error {
   code: string;
@@ -19,6 +28,143 @@ export class OrderError extends Error {
     super(message);
     this.code = code;
   }
+}
+
+/**
+ * "자판기(샵) 통째로 구매" 등급이 항상 존재하도록 보장한다 (없으면 만들고, 있으면 그대로
+ * 둔다 - 관리자가 가격/설명을 나중에 바꿔도 덮어쓰지 않음). 봇 시작 시 한 번 호출한다.
+ */
+export async function ensureShopSubscriptionTier() {
+  const existing = await prisma.tier.findUnique({ where: { slug: SHOP_SUBSCRIPTION_TIER_SLUG } });
+  if (existing) return existing;
+  return prisma.tier.create({
+    data: {
+      slug: SHOP_SUBSCRIPTION_TIER_SLUG,
+      name: "🏪 자판기(샵) 통째로 구매",
+      price: 4000,
+      description:
+        "이 샵을 통째로 복사해서 내 이름으로 운영합니다. 전용 웹사이트 주소 + 이 봇을 그대로 쓸 수 있고, 매달 자동으로 4,000P가 결제됩니다.",
+      category: "자판기",
+      status: TIER_STATUS.ON_SALE,
+    },
+  });
+}
+
+/**
+ * "자판기(샵) 통째로 구매" 전용 분기. 일반 등급처럼 미리 채워둔 재고(Artwork)에서
+ * 하나를 꺼내는 게 아니라, 구매하는 그 순간 전용 샵(서브도메인+DB+프로세스)을 직접
+ * 만들어서 지급한다. DNS/nginx/프로세스 생성 같은 외부 작업은 DB 트랜잭션으로 묶을
+ * 수 없어서(롤백 불가능, 오래 걸림), 포인트를 먼저 차감하고(트랜잭션) -> 외부에서
+ * 실제로 만들고 -> 실패하면 포인트를 그대로 환불하는 순서로 처리한다.
+ * 성공하면 그 결과(주소/웹훅 정보)를 일반 상품의 "텍스트로 지급되는 재고"와 똑같은
+ * 모양(Artwork.fileKey)으로 담아서, 호출한 쪽(디스코드 임베드/DM/주문내역 등)이
+ * 전혀 특별 취급하지 않아도 되게 한다.
+ */
+async function purchaseShopSubscriptionTier(userId: string, tier: Tier) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new OrderError("USER_NOT_FOUND", "사용자를 찾을 수 없습니다.");
+  if (user.points < tier.price) throw new OrderError("INSUFFICIENT_POINTS", "포인트가 부족합니다.");
+
+  const orderNo = await generateOrderNo();
+  const order = await prisma.$transaction(async (tx) => {
+    const newBalance = user.points - tier.price;
+    await tx.user.update({ where: { id: userId }, data: { points: newBalance } });
+    const o = await tx.order.create({
+      data: {
+        orderNo,
+        userId,
+        tierId: tier.id,
+        priceAtPurchase: tier.price,
+        discountAmount: 0,
+        pointsUsed: tier.price,
+        finalAmount: tier.price,
+        status: ORDER_STATUS.RESERVED,
+      },
+    });
+    await tx.pointTransaction.create({
+      data: {
+        userId,
+        type: POINT_TX_TYPE.USE,
+        amount: -tier.price,
+        balanceAfter: newBalance,
+        relatedOrderId: o.id,
+        memo: `${tier.name} 구매`,
+      },
+    });
+    return o;
+  });
+
+  // 서브도메인/샵이름은 자동으로 정한다 - 일반 상품처럼 별도 입력창 없이 바로 지급되게 하기 위함
+  // (나중에 관리자 설정에서 이름은 바꿀 수 있다).
+  const base = (user.name || "shop").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 16) || "shop";
+  const slug = `${base}-${Math.random().toString(36).slice(2, 6)}`;
+  const shopName = `${user.name}의 샵`;
+
+  let shop;
+  try {
+    shop = await provisionShop({ slug, name: shopName, ownerUserId: userId, claimDiscordId: user.discordId ?? undefined });
+  } catch (e) {
+    const refundTarget = await prisma.user.findUnique({ where: { id: userId } });
+    const refundedBalance = (refundTarget?.points ?? 0) + tier.price;
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({ where: { id: userId }, data: { points: refundedBalance } });
+      await tx.pointTransaction.create({
+        data: {
+          userId,
+          type: POINT_TX_TYPE.REFUND,
+          amount: tier.price,
+          balanceAfter: refundedBalance,
+          relatedOrderId: order.id,
+          memo: `${tier.name} 생성 실패 환불`,
+        },
+      });
+      await tx.order.update({
+        where: { id: order.id },
+        data: { status: ORDER_STATUS.CANCELLED, cancelReason: "샵 생성 실패", cancelledAt: new Date() },
+      });
+    });
+    const message = e instanceof Error ? e.message : "샵 생성 중 오류가 발생했습니다.";
+    throw new OrderError("PROVISION_FAILED", message);
+  }
+
+  const now = new Date();
+  const fileKey = [
+    `주소: ${shop.url}`,
+    `다음 결제일: 30일 후 (자동 결제, 연체 시 즉시 중단)`,
+    `입금 자동승인 웹훅 URL: ${shop.url}/api/webhooks/bank-topup`,
+    `입금 자동승인 비밀키: ${shop.bankWebhookSecret}`,
+    `다음 단계: 봇을 본인 디스코드 서버에 초대한 뒤, 그 서버에서 /샵연동 서브도메인:${slug} 입력`,
+  ].join("\n");
+
+  const artwork = await prisma.artwork.create({
+    data: {
+      tierId: tier.id,
+      code: `SHOP-${slug}`,
+      title: `${shopName} (${slug}.krl.kr)`,
+      fileKey,
+      status: ARTWORK_STATUS.SOLD,
+      reservedOrderId: order.id,
+      soldAt: now,
+    },
+  });
+
+  const completedOrder = await prisma.order.update({
+    where: { id: order.id },
+    data: { status: ORDER_STATUS.COMPLETED, paidAt: now, drawnAt: now, completedAt: now },
+    include: { artwork: true, tier: true },
+  });
+
+  await prisma.notification.create({
+    data: {
+      userId,
+      orderId: order.id,
+      type: "ORDER_COMPLETED",
+      title: "자판기(샵) 생성 완료",
+      message: `${slug}.krl.kr 샵이 생성되었습니다.`,
+    },
+  });
+
+  return { ...completedOrder, artwork, luckyCoupon: null, referralReward: null };
 }
 
 /**
@@ -36,6 +182,18 @@ export async function purchaseTier(params: {
   couponCode?: string;
 }) {
   const { userId, tierId, couponCode } = params;
+
+  const shopTierCheck = await prisma.tier.findUnique({ where: { id: tierId } });
+  if (!shopTierCheck) throw new OrderError("TIER_NOT_FOUND", "존재하지 않는 상품입니다.");
+  if (shopTierCheck.slug === SHOP_SUBSCRIPTION_TIER_SLUG) {
+    if (shopTierCheck.status !== TIER_STATUS.ON_SALE) {
+      throw new OrderError("TIER_NOT_ON_SALE", "현재 판매 중이 아닌 상품입니다.");
+    }
+    const completedOrder = await purchaseShopSubscriptionTier(userId, shopTierCheck);
+    notifyPurchaseByDM(userId, completedOrder.id).catch(() => {});
+    announcePurchaseInChannel(userId, completedOrder.id).catch(() => {});
+    return completedOrder;
+  }
 
   const completedOrder = await prisma.$transaction(async (tx) => {
     const tier = await tx.tier.findUnique({ where: { id: tierId } });

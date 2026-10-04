@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
-import { ARTWORK_STATUS, REVIEW_STATUS } from "@/lib/constants";
+import { ARTWORK_STATUS, REVIEW_STATUS, SHOP_SUBSCRIPTION_TIER_SLUG } from "@/lib/constants";
 import { listUsableCoupons } from "@/lib/coupon";
 import { PurchaseForm } from "@/components/PurchaseForm";
 
@@ -25,7 +25,8 @@ export default async function ProductDetailPage({
   const user = await getCurrentUser();
   const usableCoupons = user ? await listUsableCoupons(user.id, tier.id, tier.price) : [];
 
-  const [stock, reviews] = await Promise.all([
+  const isUnlimited = tier.slug === SHOP_SUBSCRIPTION_TIER_SLUG;
+  const [rawStock, reviews] = await Promise.all([
     prisma.artwork.count({ where: { tierId: tier.id, status: ARTWORK_STATUS.AVAILABLE } }),
     prisma.review.findMany({
       where: { order: { tierId: tier.id }, status: REVIEW_STATUS.VISIBLE },
@@ -34,6 +35,7 @@ export default async function ProductDetailPage({
       take: 20,
     }),
   ]);
+  const stock = isUnlimited ? 1 : rawStock;
 
   return (
     <div className="grid md:grid-cols-3 gap-8">
@@ -50,7 +52,7 @@ export default async function ProductDetailPage({
           </div>
           <div>
             <div className="text-neutral-400">현재 재고</div>
-            <div className="font-semibold">{stock}개</div>
+            <div className="font-semibold">{isUnlimited ? "무제한" : `${stock}개`}</div>
           </div>
           <div>
             <div className="text-neutral-400">구매 제한</div>

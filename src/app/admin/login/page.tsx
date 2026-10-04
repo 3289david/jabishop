@@ -14,7 +14,7 @@ export default function AdminLoginPage() {
   return (
     <div className="min-h-[70vh] flex items-center justify-center">
       <div className="max-w-sm w-full bg-white border border-neutral-200 rounded-xl p-6 text-center">
-        <h1 className="text-xl font-bold mb-1">자비샵 관리자</h1>
+        <h1 className="text-xl font-bold mb-1">관리자 로그인</h1>
         <p className="text-sm text-neutral-400 mb-4">
           관리자 로그인은 Discord 계정으로만 가능합니다.
           <br />

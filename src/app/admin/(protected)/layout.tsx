@@ -28,13 +28,15 @@ const NAV: { href: string; label: string }[] = [
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const admin = await requireAdmin();
 
-  const [pendingTopUps, pendingRefunds, pendingExchanges, pendingPartners, waitingInquiries] = await Promise.all([
+  const [pendingTopUps, pendingRefunds, pendingExchanges, pendingPartners, waitingInquiries, settings] = await Promise.all([
     prisma.pointTopUpRequest.count({ where: { status: TOPUP_STATUS.PENDING } }),
     prisma.refundRequest.count({ where: { status: REFUND_STATUS.PENDING } }),
     prisma.exchangeRequest.count({ where: { status: EXCHANGE_STATUS.PENDING } }),
     prisma.partner.count({ where: { status: PARTNER_STATUS.PENDING } }),
     prisma.inquiry.count({ where: { status: INQUIRY_STATUS.WAITING } }),
+    prisma.shopSetting.findUnique({ where: { id: "singleton" } }),
   ]);
+  const shopName = settings?.shopName || "자비샵";
 
   const badges: Record<string, number> = {
     "/admin/payments": pendingTopUps,
@@ -48,7 +50,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <div className="min-h-screen flex bg-neutral-100">
       <aside className="w-56 shrink-0 bg-neutral-900 text-neutral-300 min-h-screen p-4">
         <Link href="/admin" className="block text-white font-bold text-lg mb-6">
-          🎨 자비샵 Admin
+          🎨 {shopName} Admin
         </Link>
         <nav className="space-y-1 text-sm">
           {NAV.map((item) => (

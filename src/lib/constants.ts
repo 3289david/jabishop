@@ -149,3 +149,11 @@ export function getPurchaseTierDiscountPercent(cumulativeSpend: number): number 
   }
   return 0;
 }
+
+// "자판기 판매" - 자비샵 자체를 구매해서 자기 이름으로 운영하는 상품의 고정 slug.
+// 이 등급은 미리 재고(Artwork)를 채워두는 보통 상품과 달리, 구매할 때마다
+// src/lib/orders.ts의 purchaseTier()가 그 자리에서 전용 샵을 만들어 지급한다 -
+// 그래서 재고 개념이 없고(항상 구매 가능), 다른 등급들과 똑같은 구매 흐름(상품
+// 목록 -> 상세 -> 구매하기)으로 살 수 있다.
+export const SHOP_SUBSCRIPTION_TIER_SLUG = "shop-subscription";
+export const SHOP_SUBSCRIPTION_PRICE = 4000;

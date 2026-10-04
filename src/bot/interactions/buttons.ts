@@ -33,15 +33,15 @@ import { raffleEventEmbed } from "@/bot/raffleUI";
 import { performCheckIn, EventError as CheckInError } from "@/lib/events/checkin";
 import { getOrCreateReferralCode, EventError as ReferralError } from "@/lib/events/referral";
 import { spinGacha, EventError as GachaError } from "@/lib/events/gacha";
-import { showReferralRegisterModal, showQuantityBuyModal, showShopBuyModal } from "@/bot/interactions/modals";
+import { showReferralRegisterModal, showQuantityBuyModal } from "@/bot/interactions/modals";
 import { subscribeRestock, RestockError } from "@/lib/restock";
 import { setAdminDutyStatus, DUTY_STATUS_LABEL } from "@/lib/adminDuty";
 import { updateAdminDutyPanel } from "@/bot/adminDutyPanel";
 
 async function handlePanelProducts(interaction: ButtonInteraction) {
   const categories = await listProductCategories();
-  const { embed, row, extraRow } = categories.length > 1 ? await categorySelectRow() : await productSelectRow();
-  await interaction.reply({ embeds: [embed], components: [row, extraRow], ephemeral: true });
+  const { embed, row } = categories.length > 1 ? await categorySelectRow() : await productSelectRow();
+  await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
 }
 
 async function handlePanelPoints(interaction: ButtonInteraction) {
@@ -383,7 +383,6 @@ export async function handleButtonInteraction(interaction: ButtonInteraction) {
   }
   if (ns === "buy") return handleBuy(interaction, a);
   if (ns === "qtybuy") return showQuantityBuyModal(interaction, a);
-  if (ns === "shopbuy" && a === "open") return showShopBuyModal(interaction);
   if (ns === "dutystatus") return handleDutyStatusChange(interaction, a);
   if (ns === "restock") return handleRestockSubscribe(interaction, a);
   if (ns === "cartadd") return handleCartAdd(interaction, a);

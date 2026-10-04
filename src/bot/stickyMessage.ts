@@ -37,7 +37,7 @@ export async function repostSticky(channelId: string, channel: TextBasedChannel)
   // ADMIN_PANEL은 저장된 content가 아니라 매번 최신 관리자 패널(버튼 포함)을 새로 만들어 올린다.
   const payload =
     sticky.kind === STICKY_KIND.ADMIN_PANEL
-      ? { embeds: [adminPanelEmbed()], components: adminPanelRows() }
+      ? { embeds: [await adminPanelEmbed()], components: adminPanelRows() }
       : { embeds: [buildStickyEmbed(sticky)] };
 
   const sent = await channel.send(payload);

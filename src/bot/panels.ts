@@ -7,13 +7,15 @@ import {
 } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { baseEmbed, won, pt } from "@/bot/format";
-import { ARTWORK_STATUS, TIER_STATUS } from "@/lib/constants";
+import { ARTWORK_STATUS, TIER_STATUS, SHOP_SUBSCRIPTION_TIER_SLUG } from "@/lib/constants";
+import { getShopName } from "@/lib/shop";
 import type { User as ShopUser } from "@prisma/client";
 
 // ── 메인(사용자) 패널 ────────────────────────────────────────
 
-export function mainPanelEmbed() {
-  return baseEmbed("🎨 자비샵").setDescription(
+export async function mainPanelEmbed() {
+  const shopName = await getShopName();
+  return baseEmbed(`🎨 ${shopName}`).setDescription(
     "아래 버튼으로 상품 확인, 포인트 충전, 장바구니, 주문내역, 쿠폰함을 이용할 수 있습니다."
   );
 }
@@ -154,13 +156,6 @@ export async function listProductCategories(): Promise<string[]> {
   return Array.from(new Set(tiers.map((t) => t.category || UNCATEGORIZED_LABEL))).sort();
 }
 
-/** 상품 선택 화면 어디서나 같이 보여주는 "자판기 통째로 구매" 버튼. */
-export function shopBuyButtonRow() {
-  return new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder().setCustomId("shopbuy:open").setLabel("🏪 자판기(샵) 통째로 구매").setStyle(ButtonStyle.Secondary)
-  );
-}
-
 export async function categorySelectRow() {
   const categories = await listProductCategories();
 
@@ -172,7 +167,6 @@ export async function categorySelectRow() {
   return {
     embed: baseEmbed("🛍️ 구매하기").setDescription("카테고리를 선택하면 해당 카테고리의 상품 목록을 볼 수 있습니다."),
     row: new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu),
-    extraRow: shopBuyButtonRow(),
   };
 }
 
@@ -192,7 +186,7 @@ export async function productSelectRow(category?: string) {
     .addOptions(
       tiers.slice(0, 25).map((t) => ({
         label: `${t.name} (${t.price.toLocaleString()}원)`,
-        description: `재고 ${t._count.artworks}개`,
+        description: t.slug === SHOP_SUBSCRIPTION_TIER_SLUG ? "무제한" : `재고 ${t._count.artworks}개`,
         value: t.slug,
       }))
     );
@@ -202,7 +196,6 @@ export async function productSelectRow(category?: string) {
       "아래 메뉴에서 등급을 선택하면 상세 정보를 볼 수 있습니다."
     ),
     row: new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu),
-    extraRow: shopBuyButtonRow(),
   };
 }
 
@@ -210,13 +203,16 @@ export async function tierDetailPayload(slug: string) {
   const tier = await prisma.tier.findUnique({ where: { slug } });
   if (!tier) return null;
 
-  const stock = await prisma.artwork.count({ where: { tierId: tier.id, status: ARTWORK_STATUS.AVAILABLE } });
+  // "자판기 통째로 구매"는 미리 채워둔 재고 개념이 없다 - 구매하는 순간 바로 만들어서
+  // 지급하므로 항상 구매 가능하다.
+  const isUnlimited = tier.slug === SHOP_SUBSCRIPTION_TIER_SLUG;
+  const stock = isUnlimited ? 1 : await prisma.artwork.count({ where: { tierId: tier.id, status: ARTWORK_STATUS.AVAILABLE } });
 
   const embed = baseEmbed(tier.name)
     .setDescription(tier.description || null)
     .addFields(
       { name: "가격", value: won(tier.price), inline: true },
-      { name: "재고", value: `${stock}개`, inline: true }
+      { name: "재고", value: isUnlimited ? "무제한" : `${stock}개`, inline: true }
     );
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
@@ -294,8 +290,9 @@ export function couponsPayload(userCoupons: { coupon: { name: string; code: stri
 
 // ── 관리자 패널 ──────────────────────────────────────────────
 
-export function adminPanelEmbed() {
-  return baseEmbed("🛠️ 자비샵 관리자 패널").setDescription("아래 버튼으로 승인 대기 항목과 통계를 바로 확인/처리할 수 있습니다.");
+export async function adminPanelEmbed() {
+  const shopName = await getShopName();
+  return baseEmbed(`🛠️ ${shopName} 관리자 패널`).setDescription("아래 버튼으로 승인 대기 항목과 통계를 바로 확인/처리할 수 있습니다.");
 }
 
 export function adminPanelRows() {

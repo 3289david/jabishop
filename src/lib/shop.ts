@@ -21,6 +21,12 @@ export async function runForGuild<T>(guildId: string | null, fn: () => Promise<T
   return runWithTenant(shop.dbPath, fn);
 }
 
+/** 지금 이 요청/인터랙션이 속한 샵(자비샵 본인 또는 연동된 테넌트 샵)의 표시 이름. */
+export async function getShopName(): Promise<string> {
+  const settings = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
+  return settings?.shopName || "자비샵";
+}
+
 export type ShopContext = { dbPath: string | null; guildId: string | null };
 
 /**

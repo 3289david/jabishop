@@ -11,7 +11,6 @@ import {
   PARTNER_PROMO_MODAL_ID,
   REFERRAL_REGISTER_MODAL_ID,
   QUANTITY_BUY_MODAL_PREFIX,
-  SHOP_BUY_MODAL_ID,
   handleTopUpModalSubmit,
   handleInquiryModalSubmit,
   handleAnswerModalSubmit,
@@ -20,7 +19,6 @@ import {
   handlePartnerPromoModalSubmit,
   handleReferralRegisterModalSubmit,
   handleQuantityBuyModalSubmit,
-  handleShopBuyModalSubmit,
 } from "@/bot/interactions/modals";
 import { handleButtonInteraction } from "@/bot/interactions/buttons";
 import { handleSelectMenuInteraction } from "@/bot/interactions/selects";
@@ -38,6 +36,7 @@ import { startAdminDutyPanelLoop, updateAdminDutyPanel } from "@/bot/adminDutyPa
 import { syncAdminDutyFromPresence } from "@/lib/adminDuty";
 import { runForGuild } from "@/lib/shop";
 import { startShopBillingLoop } from "@/bot/shopBillingLoop";
+import { ensureShopSubscriptionTier } from "@/lib/orders";
 
 // 관리자 근무 현황 자동 감지(온라인=출근/오프라인=일시중지)에는 Presence Intent가 필요하다.
 // 디스코드 개발자 포털 > Bot > Privileged Gateway Intents에서 "PRESENCE INTENT"를 켜지
@@ -54,6 +53,9 @@ const client = new Client({
 
 client.once(Events.ClientReady, (c) => {
   console.log(`✅ 자비샵 봇 로그인 완료: ${c.user.tag}`);
+  // "자판기 통째로 구매" 상품은 자비샵 본인 DB에만 있어야 한다(테넌트 샵이 또 자판기를
+  // 되파는 건 지원 범위 밖) - forEachShop 안 쓰고 기본(자비샵 본인) DB에만 생성한다.
+  ensureShopSubscriptionTier().catch((e) => console.error("자판기 등급 생성 실패:", e));
   startStatsChannelLoop(client);
   startPartnerBroadcastLoop();
   startDailyStatsBroadcastLoop(client);
@@ -137,7 +139,6 @@ async function handleInteraction(interaction: Interaction) {
       if (interaction.customId.startsWith(QUANTITY_BUY_MODAL_PREFIX)) {
         return handleQuantityBuyModalSubmit(interaction, interaction.customId.slice(QUANTITY_BUY_MODAL_PREFIX.length));
       }
-      if (interaction.customId === SHOP_BUY_MODAL_ID) return handleShopBuyModalSubmit(interaction);
       return;
     }
   } catch (err) {

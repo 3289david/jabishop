@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "../globals.css";
 import { Nav } from "@/components/Nav";
+import { prisma } from "@/lib/prisma";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -13,12 +14,19 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "자비샵 | 랜덤 계정 판매",
-  description: "등급별 랜덤 계정 상품을 판매하는 자비샵입니다.",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
+  const shopName = settings?.shopName || "자비샵";
+  return {
+    title: `${shopName} | 랜덤 계정 판매`,
+    description: `등급별 랜덤 계정 상품을 판매하는 ${shopName}입니다.`,
+  };
+}
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const settings = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
+  const shopName = settings?.shopName || "자비샵";
+
   return (
     <html
       lang="ko"
@@ -28,7 +36,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <Nav />
         <main className="flex-1 w-full max-w-6xl mx-auto px-4 py-6">{children}</main>
         <footer className="border-t border-neutral-200 py-6 text-center text-sm text-neutral-500">
-          © {new Date().getFullYear()} 자비샵. All rights reserved.
+          © {new Date().getFullYear()} {shopName}. All rights reserved.
         </footer>
       </body>
     </html>

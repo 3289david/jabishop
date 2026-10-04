@@ -4,16 +4,20 @@ import { logoutAction } from "@/lib/actions/auth";
 import { prisma } from "@/lib/prisma";
 
 export async function Nav() {
-  const user = await getCurrentUser();
+  const [user, settings] = await Promise.all([
+    getCurrentUser(),
+    prisma.shopSetting.findUnique({ where: { id: "singleton" } }),
+  ]);
   const unreadCount = user
     ? await prisma.notification.count({ where: { userId: user.id, isRead: false } })
     : 0;
+  const shopName = settings?.shopName || "자비샵";
 
   return (
     <header className="border-b border-neutral-200 bg-white sticky top-0 z-10">
       <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between gap-4">
         <Link href="/" className="text-xl font-bold tracking-tight text-indigo-600">
-          🎨 자비샵
+          🎨 {shopName}
         </Link>
         <nav className="hidden sm:flex items-center gap-5 text-sm text-neutral-600">
           <Link href="/products" className="hover:text-indigo-600">

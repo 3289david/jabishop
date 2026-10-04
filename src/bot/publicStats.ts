@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { ORDER_STATUS, ARTWORK_STATUS, ADMIN_ROLE, ADMIN_STATUS } from "@/lib/constants";
 import { baseEmbed, won } from "@/bot/format";
+import { getShopName } from "@/lib/shop";
 
 /**
  * 최고관리자(AdminUser.role === SUPER, 연동된 계정)의 구매는 매출 통계에서 제외하기 위해,
@@ -63,8 +64,9 @@ export async function publicStatsEmbed() {
   const todayProfit = todayRevenue - todayCost;
   const totalProfit = totalRevenue - totalCost;
 
-  return baseEmbed("📊 자비샵 실시간 현황")
-    .setDescription("자비샵의 오늘/누적 판매 현황이에요. 몇 분마다 자동으로 갱신됩니다.")
+  const shopName = await getShopName();
+  return baseEmbed(`📊 ${shopName} 실시간 현황`)
+    .setDescription(`${shopName}의 오늘/누적 판매 현황이에요. 몇 분마다 자동으로 갱신됩니다.`)
     .addFields(
       { name: "💰 오늘 매출", value: won(todayRevenue), inline: true },
       { name: "🧾 오늘 판매", value: `${todayOrders.length}건`, inline: true },

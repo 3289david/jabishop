@@ -1,8 +1,9 @@
 import { SlashCommandBuilder } from "discord.js";
 import { prisma } from "@/lib/prisma";
-import { ARTWORK_STATUS, TIER_STATUS } from "@/lib/constants";
+import { ARTWORK_STATUS, TIER_STATUS, SHOP_SUBSCRIPTION_TIER_SLUG } from "@/lib/constants";
 import { baseEmbed, errorEmbed, won } from "@/bot/format";
 import { tierAutocomplete } from "@/bot/autocomplete";
+import { getShopName } from "@/lib/shop";
 import type { BotCommand } from "@/bot/types";
 
 export const productListCommand: BotCommand = {
@@ -14,16 +15,18 @@ export const productListCommand: BotCommand = {
       include: { _count: { select: { artworks: { where: { status: ARTWORK_STATUS.AVAILABLE } } } } },
     });
 
-    const embed = baseEmbed("🎨 자비샵 상품 목록");
+    const shopName = await getShopName();
+    const embed = baseEmbed(`🎨 ${shopName} 상품 목록`);
     if (tiers.length === 0) embed.setDescription("등록된 상품이 없습니다.");
     // 디스코드 임베드는 필드를 25개까지만 허용한다 - 그 이상이면 addFields가 에러를 던져
     // 상품이 하나도 안 보이는 상태가 되므로, 여기서 미리 잘라서 방지한다.
     const MAX_EMBED_FIELDS = 25;
     for (const t of tiers.slice(0, MAX_EMBED_FIELDS)) {
-      const soldOut = t._count.artworks === 0 || t.status === TIER_STATUS.SOLD_OUT;
+      const isUnlimited = t.slug === SHOP_SUBSCRIPTION_TIER_SLUG;
+      const soldOut = !isUnlimited && (t._count.artworks === 0 || t.status === TIER_STATUS.SOLD_OUT);
       embed.addFields({
         name: `${t.name}${soldOut ? " (품절)" : ""}`,
-        value: `${won(t.price)} · 재고 ${t._count.artworks}개`,
+        value: `${won(t.price)} · ${isUnlimited ? "무제한" : `재고 ${t._count.artworks}개`}`,
       });
     }
     if (tiers.length > MAX_EMBED_FIELDS) {
@@ -48,13 +51,14 @@ export const productDetailCommand: BotCommand = {
     const tier = await prisma.tier.findUnique({ where: { slug } });
     if (!tier) return interaction.reply({ embeds: [errorEmbed("존재하지 않는 등급입니다.")], ephemeral: true });
 
+    const isUnlimited = tier.slug === SHOP_SUBSCRIPTION_TIER_SLUG;
     const stock = await prisma.artwork.count({ where: { tierId: tier.id, status: ARTWORK_STATUS.AVAILABLE } });
 
     const embed = baseEmbed(tier.name)
       .setDescription(tier.description || null)
       .addFields(
         { name: "가격", value: won(tier.price), inline: true },
-        { name: "재고", value: `${stock}개`, inline: true },
+        { name: "재고", value: isUnlimited ? "무제한" : `${stock}개`, inline: true },
         { name: "구매 제한", value: tier.purchaseLimitPerUser ? `1인 ${tier.purchaseLimitPerUser}개` : "없음", inline: true }
       );
     await interaction.reply({ embeds: [embed] });

@@ -148,7 +148,7 @@ async function reloadNginx() {
   await execFileAsync("systemctl", ["reload", "nginx"]);
 }
 
-async function createTenantDb(dbPath: string): Promise<string> {
+async function createTenantDb(dbPath: string, shopName: string): Promise<string> {
   fs.mkdirSync(path.dirname(dbPath), { recursive: true });
   await execFileAsync("npx", ["prisma", "migrate", "deploy"], {
     cwd: "/root/jabishop",
@@ -160,8 +160,8 @@ async function createTenantDb(dbPath: string): Promise<string> {
   await runWithTenant(dbPath, async () => {
     await prisma.shopSetting.upsert({
       where: { id: "singleton" },
-      update: { bankWebhookSecret },
-      create: { id: "singleton", bankName: "", bankAccountNumber: "", bankAccountHolder: "", bankWebhookSecret },
+      update: { bankWebhookSecret, shopName },
+      create: { id: "singleton", shopName, bankName: "", bankAccountNumber: "", bankAccountHolder: "", bankWebhookSecret },
     });
   });
   return bankWebhookSecret;
@@ -235,7 +235,7 @@ export async function provisionShop(params: {
   });
 
   try {
-    const bankWebhookSecret = await createTenantDb(dbPath);
+    const bankWebhookSecret = await createTenantDb(dbPath, name);
     await createDnsRecord(slug);
     writeNginxConfig(slug, port);
     await reloadNginx();
