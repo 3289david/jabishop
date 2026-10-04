@@ -3,29 +3,149 @@ import { requireLinkedAdmin } from "@/bot/discordAuth";
 import { baseEmbed, errorEmbed, successEmbed } from "@/bot/format";
 import type { BotCommand } from "@/bot/types";
 
-function shopSaleGuideEmbed() {
-  return baseEmbed("🏪 자판기(샵) 통째로 구매하기")
+function overviewEmbed() {
+  return baseEmbed("🏪 자판기(샵) 통째로 구매하기 - ① 개요")
     .setDescription(
-      "이 디스코드 샵(자비샵)을 통째로 복사해서 내 이름으로 운영할 수 있습니다.\n" +
-        "똑같은 웹사이트 + 디스코드 봇 기능이 전부 내 전용 주소/서버에서 돌아갑니다."
+      "이 디스코드 샵(자비샵)을 **통째로 복사**해서 내 이름으로 운영할 수 있는 상품입니다.\n" +
+        "지금 여러분이 쓰고 있는 웹사이트 + 디스코드 봇 기능이 **전부 그대로** 내 전용 주소/서버에서 돌아갑니다 - 상품 구매, 장바구니, 쿠폰, 포인트 충전, 관리자 패널, 이벤트(출석체크/룰렛/친구초대/타임세일), 파트너 기능까지 전부 포함입니다."
     )
     .addFields(
-      { name: "💰 가격", value: "월 4,000P (매달 자동 결제)", inline: true },
-      { name: "🌐 받는 것", value: "전용 웹사이트 주소 (내가정한이름.krl.kr)", inline: true },
+      { name: "💰 가격", value: "월 4,000P\n(매달 자동으로 포인트 차감)", inline: true },
+      { name: "🌐 받는 것", value: "전용 웹사이트 주소\n`내가정한이름.krl.kr`", inline: true },
+      { name: "🤖 봇", value: "같은 봇을 내 서버에 초대해서 그대로 사용", inline: true },
       {
-        name: "🛒 구매 방법",
-        value: "상품 목록 패널 → **🏪 자판기(샵) 통째로 구매** 버튼 → 원하는 주소/샵 이름 입력",
-      },
-      {
-        name: "🔗 구매 후 할 일",
+        name: "📋 전체 순서 요약",
         value:
-          "1) 이 봇을 내 디스코드 서버에 초대한다.\n2) 그 서버에서 `/샵연동 서브도메인:내가정한주소` 입력.\n3) 연동되면 그 서버에서 자비샵과 똑같은 기능(상품 구매/쿠폰/장바구니/관리자 패널 등)을 전부 쓸 수 있습니다.",
-      },
-      {
-        name: "⚠️ 결제 안내",
-        value: "매달 자동으로 4,000P가 차감됩니다. 포인트가 부족하면 **그 즉시 서비스가 중단**됩니다 (주소/서버 모두 내려감).",
+          "**1.** 상품 목록 패널에서 구매\n**2.** 안내된 비밀키/주소 저장해두기\n**3.** 봇을 내 서버에 초대\n**4.** `/샵연동`으로 연결\n**5.** (선택) 입금 자동승인 앱 설정\n\n아래 안내를 하나씩 따라오시면 됩니다. 궁금한 점은 관리자에게 문의해주세요.",
       }
     );
+}
+
+function purchaseStepsEmbed() {
+  return baseEmbed("🛒 ② 구매하는 방법 (단계별)").addFields(
+    {
+      name: "1단계 - 상품 목록 패널 열기",
+      value: "메인 패널(또는 `/구매하기패널`)에서 **🛍️ 상품 목록** 버튼을 누르세요.",
+    },
+    {
+      name: "2단계 - 자판기 구매 버튼 찾기",
+      value:
+        "카테고리/상품을 고르는 화면 아래쪽에 **🏪 자판기(샵) 통째로 구매** 버튼이 같이 보입니다. 이 버튼을 누르세요.",
+    },
+    {
+      name: "3단계 - 서브도메인/샵이름 입력",
+      value:
+        "입력창이 뜹니다.\n• **원하는 주소**: 영문 소문자/숫자/하이픈만 3~30자 (예: `myshop` 입력 시 `myshop.krl.kr`이 됩니다). 한글/공백/특수문자는 안 됩니다. 이미 쓰이는 주소면 다른 걸로 다시 시도하면 됩니다.\n• **샵 이름**: 화면에 보이는 표시용 이름이라 나중에 관리자 설정에서 바꿀 수 있습니다.",
+    },
+    {
+      name: "4단계 - 제출하면 바로 생성",
+      value:
+        "제출하는 즉시 4,000P가 차감되고, 전용 주소/서버가 자동으로 만들어집니다 (보통 1분 이내). 중간에 실패하면 포인트는 그대로 환불되니 걱정 안 하셔도 됩니다.",
+    },
+    {
+      name: "5단계 - 완료 메시지 꼭 저장하기",
+      value:
+        "완료되면 나만 보이는(ephemeral) 메시지로 **주소, 다음 결제일, 입금 자동승인 앱용 웹훅 URL과 비밀키**가 함께 옵니다. 비밀키는 다시 보여주지 않으니(분실 시 관리자에게 재확인 요청) 스크린샷을 찍어두거나 메모해두세요.",
+    }
+  );
+}
+
+function linkStepsEmbed() {
+  return baseEmbed("🔗 ③ 구매 후 내 서버와 연결하기")
+    .setDescription("구매만으로는 아직 **내 디스코드 서버**에서 기능이 안 보입니다. 아래 2단계를 마쳐야 합니다.")
+    .addFields(
+      {
+        name: "1단계 - 봇을 내 서버에 초대",
+        value:
+          "이 봇(지금 이 메시지를 쓰고 있는 봇)의 초대 링크로 **내가 관리자 권한을 가진 내 디스코드 서버**에 초대합니다. 초대 링크는 관리자에게 문의해주세요.",
+      },
+      {
+        name: "2단계 - /샵연동 실행",
+        value:
+          "봇을 초대한 **그 서버 안에서** `/샵연동 서브도메인:내가정한주소` 를 입력합니다 (3단계에서 정한 주소, `.krl.kr` 빼고 앞부분만).\n\n⚠️ 구매할 때 쓴 디스코드 계정으로 실행해야 합니다 - 다른 사람이 실행하면 \"본인만 연동할 수 있습니다\" 오류가 뜹니다.",
+      },
+      {
+        name: "연동 완료 후",
+        value:
+          "그 서버에서 자비샵과 똑같은 명령어/버튼(상품 구매, 장바구니, 쿠폰, 포인트 충전, 관리자 패널 등)을 그대로 쓸 수 있습니다. 웹사이트(`내주소.krl.kr`)도 바로 열립니다.",
+      }
+    );
+}
+
+function appSetupEmbed() {
+  return baseEmbed("💳 ④ 입금 자동승인 앱 설정 (선택사항)")
+    .setDescription(
+      "포인트 충전 시 입금 확인을 매번 수동으로 안 하고, 은행 알림을 감지해서 자동으로 승인해주는 안드로이드 앱입니다. 필수는 아니고, 켜두면 편합니다."
+    )
+    .addFields(
+      {
+        name: "앱 받기",
+        value:
+          "자비샵 깃허브 저장소의 `android-notifier` 폴더가 앱 소스코드입니다. 본인 PC의 Android Studio로 직접 빌드해서 설치합니다 (자세한 빌드 방법은 그 폴더의 README 참고). 관리자에게 빌드된 apk 공유를 요청해도 됩니다.",
+      },
+      {
+        name: "1단계 - 앱 실행 후 3개 입력",
+        value:
+          "• **서버 웹훅 URL**: 구매 완료 메시지에 적혀있던 `https://내주소.krl.kr/api/webhooks/bank-topup`\n• **비밀키**: 역시 구매 완료 메시지에 있던 값 (이 샵 전용이라 다른 샵과 안 겹칩니다)\n• **은행 앱 패키지명**: 기본값 `com.kebhana.hnbank`(하나은행). 다른 은행이면 휴대폰 설정→앱 정보에서 패키지명 확인",
+      },
+      {
+        name: "2단계 - 저장 → 알림 접근 권한 허용",
+        value: "저장 버튼 → **알림 접근 권한 설정 열기** 버튼 → 목록에서 이 앱을 찾아 권한 켜기.",
+      },
+      {
+        name: "3단계 - 테스트 전송",
+        value: "앱의 **테스트 전송** 버튼을 눌러서 \"서버 연결 성공\"이 뜨는지 확인합니다.",
+      },
+      {
+        name: "4단계 - 배터리 최적화 제외 (중요!)",
+        value:
+          "설정 → 배터리 → 앱별 배터리 사용 → 이 앱 → **제한 없음**. 이걸 빼먹으면 며칠 뒤 안드로이드가 앱을 꺼버려서 알림을 못 받게 됩니다 (가장 흔한 문제).",
+      },
+      {
+        name: "⚠️ iOS는 지원하지 않습니다",
+        value: "애플이 다른 앱의 알림 내용을 읽는 기능 자체를 허용하지 않아서, 이 방식은 아이폰에서는 불가능합니다.",
+      }
+    );
+}
+
+function billingEmbed() {
+  return baseEmbed("⚠️ ⑤ 결제 / 해지 정책").addFields(
+    { name: "결제 주기", value: "구매일로부터 30일마다 자동으로 4,000P가 차감됩니다.", inline: true },
+    { name: "연체 시", value: "결제일에 포인트가 부족하면 **그 즉시** 서비스가 중단됩니다.", inline: true },
+    {
+      name: "'즉시 중단'이 의미하는 것",
+      value: "전용 주소(웹사이트)가 바로 안 열리게 되고, 디스코드 서버 연동도 해제됩니다. 다만 데이터(상품/주문/회원 등)는 바로 지워지지 않고 보관되니, 포인트를 채운 뒤 관리자에게 복구를 요청할 수 있습니다.",
+    },
+    {
+      name: "미리 준비하기",
+      value: "결제일 전에 미리 포인트를 충전해두시면 서비스 중단 없이 계속 쓰실 수 있습니다.",
+    }
+  );
+}
+
+function faqEmbed() {
+  return baseEmbed("❓ ⑥ 자주 묻는 질문 / 문제 해결").addFields(
+    {
+      name: "구매했는데 서브도메인이 이미 사용 중이라고 떠요",
+      value: "다른 사람이 먼저 쓰고 있는 주소입니다. 다른 이름으로 다시 시도해주세요.",
+    },
+    {
+      name: "/샵연동 했는데 '이미 다른 서버와 연동되어 있습니다'라고 떠요",
+      value: "이 샵은 이미 다른 디스코드 서버와 연결이 끝난 상태입니다. 서버를 잘못 입력했는지, 또는 이미 연동을 마쳤는지 확인해주세요.",
+    },
+    {
+      name: "웹사이트가 안 열려요",
+      value: "방금 구매했다면 생성에 1분 정도 걸릴 수 있습니다. 그래도 안 되면 주소 철자를 다시 확인하거나 관리자에게 문의해주세요.",
+    },
+    {
+      name: "입금 자동승인 앱 테스트가 실패해요",
+      value: "웹훅 URL 오타, 비밀키 불일치, 또는 서브도메인이 아직 생성 중일 때 발생합니다. 구매 완료 메시지의 값을 다시 복사-붙여넣기 해보세요.",
+    },
+    {
+      name: "비밀키를 잃어버렸어요",
+      value: "관리자에게 요청하면 ShopSetting에 저장된 값을 다시 확인해줄 수 있습니다.",
+    }
+  );
 }
 
 export const shopSaleGuideChannelCommand: BotCommand = {
@@ -46,8 +166,14 @@ export const shopSaleGuideChannelCommand: BotCommand = {
       .catch(() => null);
     if (!channel) return interaction.editReply({ embeds: [errorEmbed("채널 생성에 실패했습니다 (권한을 확인해주세요).")] });
 
-    await channel.send({ embeds: [shopSaleGuideEmbed()] });
+    // 임베드 하나에 다 넣기엔 너무 길어서, 단계별로 메시지를 나눠서 순서대로 올린다.
+    await channel.send({ embeds: [overviewEmbed()] });
+    await channel.send({ embeds: [purchaseStepsEmbed()] });
+    await channel.send({ embeds: [linkStepsEmbed()] });
+    await channel.send({ embeds: [appSetupEmbed()] });
+    await channel.send({ embeds: [billingEmbed()] });
+    await channel.send({ embeds: [faqEmbed()] });
 
-    await interaction.editReply({ embeds: [successEmbed(`<#${channel.id}> 채널을 만들고 안내문을 게시했습니다.`)] });
+    await interaction.editReply({ embeds: [successEmbed(`<#${channel.id}> 채널을 만들고 상세 안내문 6개를 게시했습니다.`)] });
   },
 };
