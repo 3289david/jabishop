@@ -11,6 +11,7 @@ import {
   PARTNER_PROMO_MODAL_ID,
   REFERRAL_REGISTER_MODAL_ID,
   QUANTITY_BUY_MODAL_PREFIX,
+  SHOP_PURCHASE_MODAL_PREFIX,
   handleTopUpModalSubmit,
   handleInquiryModalSubmit,
   handleAnswerModalSubmit,
@@ -19,6 +20,7 @@ import {
   handlePartnerPromoModalSubmit,
   handleReferralRegisterModalSubmit,
   handleQuantityBuyModalSubmit,
+  handleShopPurchaseModalSubmit,
 } from "@/bot/interactions/modals";
 import { SHOP_OAUTH_MODAL_ID, handleShopOAuthModalSubmit } from "@/bot/commands/shopOAuthSetup";
 import { handleButtonInteraction } from "@/bot/interactions/buttons";
@@ -142,6 +144,9 @@ async function handleInteraction(interaction: Interaction) {
       }
       if (interaction.customId.startsWith(`${SHOP_OAUTH_MODAL_ID}:`)) {
         return handleShopOAuthModalSubmit(interaction, interaction.customId.slice(`${SHOP_OAUTH_MODAL_ID}:`.length));
+      }
+      if (interaction.customId.startsWith(SHOP_PURCHASE_MODAL_PREFIX)) {
+        return handleShopPurchaseModalSubmit(interaction, interaction.customId.slice(SHOP_PURCHASE_MODAL_PREFIX.length));
       }
       return;
     }

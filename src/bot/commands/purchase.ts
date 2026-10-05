@@ -17,6 +17,12 @@ export const purchaseCommand: BotCommand = {
     )
     .addIntegerOption((o) =>
       o.setName("수량").setDescription("구매할 수량 (기본 1, 최대 50)").setMinValue(1).setMaxValue(50).setRequired(false)
+    )
+    .addStringOption((o) =>
+      o.setName("샵주소").setDescription("[자판기 상품 전용] 원하는 웹사이트 주소 (비워두면 자동)").setRequired(false)
+    )
+    .addStringOption((o) =>
+      o.setName("샵이름").setDescription("[자판기 상품 전용] 원하는 샵 이름 (비워두면 자동)").setRequired(false)
     ),
   autocomplete: purchaseAutocomplete,
   async execute(interaction) {
@@ -24,6 +30,8 @@ export const purchaseCommand: BotCommand = {
     const slug = interaction.options.getString("등급", true);
     const couponCode = interaction.options.getString("쿠폰코드") ?? undefined;
     const quantity = interaction.options.getInteger("수량") ?? 1;
+    const shopSlug = interaction.options.getString("샵주소") ?? undefined;
+    const shopName = interaction.options.getString("샵이름") ?? undefined;
 
     try {
       const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
@@ -52,7 +60,7 @@ export const purchaseCommand: BotCommand = {
         return;
       }
 
-      const order = await purchaseTier({ userId: user.id, tierId: tier.id, couponCode });
+      const order = await purchaseTier({ userId: user.id, tierId: tier.id, couponCode, shopSlug, shopName });
       const artwork = order.artwork;
 
       const embed = successEmbed(`${tier.name} 구매 완료!`)

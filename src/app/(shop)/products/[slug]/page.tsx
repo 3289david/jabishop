@@ -6,6 +6,7 @@ import { ARTWORK_STATUS, REVIEW_STATUS, SHOP_SUBSCRIPTION_TIER_SLUG } from "@/li
 import { listUsableCoupons } from "@/lib/coupon";
 import { PurchaseForm } from "@/components/PurchaseForm";
 import { ShopSubscriptionShowcase } from "@/components/ShopSubscriptionShowcase";
+import { ShopSubscriptionPurchaseForm } from "@/components/ShopSubscriptionPurchaseForm";
 
 export default async function ProductDetailPage({
   params,
@@ -90,15 +91,19 @@ export default async function ProductDetailPage({
           stock > 0 ? (
             <>
               <p className="text-sm text-neutral-500 mb-3">보유 포인트: {user.points.toLocaleString()}P</p>
-              <PurchaseForm
-                tierId={tier.id}
-                price={tier.price}
-                coupons={usableCoupons.map(({ coupon, discount }) => ({
-                  code: coupon.code,
-                  name: coupon.name,
-                  discount,
-                }))}
-              />
+              {isUnlimited ? (
+                <ShopSubscriptionPurchaseForm tierId={tier.id} price={tier.price} />
+              ) : (
+                <PurchaseForm
+                  tierId={tier.id}
+                  price={tier.price}
+                  coupons={usableCoupons.map(({ coupon, discount }) => ({
+                    code: coupon.code,
+                    name: coupon.name,
+                    discount,
+                  }))}
+                />
+              )}
             </>
           ) : (
             <p className="text-center text-neutral-400 py-6">현재 품절된 상품입니다.</p>

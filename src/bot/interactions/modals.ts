@@ -3,6 +3,7 @@ import {
   TextInputBuilder,
   TextInputStyle,
   ActionRowBuilder,
+  AttachmentBuilder,
   type ButtonInteraction,
   type ModalSubmitInteraction,
 } from "discord.js";
@@ -13,7 +14,8 @@ import { createTopUpRequest } from "@/lib/points";
 import { createInquiry } from "@/lib/inquiries";
 import { updatePartnerWebhook, updatePartnerPromoMessage, requestPartner, PartnerError } from "@/lib/partners";
 import { linkReferral, EventError as ReferralError } from "@/lib/events/referral";
-import { purchaseTierBulk, OrderError } from "@/lib/orders";
+import { purchaseTier, purchaseTierBulk, OrderError } from "@/lib/orders";
+import { readUploadedFile, isUploadKey } from "@/bot/fileStorage";
 
 export const TOPUP_MODAL_ID = "topup_modal";
 export const INQUIRY_MODAL_ID = "inquiry_modal";
@@ -23,6 +25,7 @@ export const PARTNER_APPLY_MODAL_ID = "partner_apply_modal";
 export const PARTNER_PROMO_MODAL_ID = "partner_promo_modal";
 export const REFERRAL_REGISTER_MODAL_ID = "referral_register_modal";
 export const QUANTITY_BUY_MODAL_PREFIX = "qtybuy_modal:";
+export const SHOP_PURCHASE_MODAL_PREFIX = "shopbuy_modal:";
 
 export async function showTopUpModal(interaction: ButtonInteraction) {
   const modal = new ModalBuilder().setCustomId(TOPUP_MODAL_ID).setTitle("포인트 충전 신청");
@@ -103,8 +106,71 @@ export async function handleAnswerModalSubmit(interaction: ModalSubmitInteractio
   await interaction.editReply({ embeds: [successEmbed("답변이 등록되었습니다.")] });
 }
 
-// "자판기 통째로 구매"는 이제 별도 모달이 없다 - 다른 등급과 똑같이 상품 목록에서
-// 고르고 "구매하기" 버튼을 누르면 끝난다 (src/lib/orders.ts의 purchaseTier 참고).
+// "자판기 통째로 구매"는 다른 등급과 똑같이 상품 목록 → "구매하기" 버튼으로 산다.
+// 다만 이 상품만은 원하는 웹사이트 주소/샵 이름을 직접 정할 수 있어야 해서, 구매
+// 직전에 이 모달로 입력받는다 (둘 다 비워두면 자동으로 정해짐 - src/lib/orders.ts 참고).
+export async function showShopPurchaseModal(interaction: ButtonInteraction, slug: string) {
+  const modal = new ModalBuilder().setCustomId(`${SHOP_PURCHASE_MODAL_PREFIX}${slug}`).setTitle("자판기(샵) 구매");
+  const shopSlug = new TextInputBuilder()
+    .setCustomId("shopSlug")
+    .setLabel("원하는 웹사이트 주소 (예: myshop)")
+    .setPlaceholder("비워두면 자동으로 정해집니다")
+    .setStyle(TextInputStyle.Short)
+    .setRequired(false);
+  const shopName = new TextInputBuilder()
+    .setCustomId("shopName")
+    .setLabel("원하는 샵 이름")
+    .setPlaceholder("비워두면 자동으로 정해집니다")
+    .setStyle(TextInputStyle.Short)
+    .setRequired(false);
+  modal.addComponents(
+    new ActionRowBuilder<TextInputBuilder>().addComponents(shopSlug),
+    new ActionRowBuilder<TextInputBuilder>().addComponents(shopName)
+  );
+  await interaction.showModal(modal);
+}
+
+export async function handleShopPurchaseModalSubmit(interaction: ModalSubmitInteraction, slug: string) {
+  await interaction.deferReply({ ephemeral: true });
+  const shopSlug = interaction.fields.getTextInputValue("shopSlug").trim() || undefined;
+  const shopName = interaction.fields.getTextInputValue("shopName").trim() || undefined;
+
+  try {
+    const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
+    const tier = await prisma.tier.findUnique({ where: { slug } });
+    if (!tier) throw new OrderError("TIER_NOT_FOUND", "존재하지 않는 상품입니다.");
+
+    const order = await purchaseTier({ userId: user.id, tierId: tier.id, shopSlug, shopName });
+    const artwork = order.artwork;
+
+    const embed = successEmbed(`${tier.name} 구매 완료!`)
+      .setTitle(`주문 #${order.orderNo}`)
+      .addFields(
+        { name: "결제 금액", value: pt(order.finalAmount), inline: true },
+        { name: "지급된 계정", value: artwork?.title ?? "-", inline: true }
+      );
+
+    const files = [];
+    if (artwork) {
+      if (!isUploadKey(artwork.fileKey)) {
+        embed.addFields({ name: "지급 내용", value: artwork.fileKey });
+      } else {
+        try {
+          const buffer = await readUploadedFile(artwork.fileKey);
+          const ext = artwork.fileKey.split(".").pop() || "png";
+          files.push(new AttachmentBuilder(buffer, { name: `${artwork.code}.${ext}` }));
+          embed.setImage(`attachment://${artwork.code}.${ext}`);
+        } catch {
+          // 파일 누락 시 이미지 없이 결과만 표시
+        }
+      }
+    }
+    await interaction.editReply({ embeds: [embed], files });
+  } catch (e) {
+    const message = e instanceof OrderError || e instanceof Error ? e.message : "구매 중 오류가 발생했습니다.";
+    await interaction.editReply({ embeds: [errorEmbed(message)] });
+  }
+}
 
 export async function showQuantityBuyModal(interaction: ButtonInteraction, slug: string) {
   const modal = new ModalBuilder().setCustomId(`${QUANTITY_BUY_MODAL_PREFIX}${slug}`).setTitle("수량 지정 구매");

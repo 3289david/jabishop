@@ -215,16 +215,22 @@ export async function tierDetailPayload(slug: string) {
       { name: "재고", value: isUnlimited ? "무제한" : `${stock}개`, inline: true }
     );
 
-  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder().setCustomId(`buy:${slug}`).setLabel(`${won(tier.price)}로 구매`).setStyle(ButtonStyle.Success).setDisabled(stock === 0),
-    new ButtonBuilder().setCustomId(`qtybuy:${slug}`).setLabel("🔢 수량 지정 구매").setStyle(ButtonStyle.Success).setDisabled(stock === 0),
-    new ButtonBuilder().setCustomId(`cartadd:${slug}`).setLabel("장바구니 담기").setStyle(ButtonStyle.Secondary).setDisabled(stock === 0),
-    new ButtonBuilder()
-      .setCustomId(`restock:${slug}`)
-      .setLabel("🔔 재입고 알림받기")
-      .setStyle(ButtonStyle.Secondary)
-      .setDisabled(stock > 0)
-  );
+  // "자판기 통째로 구매"는 수량/장바구니/재입고 개념이 없다 - 구매 버튼 하나만 두고,
+  // 누르면(handleBuy) 원하는 샵 주소/이름을 입력받는 모달이 먼저 뜬다.
+  const row = isUnlimited
+    ? new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder().setCustomId(`buy:${slug}`).setLabel(`${won(tier.price)}로 구매`).setStyle(ButtonStyle.Success)
+      )
+    : new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder().setCustomId(`buy:${slug}`).setLabel(`${won(tier.price)}로 구매`).setStyle(ButtonStyle.Success).setDisabled(stock === 0),
+        new ButtonBuilder().setCustomId(`qtybuy:${slug}`).setLabel("🔢 수량 지정 구매").setStyle(ButtonStyle.Success).setDisabled(stock === 0),
+        new ButtonBuilder().setCustomId(`cartadd:${slug}`).setLabel("장바구니 담기").setStyle(ButtonStyle.Secondary).setDisabled(stock === 0),
+        new ButtonBuilder()
+          .setCustomId(`restock:${slug}`)
+          .setLabel("🔔 재입고 알림받기")
+          .setStyle(ButtonStyle.Secondary)
+          .setDisabled(stock > 0)
+      );
 
   return { embed, row, stock };
 }

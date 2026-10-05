@@ -33,7 +33,8 @@ import { raffleEventEmbed } from "@/bot/raffleUI";
 import { performCheckIn, EventError as CheckInError } from "@/lib/events/checkin";
 import { getOrCreateReferralCode, EventError as ReferralError } from "@/lib/events/referral";
 import { spinGacha, EventError as GachaError } from "@/lib/events/gacha";
-import { showReferralRegisterModal, showQuantityBuyModal } from "@/bot/interactions/modals";
+import { showReferralRegisterModal, showQuantityBuyModal, showShopPurchaseModal } from "@/bot/interactions/modals";
+import { SHOP_SUBSCRIPTION_TIER_SLUG } from "@/lib/constants";
 import { subscribeRestock, RestockError } from "@/lib/restock";
 import { setAdminDutyStatus, DUTY_STATUS_LABEL } from "@/lib/adminDuty";
 import { updateAdminDutyPanel } from "@/bot/adminDutyPanel";
@@ -111,6 +112,9 @@ async function handlePartnerManage(interaction: ButtonInteraction) {
 }
 
 async function handleBuy(interaction: ButtonInteraction, slug: string) {
+  if (slug === SHOP_SUBSCRIPTION_TIER_SLUG) {
+    return showShopPurchaseModal(interaction, slug);
+  }
   await interaction.deferUpdate();
   try {
     const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);

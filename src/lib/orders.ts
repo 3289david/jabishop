@@ -61,10 +61,22 @@ export async function ensureShopSubscriptionTier() {
  * 모양(Artwork.fileKey)으로 담아서, 호출한 쪽(디스코드 임베드/DM/주문내역 등)이
  * 전혀 특별 취급하지 않아도 되게 한다.
  */
-async function purchaseShopSubscriptionTier(userId: string, tier: Tier) {
+async function purchaseShopSubscriptionTier(
+  userId: string,
+  tier: Tier,
+  opts?: { slug?: string; shopName?: string }
+) {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) throw new OrderError("USER_NOT_FOUND", "사용자를 찾을 수 없습니다.");
   if (user.points < tier.price) throw new OrderError("INSUFFICIENT_POINTS", "포인트가 부족합니다.");
+
+  const desiredSlug = opts?.slug?.trim().toLowerCase();
+  if (desiredSlug && !/^[a-z0-9-]{3,30}$/.test(desiredSlug)) {
+    throw new OrderError("INVALID_SHOP_SLUG", "샵 주소는 영문 소문자/숫자/하이픈 3~30자여야 합니다.");
+  }
+  if (desiredSlug && (await prisma.shop.findUnique({ where: { slug: desiredSlug } }))) {
+    throw new OrderError("SHOP_SLUG_TAKEN", "이미 사용 중인 샵 주소입니다. 다른 주소를 입력해주세요.");
+  }
 
   const orderNo = await generateOrderNo();
   const order = await prisma.$transaction(async (tx) => {
@@ -95,11 +107,11 @@ async function purchaseShopSubscriptionTier(userId: string, tier: Tier) {
     return o;
   });
 
-  // 서브도메인/샵이름은 자동으로 정한다 - 일반 상품처럼 별도 입력창 없이 바로 지급되게 하기 위함
-  // (나중에 관리자 설정에서 이름은 바꿀 수 있다).
+  // 구매 시 원하는 주소/이름을 입력하지 않았으면 자동으로 정한다 (나중에 /샵주소변경,
+  // /설정수정 샵이름: 으로 언제든 바꿀 수 있다).
   const base = (user.name || "shop").toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 16) || "shop";
-  const slug = `${base}-${Math.random().toString(36).slice(2, 6)}`;
-  const shopName = `${user.name}의 샵`;
+  const slug = desiredSlug || `${base}-${Math.random().toString(36).slice(2, 6)}`;
+  const shopName = opts?.shopName?.trim() || `${user.name}의 샵`;
 
   let shop;
   try {
@@ -188,8 +200,10 @@ export async function purchaseTier(params: {
   userId: string;
   tierId: string;
   couponCode?: string;
+  shopSlug?: string;
+  shopName?: string;
 }) {
-  const { userId, tierId, couponCode } = params;
+  const { userId, tierId, couponCode, shopSlug, shopName } = params;
 
   const shopTierCheck = await prisma.tier.findUnique({ where: { id: tierId } });
   if (!shopTierCheck) throw new OrderError("TIER_NOT_FOUND", "존재하지 않는 상품입니다.");
@@ -197,7 +211,7 @@ export async function purchaseTier(params: {
     if (shopTierCheck.status !== TIER_STATUS.ON_SALE) {
       throw new OrderError("TIER_NOT_ON_SALE", "현재 판매 중이 아닌 상품입니다.");
     }
-    const completedOrder = await purchaseShopSubscriptionTier(userId, shopTierCheck);
+    const completedOrder = await purchaseShopSubscriptionTier(userId, shopTierCheck, { slug: shopSlug, shopName });
     notifyPurchaseByDM(userId, completedOrder.id).catch(() => {});
     announcePurchaseInChannel(userId, completedOrder.id).catch(() => {});
     return completedOrder;

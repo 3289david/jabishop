@@ -43,6 +43,26 @@ export async function purchaseAction(_prev: ActionState, formData: FormData): Pr
   redirect("/mypage/orders");
 }
 
+// "자판기(샵) 통째로 구매"는 수량/쿠폰 대신 원하는 웹사이트 주소/샵 이름을 받는다
+// (둘 다 비워두면 src/lib/orders.ts가 자동으로 정해줌).
+export async function purchaseShopSubscriptionAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await requireUser();
+  const tierId = String(formData.get("tierId") || "");
+  const shopSlug = String(formData.get("shopSlug") || "").trim() || undefined;
+  const shopName = String(formData.get("shopName") || "").trim() || undefined;
+
+  let order;
+  try {
+    order = await purchaseTier({ userId: user.id, tierId, shopSlug, shopName });
+  } catch (e) {
+    if (e instanceof OrderError) return { error: e.message };
+    throw e;
+  }
+
+  revalidatePath("/", "layout");
+  redirect(`/mypage/orders/${order.id}`);
+}
+
 export async function addToCartAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const user = await requireUser();
   const tierId = String(formData.get("tierId") || "");
