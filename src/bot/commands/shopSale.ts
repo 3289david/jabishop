@@ -1,5 +1,5 @@
 import { SlashCommandBuilder } from "discord.js";
-import { prisma } from "@/lib/prisma";
+import { prisma, runWithTenant } from "@/lib/prisma";
 import { errorEmbed, baseEmbed } from "@/bot/format";
 import type { BotCommand } from "@/bot/types";
 
@@ -22,20 +22,26 @@ export const shopClaimCommand: BotCommand = {
       return interaction.editReply({ embeds: [errorEmbed("서버 안에서만 사용할 수 있습니다.")] });
     }
 
-    const shop = await prisma.shop.findUnique({ where: { slug } });
+    // Shop 레지스트리는 항상 자비샵 본인(기본) DB에만 있다 - 이 명령어를 이미 연동된
+    // 서버 안에서 다시 실행하면 그 서버의 테넌트 DB로 자동 전환되어 있는 상태라서,
+    // 명시적으로 기본 DB를 가리키지 않으면 "존재하지 않는 샵"이라는 잘못된 결과가 나온다.
+    const shop = await runWithTenant(null, () => prisma.shop.findUnique({ where: { slug } }));
     if (!shop) return interaction.editReply({ embeds: [errorEmbed("존재하지 않는 샵입니다.")] });
     if (shop.claimDiscordId !== interaction.user.id) {
       return interaction.editReply({ embeds: [errorEmbed("이 샵을 구매한 본인만 연동할 수 있습니다.")] });
     }
     if (shop.discordGuildId) {
+      if (shop.discordGuildId === guildId) {
+        return interaction.editReply({ embeds: [errorEmbed("이미 이 서버와 연동되어 있습니다.")] });
+      }
       return interaction.editReply({ embeds: [errorEmbed("이미 다른 서버와 연동되어 있습니다.")] });
     }
-    const already = await prisma.shop.findUnique({ where: { discordGuildId: guildId } });
+    const already = await runWithTenant(null, () => prisma.shop.findUnique({ where: { discordGuildId: guildId } }));
     if (already) {
       return interaction.editReply({ embeds: [errorEmbed("이 서버는 이미 다른 샵과 연동되어 있습니다.")] });
     }
 
-    await prisma.shop.update({ where: { id: shop.id }, data: { discordGuildId: guildId } });
+    await runWithTenant(null, () => prisma.shop.update({ where: { id: shop.id }, data: { discordGuildId: guildId } }));
     await interaction.editReply({
       embeds: [
         baseEmbed("✅ 연동 완료").setDescription(

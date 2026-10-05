@@ -39,13 +39,19 @@ const tenantStorage = new AsyncLocalStorage<PrismaClient>();
 
 /**
  * 이 콜백(과 그 안에서 await하는 모든 비동기 코드) 동안에는 어디서든 `prisma.xxx`를
- * 부르면 전부 dbPath가 가리키는 샵의 DB로 간다. dbPath가 null이면 그냥 기본(자비샵
- * 본인) DB를 쓴다 - 웹 미들웨어(호스트명 기준)와 봇 인터랙션 디스패처(guildId 기준)
- * 에서 요청/인터랙션 시작 시점에 이걸로 감싼다.
+ * 부르면 전부 dbPath가 가리키는 샵의 DB로 간다. dbPath가 null이면 기본(자비샵 본인)
+ * DB를 쓴다 - 웹 미들웨어(호스트명 기준)와 봇 인터랙션 디스패처(guildId 기준)에서
+ * 요청/인터랙션 시작 시점에 이걸로 감싼다.
+ *
+ * dbPath가 null일 때 그냥 fn()을 바로 호출하면 안 된다 - 이미 바깥쪽에서
+ * runWithTenant(테넌트dbPath, ...)로 감싸져 있는 도중(예: 테넌트 서버 인터랙션
+ * 처리 중 그 테넌트가 아니라 자비샵 본인 DB를 명시적으로 봐야 하는 코드, 예:
+ * Shop 레지스트리 조회)이라면 fn()은 여전히 바깥쪽 테넌트 DB를 보게 되어 버린다
+ * (AsyncLocalStorage 컨텍스트가 그대로 남아있기 때문). 그래서 null일 때도 항상
+ * defaultPrisma로 명시적으로 store를 덮어써야 진짜로 "기본 DB 강제"가 된다.
  */
 export function runWithTenant<T>(dbPath: string | null, fn: () => Promise<T>): Promise<T> {
-  if (!dbPath) return fn();
-  return tenantStorage.run(getTenantClient(dbPath), fn);
+  return tenantStorage.run(dbPath ? getTenantClient(dbPath) : defaultPrisma, fn);
 }
 
 export const prisma = new Proxy(defaultPrisma, {

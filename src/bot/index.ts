@@ -37,7 +37,7 @@ import { startRestockCheckLoop } from "@/bot/restockLoop";
 import { startStaleRequestsLoop } from "@/bot/staleRequestsLoop";
 import { startAdminDutyPanelLoop, updateAdminDutyPanel } from "@/bot/adminDutyPanel";
 import { syncAdminDutyFromPresence } from "@/lib/adminDuty";
-import { runForGuild } from "@/lib/shop";
+import { runForGuild, resolveShopByGuildId } from "@/lib/shop";
 import { startShopBillingLoop } from "@/bot/shopBillingLoop";
 import { ensureShopSubscriptionTier } from "@/lib/orders";
 
@@ -99,7 +99,31 @@ client.on(Events.PresenceUpdate, (_oldPresence, newPresence) => {
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
-  await runForGuild(interaction.guildId, () => handleInteraction(interaction));
+  const guildId = interaction.guildId;
+  // 자비샵 본인 서버가 아닌 다른 서버는, 그 서버가 실제로 어떤 샵과 연동되어 있을
+  // 때만 그 샵의 전용 DB로 동작해야 한다. 그렇지 않으면(아직 /샵연동을 안 한 새
+  // 서버) resolveShopByGuildId가 null을 반환해서 runForGuild가 그냥 fn()을 그대로
+  // 호출해버리는데, 이러면 자비샵 본인의 실제 운영 DB를 그대로 써버리게 된다 -
+  // 즉 "샵 연동을 안 해도 (자비샵 데이터로) 그냥 써지는" 심각한 버그였다.
+  // /샵연동 자체는 서버가 아직 연동 안 된 상태에서 실행하는 게 정상이므로 예외로 둔다.
+  if (guildId && guildId !== process.env.DISCORD_GUILD_ID) {
+    const commandName = interaction.isChatInputCommand() ? interaction.commandName : null;
+    if (commandName !== "샵연동") {
+      const shop = await resolveShopByGuildId(guildId);
+      if (!shop || shop.status !== "ACTIVE") {
+        if (interaction.isRepliable()) {
+          await interaction
+            .reply({
+              embeds: [errorEmbed("이 서버는 아직 샵과 연동되지 않았습니다. 구매 시 받은 샵 코드로 `/샵연동`을 먼저 실행해주세요.")],
+              flags: MessageFlags.Ephemeral,
+            })
+            .catch(() => {});
+        }
+        return;
+      }
+    }
+  }
+  await runForGuild(guildId, () => handleInteraction(interaction));
 });
 
 async function handleInteraction(interaction: Interaction) {
