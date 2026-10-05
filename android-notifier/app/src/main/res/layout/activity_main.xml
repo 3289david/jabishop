@@ -7,78 +7,209 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="24dp">
+        android:padding="20dp">
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="입금 알림 자동전달"
-            android:textSize="20sp"
+            android:textSize="22sp"
             android:textStyle="bold"
             android:layout_marginBottom="4dp" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="은행 앱 알림을 감지해 서버로 전달합니다. 아래 값을 채우고 저장한 뒤, 알림 접근 권한을 허용해주세요."
+            android:text="은행 앱 알림을 감지해 서버로 전달합니다."
             android:textSize="13sp"
+            android:textColor="#777777"
             android:layout_marginBottom="16dp" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="서버 웹훅 URL" />
-        <EditText
-            android:id="@+id/edit_webhook_url"
+        <!-- 현재 설정 상태 한눈에 보기 -->
+        <LinearLayout
+            android:id="@+id/layout_status_banner"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="https://내샵주소.krl.kr/api/webhooks/bank-topup"
-            android:inputType="textUri"
-            android:layout_marginBottom="12dp" />
+            android:orientation="vertical"
+            android:background="@drawable/bg_status_warn"
+            android:padding="14dp"
+            android:layout_marginBottom="16dp">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="비밀키 (서버 .env의 BANK_WEBHOOK_SECRET과 동일한 값)" />
-        <EditText
-            android:id="@+id/edit_secret"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="비밀키"
-            android:inputType="textPassword"
-            android:layout_marginBottom="12dp" />
+            <TextView
+                android:id="@+id/text_status_banner"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="14sp"
+                android:textStyle="bold" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="감지할 은행 앱 패키지명 (설정 → 앱 → 하나은행 앱에서 확인)" />
-        <EditText
-            android:id="@+id/edit_package"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:hint="예: com.kebhana.hnbank"
-            android:layout_marginBottom="16dp" />
+            <TextView
+                android:id="@+id/text_status_banner_detail"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="12sp"
+                android:textColor="#555555"
+                android:layout_marginTop="4dp" />
+        </LinearLayout>
 
-        <Button
-            android:id="@+id/btn_save"
+        <!-- 1. 서버 연결 정보 -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="저장"
-            android:layout_marginBottom="8dp" />
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
+            android:padding="16dp"
+            android:layout_marginBottom="12dp">
 
-        <Button
-            android:id="@+id/btn_open_notification_settings"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="알림 접근 권한 설정 열기"
-            android:layout_marginBottom="8dp" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="1. 서버 연결 정보"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="10dp" />
 
-        <Button
-            android:id="@+id/btn_test_send"
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="서버 웹훅 URL"
+                android:textSize="12sp"
+                android:textColor="#777777" />
+            <EditText
+                android:id="@+id/edit_webhook_url"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="https://내샵주소.krl.kr/api/webhooks/bank-topup/내샵코드"
+                android:inputType="textUri"
+                android:layout_marginBottom="12dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="비밀키 (구매 완료 메시지에 적혀있던 값)"
+                android:textSize="12sp"
+                android:textColor="#777777" />
+            <EditText
+                android:id="@+id/edit_secret"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="비밀키"
+                android:inputType="textPassword"
+                android:layout_marginBottom="4dp" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="둘 다 구매 완료 메시지(또는 DM)에서 그대로 복사해서 붙여넣으면 됩니다."
+                android:textSize="11sp"
+                android:textColor="#999999" />
+        </LinearLayout>
+
+        <!-- 2. 감지할 은행 앱 -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="테스트 전송 (서버 연결 확인)"
-            android:layout_marginBottom="16dp" />
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
+            android:padding="16dp"
+            android:layout_marginBottom="12dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="2. 감지할 은행 앱"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="10dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:background="#FFFFFF"
+                android:padding="10dp"
+                android:layout_marginBottom="10dp">
+
+                <ImageView
+                    android:id="@+id/image_selected_app_icon"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:layout_marginEnd="12dp" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/text_selected_app_label"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/text_selected_app_package"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textSize="11sp"
+                        android:textColor="#9a9a9a" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/btn_pick_app"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="📱 목록에서 앱 선택하기" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="패키지명을 몰라도 됩니다 - 평소 쓰는 은행 앱을 목록에서 찾아 누르기만 하면 됩니다."
+                android:textSize="11sp"
+                android:textColor="#999999"
+                android:layout_marginTop="8dp" />
+        </LinearLayout>
+
+        <!-- 3. 저장 / 권한 / 테스트 -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/bg_card"
+            android:padding="16dp"
+            android:layout_marginBottom="16dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="3. 저장하고 권한 켜기"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:layout_marginBottom="10dp" />
+
+            <Button
+                android:id="@+id/btn_save"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="💾 저장"
+                android:layout_marginBottom="8dp" />
+
+            <Button
+                android:id="@+id/btn_open_notification_settings"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="🔔 알림 접근 권한 설정 열기"
+                android:layout_marginBottom="8dp" />
+
+            <Button
+                android:id="@+id/btn_test_send"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="📡 테스트 전송 (서버 연결 확인)" />
+        </LinearLayout>
 
         <TextView
             android:id="@+id/text_status"
