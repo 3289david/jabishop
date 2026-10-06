@@ -6,8 +6,8 @@ import { adminDutyStatusEmbed, adminDutyControlRow, fetchAdminRoleMembers } from
 import { reconcileAdminDutyRoster } from "@/lib/adminDuty";
 import type { BotCommand } from "@/bot/types";
 
-async function requireGuildAdmin(discordId: string) {
-  const ok = await isDiscordGuildAdmin(discordId);
+async function requireGuildAdmin(discordId: string, guildId: string | null | undefined) {
+  const ok = await isDiscordGuildAdmin(discordId, guildId);
   if (!ok) throw new Error("관리자 역할이 있는 사람만 사용할 수 있습니다.");
 }
 
@@ -19,7 +19,7 @@ export const adminDutyStatusPanelCommand: BotCommand = {
       o.setName("채널").setDescription("패널을 게시할 채널").setRequired(true).addChannelTypes(ChannelType.GuildText)
     ),
   async execute(interaction) {
-    await requireGuildAdmin(interaction.user.id);
+    await requireGuildAdmin(interaction.user.id, interaction.guildId);
     await interaction.deferReply({ ephemeral: true });
 
     const channelOption = interaction.options.getChannel("채널", true);
@@ -28,7 +28,7 @@ export const adminDutyStatusPanelCommand: BotCommand = {
       return interaction.editReply({ embeds: [errorEmbed("텍스트 채널만 선택할 수 있습니다.")] });
     }
 
-    const members = await fetchAdminRoleMembers(interaction.client);
+    const members = await fetchAdminRoleMembers(interaction.client, interaction.guildId);
     await reconcileAdminDutyRoster(members);
 
     const embed = await adminDutyStatusEmbed();
@@ -61,7 +61,7 @@ export const adminDutyControlPanelCommand: BotCommand = {
       o.setName("채널").setDescription("패널을 게시할 채널").setRequired(true).addChannelTypes(ChannelType.GuildText)
     ),
   async execute(interaction) {
-    await requireGuildAdmin(interaction.user.id);
+    await requireGuildAdmin(interaction.user.id, interaction.guildId);
     await interaction.deferReply({ ephemeral: true });
 
     const channelOption = interaction.options.getChannel("채널", true);

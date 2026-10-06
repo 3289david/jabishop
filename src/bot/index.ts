@@ -77,25 +77,32 @@ client.on(Events.MessageCreate, (message) => {
   }).catch((e) => console.error("메시지 처리 중 오류:", e));
 });
 
-client.on(Events.PresenceUpdate, (_oldPresence, newPresence) => {
+client.on(Events.PresenceUpdate, async (_oldPresence, newPresence) => {
   if (!newPresence.userId) return;
   const member = newPresence.member;
   if (!member || member.user.bot) return;
-  // 관리자 근무 현황은 자비샵 본인 서버 전용 기능(DISCORD_ADMIN_ROLE_ID가 길드 하나 기준) -
-  // 테넌트 서버에서 온 presence 변화는 무시한다.
-  if (member.guild.id !== process.env.DISCORD_GUILD_ID) return;
 
-  const adminRoleId = process.env.DISCORD_ADMIN_ROLE_ID;
+  const guildId = member.guild.id;
+  const isOwnGuild = guildId === process.env.DISCORD_GUILD_ID;
+  if (!isOwnGuild) {
+    // 연동 안 된(또는 비활성) 서버에서 온 presence 변화는 무시한다 - 그 외(자비샵 본인
+    // 서버 또는 연동된 테넌트 서버)는 관리자 근무 현황 자동감지를 그대로 적용한다.
+    const shop = await resolveShopByGuildId(guildId);
+    if (!shop || shop.status !== "ACTIVE") return;
+  }
+
+  // 테넌트 서버는 자비샵 전용 커스텀 역할(DISCORD_ADMIN_ROLE_ID) 개념이 없으니
+  // Administrator 권한 여부만 본다.
+  const adminRoleId = isOwnGuild ? process.env.DISCORD_ADMIN_ROLE_ID : undefined;
   const isAdminRole =
     (adminRoleId && member.roles.cache.has(adminRoleId)) || member.permissions.has(PermissionFlagsBits.Administrator);
   if (!isAdminRole) return;
 
   const isOnline = newPresence.status !== "offline";
-  syncAdminDutyFromPresence(member.id, member.displayName, isOnline)
-    .then((changed) => {
-      if (changed) updateAdminDutyPanel(client).catch(() => {});
-    })
-    .catch((e) => console.error("관리자 근무 상태 자동 감지 실패:", e));
+  await runForGuild(guildId, async () => {
+    const changed = await syncAdminDutyFromPresence(member.id, member.displayName, isOnline);
+    if (changed) await updateAdminDutyPanel(client).catch(() => {});
+  }).catch((e) => console.error("관리자 근무 상태 자동 감지 실패:", e));
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {

@@ -39,7 +39,7 @@ export const purchaseCommand: BotCommand = {
       if (!tier) throw new OrderError("TIER_NOT_FOUND", "존재하지 않는 등급입니다.");
 
       if (quantity > 1) {
-        const result = await purchaseTierBulk({ userId: user.id, tierId: tier.id, quantity, couponCode });
+        const result = await purchaseTierBulk({ userId: user.id, tierId: tier.id, quantity, couponCode, guildId: interaction.guildId });
         const luckyNote =
           result.luckyCouponCount > 0 ? ` 🎉 5% 할인 쿠폰 ${result.luckyCouponCount}장 당첨! 쿠폰함에서 확인하세요.` : "";
 
@@ -60,7 +60,7 @@ export const purchaseCommand: BotCommand = {
         return;
       }
 
-      const order = await purchaseTier({ userId: user.id, tierId: tier.id, couponCode, shopSlug, shopName });
+      const order = await purchaseTier({ userId: user.id, tierId: tier.id, couponCode, shopSlug, shopName, guildId: interaction.guildId });
       const artwork = order.artwork;
 
       const embed = successEmbed(`${tier.name} 구매 완료!`)

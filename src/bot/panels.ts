@@ -126,20 +126,23 @@ export function eventPromoEmbed() {
 }
 
 // ── 인증 패널 ────────────────────────────────────────────────
+// 예전엔 자비샵 본인 서버의 외부 인증 사이트 URL + 역할 ID가 코드에 그대로 박혀있어서
+// 테넌트 샵에서는 전혀 동작하지 않았다 - 샵마다 ShopSetting.verifyRoleId를 설정하면
+// (/설정수정 인증역할:) 그 역할을 버튼 클릭 즉시 봇이 직접 부여하는 방식으로 바꿨다
+// (외부 사이트 의존성 자체를 없애서 테넌트도 바로 쓸 수 있게 함).
 
-const VERIFY_URL = "https://restore.salv.me/1545755740658995261";
-const VERIFY_ROLE_ID = "1545759847784382464";
-
-export function verifyPanelEmbed() {
-  return baseEmbed("💕 인증 채널 💕")
-    .setColor(0xff6fa5)
-    .setDescription("인증을 하시려면 아래 버튼을 클릭해 주세요")
-    .addFields({ name: "역할", value: `인증을 하시면 <@&${VERIFY_ROLE_ID}> 역할이 부여돼요` });
+export async function verifyPanelEmbed() {
+  const settings = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
+  const embed = baseEmbed("💕 인증 채널 💕").setColor(0xff6fa5).setDescription("인증을 하시려면 아래 버튼을 클릭해 주세요");
+  if (settings?.verifyRoleId) {
+    embed.addFields({ name: "역할", value: `인증을 하시면 <@&${settings.verifyRoleId}> 역할이 부여돼요` });
+  }
+  return embed;
 }
 
 export function verifyPanelRow() {
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder().setLabel("인증하기").setStyle(ButtonStyle.Link).setURL(VERIFY_URL)
+    new ButtonBuilder().setCustomId("verify:claim").setLabel("인증하기").setStyle(ButtonStyle.Success)
   );
 }
 

@@ -202,8 +202,9 @@ export async function purchaseTier(params: {
   couponCode?: string;
   shopSlug?: string;
   shopName?: string;
+  guildId?: string | null;
 }) {
-  const { userId, tierId, couponCode, shopSlug, shopName } = params;
+  const { userId, tierId, couponCode, shopSlug, shopName, guildId } = params;
 
   const shopTierCheck = await prisma.tier.findUnique({ where: { id: tierId } });
   if (!shopTierCheck) throw new OrderError("TIER_NOT_FOUND", "존재하지 않는 상품입니다.");
@@ -416,7 +417,7 @@ export async function purchaseTier(params: {
     const user = await prisma.user.findUnique({ where: { id: userId } });
     if (!user?.discordId) return;
     const spend = await getCumulativeSpend(userId);
-    await syncPurchaseTierRoles(user.discordId, spend);
+    await syncPurchaseTierRoles(user.discordId, spend, guildId);
   })().catch(() => {});
 
   return completedOrder;
@@ -433,8 +434,9 @@ export async function purchaseTierBulk(params: {
   tierId: string;
   quantity: number;
   couponCode?: string;
+  guildId?: string | null;
 }) {
-  const { userId, tierId, quantity, couponCode } = params;
+  const { userId, tierId, quantity, couponCode, guildId } = params;
   let successCount = 0;
   let luckyCouponCount = 0;
   let totalPaid = 0;
@@ -443,7 +445,7 @@ export async function purchaseTierBulk(params: {
 
   for (let i = 0; i < quantity; i++) {
     try {
-      const order = await purchaseTier({ userId, tierId, couponCode: i === 0 ? couponCode : undefined });
+      const order = await purchaseTier({ userId, tierId, couponCode: i === 0 ? couponCode : undefined, guildId });
       successCount++;
       totalPaid += order.finalAmount;
       if (order.luckyCoupon) luckyCouponCount++;

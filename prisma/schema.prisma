@@ -443,6 +443,10 @@ model CartItem {
 model ShopSetting {
   id                         String  @id @default("singleton")
   shopName                   String  @default("자비샵")
+  // 인증 패널("인증하기" 버튼)을 눌렀을 때 바로 지급할 역할. 예전엔 자비샵 본인
+  // 서버의 외부 인증 사이트 URL+역할 ID가 하드코딩되어 있었는데, 테넌트 샵마다
+  // 다를 수밖에 없어서 샵별로 설정하게 바꿨다.
+  verifyRoleId               String?
   bankName                   String  @default("")
   bankAccountNumber          String  @default("")
   bankAccountHolder          String  @default("")

@@ -54,6 +54,7 @@ export const partnerCreateCommand: BotCommand = {
         description,
         webhookUrl,
         adminId: admin.id,
+        guildId: interaction.guildId,
       });
     } catch (e) {
       return interaction.editReply({
@@ -86,7 +87,7 @@ export const partnerApproveCommand: BotCommand = {
 
     let result;
     try {
-      result = await approvePartner(id, admin.id);
+      result = await approvePartner(id, admin.id, interaction.guildId);
     } catch (e) {
       return interaction.editReply({
         embeds: [errorEmbed(e instanceof PartnerError ? e.message : "처리 중 오류가 발생했습니다.")],

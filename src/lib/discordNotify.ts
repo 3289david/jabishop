@@ -229,10 +229,18 @@ export async function getCumulativeSpend(userId: string): Promise<number> {
  * 누적 구매금액 등급에 해당하는 디스코드 역할을 부여한다. 상위 등급을 달성해도
  * 이전 등급 역할은 "달성 배지"로 유지하고 제거하지 않는다 (10,000원 이상 배지 등).
  */
-export async function syncPurchaseTierRoles(discordId: string, cumulativeSpend: number) {
+export async function syncPurchaseTierRoles(
+  discordId: string,
+  cumulativeSpend: number,
+  guildId?: string | null
+) {
   const token = process.env.DISCORD_BOT_TOKEN;
-  const guildId = process.env.DISCORD_GUILD_ID;
-  if (!token || !guildId) return;
+  // 디스코드 인터랙션(봇)에서 왔으면 그 길드 ID를 그대로 쓰고, 명시적으로 안 주어졌으면
+  // (웹 구매 등) 이 프로세스 자신의 서버 - 자비샵 본인이면 자비샵, 테넌트 전용
+  // 프로세스면 그 샵이 연동한 서버 ID가 주입되어 있다 (provisionShop.ts 참고).
+  const resolvedGuildId = guildId ?? process.env.DISCORD_GUILD_ID;
+  if (!token || !resolvedGuildId) return;
+  guildId = resolvedGuildId;
 
   const settings = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
   if (!settings) return;

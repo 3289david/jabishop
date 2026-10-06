@@ -61,7 +61,10 @@ export async function GET(req: NextRequest) {
   if (!admin) {
     // 아직 연동된 계정이 없는 경우에만, 실제 디스코드 서버 관리자 권한을 확인해 최초 부트스트랩으로 발급한다.
     // 로그인 수단이 Discord뿐이므로 이 경로가 유일한 관리자 발급 경로이며, 서버 최고 권한자이므로 SUPER로 발급한다.
-    const isServerAdmin = await isDiscordGuildAdmin(discordUser.id);
+    // 이 프로세스가 자비샵 본인 것이면 DISCORD_GUILD_ID는 자비샵 본인 서버, 테넌트
+    // 샵 전용 프로세스면 그 샵이 /샵연동으로 연결한 서버 ID로 주입되어 있다
+    // (src/lib/provisionShop.ts의 applyShopGuildId 참고) - 코드 변경 없이 그대로 재사용.
+    const isServerAdmin = await isDiscordGuildAdmin(discordUser.id, process.env.DISCORD_GUILD_ID);
     if (!isServerAdmin) {
       return adminLoginError(req, "디스코드 서버 관리자 권한이 없어 로그인할 수 없습니다.");
     }

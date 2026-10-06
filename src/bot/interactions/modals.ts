@@ -140,7 +140,7 @@ export async function handleShopPurchaseModalSubmit(interaction: ModalSubmitInte
     const tier = await prisma.tier.findUnique({ where: { slug } });
     if (!tier) throw new OrderError("TIER_NOT_FOUND", "존재하지 않는 상품입니다.");
 
-    const order = await purchaseTier({ userId: user.id, tierId: tier.id, shopSlug, shopName });
+    const order = await purchaseTier({ userId: user.id, tierId: tier.id, shopSlug, shopName, guildId: interaction.guildId });
     const artwork = order.artwork;
 
     const embed = successEmbed(`${tier.name} 구매 완료!`)
@@ -196,7 +196,7 @@ export async function handleQuantityBuyModalSubmit(interaction: ModalSubmitInter
     const tier = await prisma.tier.findUnique({ where: { slug } });
     if (!tier) throw new OrderError("TIER_NOT_FOUND", "존재하지 않는 등급입니다.");
 
-    const result = await purchaseTierBulk({ userId: user.id, tierId: tier.id, quantity });
+    const result = await purchaseTierBulk({ userId: user.id, tierId: tier.id, quantity, guildId: interaction.guildId });
     const luckyNote =
       result.luckyCouponCount > 0 ? ` 🎉 5% 할인 쿠폰 ${result.luckyCouponCount}장 당첨! 쿠폰함에서 확인하세요.` : "";
 

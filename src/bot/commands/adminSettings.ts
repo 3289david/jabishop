@@ -12,6 +12,7 @@ export const settingsViewCommand: BotCommand = {
     const s = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
     const embed = baseEmbed("⚙️ 쇼핑몰 설정").addFields(
       { name: "쇼핑몰 이름", value: s?.shopName ?? "-" },
+      { name: "인증 역할", value: s?.verifyRoleId ? `<@&${s.verifyRoleId}>` : "미설정" },
       { name: "입금 계좌", value: `${s?.bankName ?? "-"} ${s?.bankAccountNumber ?? ""} (${s?.bankAccountHolder ?? "-"})` },
       { name: "다운로드 후 환불", value: s?.refundAllowedAfterDownload ? "허용" : "불허" },
       { name: "안내 문구", value: s?.noticeMessage ?? "-" },
@@ -69,6 +70,7 @@ export const settingsUpdateCommand: BotCommand = {
     .setName("설정수정")
     .setDescription("[관리자/SUPER] 쇼핑몰 설정을 수정합니다.")
     .addStringOption((o) => o.setName("샵이름").setDescription("쇼핑몰 이름 (웹사이트/봇 메시지 등에 표시됨)"))
+    .addRoleOption((o) => o.setName("인증역할").setDescription("인증 패널에서 '인증하기' 버튼을 누르면 지급할 역할"))
     .addStringOption((o) => o.setName("은행명").setDescription("입금 은행명"))
     .addStringOption((o) => o.setName("계좌번호").setDescription("입금 계좌번호"))
     .addStringOption((o) => o.setName("예금주").setDescription("예금주명"))
@@ -114,6 +116,7 @@ export const settingsUpdateCommand: BotCommand = {
     requireSuperRole(admin.role);
 
     const shopName = interaction.options.getString("샵이름");
+    const verifyRole = interaction.options.getRole("인증역할");
     const bankName = interaction.options.getString("은행명");
     const bankAccountNumber = interaction.options.getString("계좌번호");
     const bankAccountHolder = interaction.options.getString("예금주");
@@ -141,6 +144,7 @@ export const settingsUpdateCommand: BotCommand = {
       where: { id: "singleton" },
       update: {
         ...(shopName != null ? { shopName } : {}),
+        ...(verifyRole ? { verifyRoleId: verifyRole.id } : {}),
         ...(bankName != null ? { bankName } : {}),
         ...(bankAccountNumber != null ? { bankAccountNumber } : {}),
         ...(bankAccountHolder != null ? { bankAccountHolder } : {}),
@@ -167,6 +171,7 @@ export const settingsUpdateCommand: BotCommand = {
       create: {
         id: "singleton",
         ...(shopName != null ? { shopName } : {}),
+        ...(verifyRole ? { verifyRoleId: verifyRole.id } : {}),
         bankName: bankName ?? "",
         bankAccountNumber: bankAccountNumber ?? "",
         bankAccountHolder: bankAccountHolder ?? "",

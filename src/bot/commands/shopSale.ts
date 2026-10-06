@@ -1,5 +1,6 @@
 import { SlashCommandBuilder } from "discord.js";
 import { prisma, runWithTenant } from "@/lib/prisma";
+import { applyShopGuildId } from "@/lib/provisionShop";
 import { errorEmbed, baseEmbed } from "@/bot/format";
 import type { BotCommand } from "@/bot/types";
 
@@ -41,11 +42,14 @@ export const shopClaimCommand: BotCommand = {
       return interaction.editReply({ embeds: [errorEmbed("이 서버는 이미 다른 샵과 연동되어 있습니다.")] });
     }
 
-    await runWithTenant(null, () => prisma.shop.update({ where: { id: shop.id }, data: { discordGuildId: guildId } }));
+    // Shop 행 업데이트 + 이 샵 전용 프로세스에 DISCORD_GUILD_ID 주입 후 재시작까지
+    // 한 번에 처리한다 (이게 있어야 관리자 권한 확인·구매 등급 역할·파트너 채널 생성
+    // 등이 자비샵이 아니라 이 서버를 기준으로 동작한다).
+    await applyShopGuildId(shop.slug, guildId);
     await interaction.editReply({
       embeds: [
         baseEmbed("✅ 연동 완료").setDescription(
-          `이 서버가 "${shop.name}"(${shop.slug}) 샵과 연동되었습니다.\n이제 이 서버에서 상품 구매/쿠폰/장바구니/관리자 패널 등 모든 기능을 사용할 수 있습니다.`
+          `이 서버가 "${shop.name}"(${shop.slug}) 샵과 연동되었습니다.\n이제 이 서버에서 상품 구매/쿠폰/장바구니/관리자 패널 등 모든 기능을 사용할 수 있습니다.\n(웹사이트 프로세스가 10~20초 정도 재시작됩니다.)`
         ),
       ],
     });

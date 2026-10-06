@@ -121,7 +121,7 @@ async function handleBuy(interaction: ButtonInteraction, slug: string) {
     const tier = await prisma.tier.findUnique({ where: { slug } });
     if (!tier) throw new OrderError("TIER_NOT_FOUND", "존재하지 않는 등급입니다.");
 
-    const order = await purchaseTier({ userId: user.id, tierId: tier.id });
+    const order = await purchaseTier({ userId: user.id, tierId: tier.id, guildId: interaction.guildId });
     const artwork = order.artwork;
 
     const embed = successEmbed(`${tier.name} 구매 완료!`)
@@ -184,7 +184,7 @@ async function handleCartCheckout(interaction: ButtonInteraction) {
   for (const item of items) {
     for (let i = 0; i < item.quantity; i++) {
       try {
-        const order = await purchaseTier({ userId: user.id, tierId: item.tierId });
+        const order = await purchaseTier({ userId: user.id, tierId: item.tierId, guildId: interaction.guildId });
         successCount++;
         if (order.luckyCoupon) luckyCouponCount++;
         await prisma.cartItem.update({ where: { id: item.id }, data: { quantity: { decrement: 1 } } }).catch(() => {});
@@ -260,7 +260,7 @@ async function handleRefundAction(interaction: ButtonInteraction, action: "appro
 }
 
 async function handleRaffleEnter(interaction: ButtonInteraction, raffleId: string) {
-  const guildId = process.env.DISCORD_GUILD_ID;
+  const guildId = interaction.guildId;
   const primaryGuild = interaction.user.primaryGuild;
   const wearingTag = !!primaryGuild?.identityEnabled && primaryGuild.identityGuildId === guildId;
   if (!wearingTag) {
@@ -361,7 +361,7 @@ async function handleRestockSubscribe(interaction: ButtonInteraction, slug: stri
 }
 
 async function handleDutyStatusChange(interaction: ButtonInteraction, status: string) {
-  const isAdmin = await isDiscordGuildAdmin(interaction.user.id);
+  const isAdmin = await isDiscordGuildAdmin(interaction.user.id, interaction.guildId);
   if (!isAdmin) throw new Error("관리자 역할이 있는 사람만 사용할 수 있습니다.");
 
   const displayName = interaction.member && "displayName" in interaction.member ? interaction.member.displayName : interaction.user.tag;
@@ -371,6 +371,37 @@ async function handleDutyStatusChange(interaction: ButtonInteraction, status: st
     embeds: [successEmbed(`상태가 "${DUTY_STATUS_LABEL[status] ?? status}"(으)로 변경되었습니다.`)],
     ephemeral: true,
   });
+}
+
+/** "인증하기" 버튼 - ShopSetting.verifyRoleId를 바로 지급한다 (외부 사이트 없이 샵마다 동작). */
+async function handleVerifyClaim(interaction: ButtonInteraction) {
+  const settings = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
+  const roleId = settings?.verifyRoleId;
+  if (!roleId) {
+    return interaction.reply({
+      embeds: [errorEmbed("인증 역할이 아직 설정되지 않았습니다. 관리자에게 문의해주세요.")],
+      ephemeral: true,
+    });
+  }
+  if (!interaction.guild) {
+    return interaction.reply({ embeds: [errorEmbed("서버 안에서만 사용할 수 있습니다.")], ephemeral: true });
+  }
+  const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+  if (!member) {
+    return interaction.reply({ embeds: [errorEmbed("회원 정보를 확인하지 못했습니다. 다시 시도해주세요.")], ephemeral: true });
+  }
+  if (member.roles.cache.has(roleId)) {
+    return interaction.reply({ embeds: [successEmbed("이미 인증된 상태입니다.")], ephemeral: true });
+  }
+  try {
+    await member.roles.add(roleId);
+  } catch {
+    return interaction.reply({
+      embeds: [errorEmbed("역할 지급에 실패했습니다 - 봇의 역할이 지급할 역할보다 위에 있는지 확인해주세요.")],
+      ephemeral: true,
+    });
+  }
+  await interaction.reply({ embeds: [successEmbed(`인증 완료! <@&${roleId}> 역할이 지급되었습니다.`)], ephemeral: true });
 }
 
 export async function handleButtonInteraction(interaction: ButtonInteraction) {
@@ -405,4 +436,5 @@ export async function handleButtonInteraction(interaction: ButtonInteraction) {
   if (ns === "partner" && a === "apply") return showPartnerApplyModal(interaction);
   if (ns === "partner" && a === "manage") return handlePartnerManage(interaction);
   if (ns === "partner" && a === "promo") return showPartnerPromoModal(interaction);
+  if (ns === "verify" && a === "claim") return handleVerifyClaim(interaction);
 }

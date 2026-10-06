@@ -3,20 +3,24 @@ import { prisma } from "@/lib/prisma";
 import { baseEmbed } from "@/bot/format";
 import { listAdminDutyStatuses, reconcileAdminDutyRoster, DUTY_STATUS_LABEL } from "@/lib/adminDuty";
 import { ADMIN_DUTY_STATUS } from "@/lib/constants";
+import { forEachShop } from "@/lib/shop";
 
 /**
- * 지금 디스코드 서버에서 관리자 역할(DISCORD_ADMIN_ROLE_ID) 또는 Administrator 권한을
- * 가진 멤버 목록을 가져온다. 웹 관리자 계정(AdminUser) 연동 여부와 무관하다.
+ * 지정된 디스코드 서버에서 관리자 역할(자비샵 본인 서버에 한해 DISCORD_ADMIN_ROLE_ID도 인정)
+ * 또는 Administrator 권한을 가진 멤버 목록을 가져온다. 웹 관리자 계정(AdminUser) 연동
+ * 여부와 무관하다. 테넌트 서버는 커스텀 역할 개념이 없어 Administrator 권한만 본다.
  */
-export async function fetchAdminRoleMembers(client: Client): Promise<{ discordId: string; name: string }[]> {
-  const guildId = process.env.DISCORD_GUILD_ID;
+export async function fetchAdminRoleMembers(
+  client: Client,
+  guildId: string | null | undefined
+): Promise<{ discordId: string; name: string }[]> {
   if (!guildId) return [];
 
   const guild = await client.guilds.fetch(guildId).catch(() => null);
   if (!guild) return [];
 
   await guild.members.fetch().catch(() => {});
-  const adminRoleId = process.env.DISCORD_ADMIN_ROLE_ID;
+  const adminRoleId = guildId === process.env.DISCORD_GUILD_ID ? process.env.DISCORD_ADMIN_ROLE_ID : undefined;
 
   const members = guild.members.cache.filter(
     (m) =>
@@ -70,15 +74,19 @@ export async function updateAdminDutyPanel(client: Client) {
 const PANEL_REFRESH_INTERVAL_MS = 5 * 60 * 1000; // presence 이벤트를 놓쳐도 5분마다 다시 맞춰준다
 
 /** 역할 보유자 명단을 디스코드 기준으로 다시 맞추고(새로 역할 받은 사람 등록/뺏긴 사람 제거), 패널도 갱신한다. */
-export async function reconcileAndUpdateAdminDutyPanel(client: Client) {
-  const members = await fetchAdminRoleMembers(client);
+export async function reconcileAndUpdateAdminDutyPanel(client: Client, guildId: string | null | undefined) {
+  const members = await fetchAdminRoleMembers(client, guildId);
   await reconcileAdminDutyRoster(members);
   await updateAdminDutyPanel(client);
 }
 
 export function startAdminDutyPanelLoop(client: Client) {
-  reconcileAndUpdateAdminDutyPanel(client).catch((e) => console.error("관리자 근무 현황판 초기 갱신 실패:", e));
+  const run = () =>
+    forEachShop((guildId) =>
+      reconcileAndUpdateAdminDutyPanel(client, guildId).catch((e) => console.error("관리자 근무 현황판 갱신 실패:", e))
+    );
+  run().catch((e) => console.error("관리자 근무 현황판 초기 갱신 실패:", e));
   setInterval(() => {
-    reconcileAndUpdateAdminDutyPanel(client).catch((e) => console.error("관리자 근무 현황판 갱신 실패:", e));
+    run().catch((e) => console.error("관리자 근무 현황판 갱신 실패:", e));
   }, PANEL_REFRESH_INTERVAL_MS);
 }

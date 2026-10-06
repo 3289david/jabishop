@@ -56,13 +56,13 @@ const DISCORD_API = "https://discord.com/api/v10";
 const PERMISSION_ADMINISTRATOR = BigInt(0x8);
 
 /**
- * 지정된 디스코드 서버(DISCORD_GUILD_ID)에서 이 사용자가
- * "서버 관리자" 권한(Administrator) 또는 지정 관리자 역할(DISCORD_ADMIN_ROLE_ID)을 가지고 있는지 확인한다.
- * 봇 토큰만으로 조회하므로 사용자 쪽에 추가 OAuth 동의(scope)가 필요 없다.
+ * 지정된 디스코드 서버(guildId)에서 이 사용자가 "서버 관리자" 권한(Administrator) 또는
+ * (자비샵 본인 서버에 한해서만) 지정 관리자 역할(DISCORD_ADMIN_ROLE_ID)을 가지고 있는지
+ * 확인한다. 테넌트 서버는 이런 커스텀 역할 개념이 없으므로 Administrator 권한 여부만으로
+ * 판단한다. 봇 토큰만으로 조회하므로 사용자 쪽에 추가 OAuth 동의(scope)가 필요 없다.
  */
-export async function isDiscordGuildAdmin(discordId: string): Promise<boolean> {
+export async function isDiscordGuildAdmin(discordId: string, guildId: string | null | undefined): Promise<boolean> {
   const token = process.env.DISCORD_BOT_TOKEN;
-  const guildId = process.env.DISCORD_GUILD_ID;
   if (!token || !guildId) return false;
 
   const memberRes = await fetch(`${DISCORD_API}/guilds/${guildId}/members/${discordId}`, {
@@ -71,8 +71,10 @@ export async function isDiscordGuildAdmin(discordId: string): Promise<boolean> {
   if (!memberRes.ok) return false;
   const member = (await memberRes.json()) as { roles: string[] };
 
-  const adminRoleId = process.env.DISCORD_ADMIN_ROLE_ID;
-  if (adminRoleId && member.roles.includes(adminRoleId)) return true;
+  if (guildId === process.env.DISCORD_GUILD_ID) {
+    const adminRoleId = process.env.DISCORD_ADMIN_ROLE_ID;
+    if (adminRoleId && member.roles.includes(adminRoleId)) return true;
+  }
 
   const rolesRes = await fetch(`${DISCORD_API}/guilds/${guildId}/roles`, {
     headers: { Authorization: `Bot ${token}` },

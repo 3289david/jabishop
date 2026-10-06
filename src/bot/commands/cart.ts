@@ -77,7 +77,7 @@ export const cartCheckoutCommand: BotCommand = {
     for (const item of items) {
       for (let i = 0; i < item.quantity; i++) {
         try {
-          await purchaseTier({ userId: user.id, tierId: item.tierId });
+          await purchaseTier({ userId: user.id, tierId: item.tierId, guildId: interaction.guildId });
           successCount++;
           await prisma.cartItem.update({ where: { id: item.id }, data: { quantity: { decrement: 1 } } }).catch(() => {});
         } catch (e) {

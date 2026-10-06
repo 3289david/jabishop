@@ -72,9 +72,13 @@ export async function requestPartner(params: {
 }
 
 /** 파트너 카테고리 밑에 채널 생성 + 역할 지급 - 승인(approvePartner)과 관리자 직접생성(adminCreatePartner)이 공용으로 쓴다. */
-async function provisionPartnerChannelAndRole(discordUserId: string, name: string, emoji: string | null) {
-  const guildId = process.env.DISCORD_GUILD_ID;
-  if (!guildId) throw new PartnerError("DISCORD_GUILD_ID가 설정되지 않았습니다.");
+async function provisionPartnerChannelAndRole(
+  discordUserId: string,
+  name: string,
+  emoji: string | null,
+  guildId: string | null | undefined
+) {
+  if (!guildId) throw new PartnerError("이 서버의 길드 ID를 확인할 수 없습니다.");
 
   const settings = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
 
@@ -93,12 +97,12 @@ async function provisionPartnerChannelAndRole(discordUserId: string, name: strin
 }
 
 /** 파트너 신청을 승인한다: 파트너 카테고리 밑에 채널 생성 + 역할 지급. */
-export async function approvePartner(partnerId: string, adminId: string) {
+export async function approvePartner(partnerId: string, adminId: string, guildId: string | null | undefined) {
   const partner = await prisma.partner.findUnique({ where: { id: partnerId } });
   if (!partner) throw new PartnerError("존재하지 않는 파트너 신청입니다.");
   if (partner.status !== PARTNER_STATUS.PENDING) throw new PartnerError("이미 처리된 신청입니다.");
 
-  const { channelId, roleGranted } = await provisionPartnerChannelAndRole(partner.discordUserId, partner.name, partner.emoji);
+  const { channelId, roleGranted } = await provisionPartnerChannelAndRole(partner.discordUserId, partner.name, partner.emoji, guildId);
 
   await prisma.partner.update({
     where: { id: partnerId },
@@ -143,8 +147,9 @@ export async function adminCreatePartner(params: {
   description?: string;
   webhookUrl?: string;
   adminId: string;
+  guildId: string | null | undefined;
 }) {
-  const { discordUserId, discordTag, name, emoji, description, webhookUrl, adminId } = params;
+  const { discordUserId, discordTag, name, emoji, description, webhookUrl, adminId, guildId } = params;
 
   if (webhookUrl && !webhookUrl.startsWith("https://discord.com/api/webhooks/")) {
     throw new PartnerError("웹훅 URL 형식이 올바르지 않습니다. https://discord.com/api/webhooks/... 형태여야 합니다.");
@@ -155,7 +160,7 @@ export async function adminCreatePartner(params: {
     throw new PartnerError("이미 파트너로 승인된 계정입니다.");
   }
 
-  const { channelId, roleGranted } = await provisionPartnerChannelAndRole(discordUserId, name, emoji ?? null);
+  const { channelId, roleGranted } = await provisionPartnerChannelAndRole(discordUserId, name, emoji ?? null, guildId);
 
   const partner = existing
     ? await prisma.partner.update({

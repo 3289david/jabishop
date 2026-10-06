@@ -185,18 +185,43 @@ function ecosystemConfigPath(slug: string) {
   return path.join(TENANT_DB_DIR, `${slug}.ecosystem.config.js`);
 }
 
-function writeTenantEcosystemFile(
-  slug: string,
-  dbPath: string,
-  port: number,
-  oauth?: { clientId: string; clientSecret: string }
-) {
-  const oauthEnv = oauth
-    ? `
-        DISCORD_CLIENT_ID: ${JSON.stringify(oauth.clientId)},
-        DISCORD_CLIENT_SECRET: ${JSON.stringify(oauth.clientSecret)},
+type TenantExtraEnv = {
+  clientId?: string | null;
+  clientSecret?: string | null;
+  guildId?: string | null;
+};
+
+/**
+ * Shop 행의 discordOAuthClientId/Secret/discordGuildId를 그대로 테넌트 프로세스
+ * 환경변수로 옮겨 담는다 - OAuth 재등록(/샵봇설정)이나 길드 연동(/샵연동), 주소 변경
+ * (/샵주소변경) 중 어느 하나만 바뀌어도 매번 이 함수로 "지금 Shop 행에 있는 값 전부"를
+ * 다시 써야 한다. 그래야 한쪽을 갱신하다가 다른 쪽(이미 설정돼 있던 값)을 실수로
+ * 지우는 일이 없다.
+ */
+function buildTenantExtraEnv(shop: {
+  discordOAuthClientId?: string | null;
+  discordOAuthClientSecret?: string | null;
+  discordGuildId?: string | null;
+}): TenantExtraEnv {
+  return {
+    clientId: shop.discordOAuthClientId,
+    clientSecret: shop.discordOAuthClientSecret,
+    guildId: shop.discordGuildId,
+  };
+}
+
+function writeTenantEcosystemFile(slug: string, dbPath: string, port: number, extra?: TenantExtraEnv) {
+  const oauthEnv =
+    extra?.clientId && extra?.clientSecret
+      ? `
+        DISCORD_CLIENT_ID: ${JSON.stringify(extra.clientId)},
+        DISCORD_CLIENT_SECRET: ${JSON.stringify(extra.clientSecret)},
         DISCORD_OAUTH_REDIRECT_URI: ${JSON.stringify(tenantOAuthRedirectUri(slug))},`
-    : "";
+      : "";
+  // 이 샵이 연동한 디스코드 서버 ID - 이게 주입되어 있어야 이 샵 전용 프로세스에서
+  // isDiscordGuildAdmin/syncPurchaseTierRoles/파트너 채널 생성 등이 자비샵 본인 서버가
+  // 아니라 이 샵 자신의 서버를 기준으로 동작한다 (src/bot/discordAuth.ts 등 참고).
+  const guildEnv = extra?.guildId ? `\n        DISCORD_GUILD_ID: ${JSON.stringify(extra.guildId)},` : "";
   const config = `module.exports = {
   apps: [
     {
@@ -207,7 +232,7 @@ function writeTenantEcosystemFile(
       env: {
         NODE_ENV: "production",
         PORT: "${port}",
-        DATABASE_URL: "file:${dbPath}",${oauthEnv}
+        DATABASE_URL: "file:${dbPath}",${oauthEnv}${guildEnv}
       },
     },
   ],
@@ -305,7 +330,24 @@ export async function applyShopOAuthCredentials(slug: string, clientId: string, 
   );
   if (shop.status !== "ACTIVE" || shop.port == null) return;
   await stopTenantProcess(slug);
-  writeTenantEcosystemFile(slug, shop.dbPath, shop.port, { clientId, clientSecret });
+  writeTenantEcosystemFile(slug, shop.dbPath, shop.port, buildTenantExtraEnv(shop));
+  await startTenantProcess(slug);
+}
+
+/**
+ * /샵연동으로 디스코드 서버와 연결됐을 때(혹은 재연동 등으로 바뀔 때) 호출한다.
+ * 이 샵 전용 프로세스에 DISCORD_GUILD_ID를 주입해서, 그 서버를 기준으로 관리자 권한
+ * 확인(isDiscordGuildAdmin)·구매 등급 역할 지급·파트너 채널/역할 생성 등이 전부
+ * "이 샵 자신의 서버"에서 동작하게 한다 (그 전까진 비어있어서 해당 기능들이 아무
+ * 효과가 없거나, 환경변수에 값이 없으면 그냥 꺼진 것처럼 동작한다).
+ */
+export async function applyShopGuildId(slug: string, guildId: string) {
+  const shop = await runWithTenant(null, () =>
+    prisma.shop.update({ where: { slug }, data: { discordGuildId: guildId } })
+  );
+  if (shop.status !== "ACTIVE" || shop.port == null) return;
+  await stopTenantProcess(slug);
+  writeTenantEcosystemFile(slug, shop.dbPath, shop.port, buildTenantExtraEnv(shop));
   await startTenantProcess(slug);
 }
 
@@ -331,10 +373,7 @@ export async function changeShopSlug(oldSlug: string, newSlug: string): Promise<
     throw new Error("활성 상태인 샵만 주소를 바꿀 수 있습니다.");
   }
 
-  const oauth =
-    shop.discordOAuthClientId && shop.discordOAuthClientSecret
-      ? { clientId: shop.discordOAuthClientId, clientSecret: shop.discordOAuthClientSecret }
-      : undefined;
+  const extraEnv = buildTenantExtraEnv(shop);
 
   let newDnsCreated = false;
   let newNginxWritten = false;
@@ -348,7 +387,7 @@ export async function changeShopSlug(oldSlug: string, newSlug: string): Promise<
 
     await stopTenantProcess(oldSlug);
     oldProcessStopped = true;
-    writeTenantEcosystemFile(newSlug, shop.dbPath, shop.port, oauth);
+    writeTenantEcosystemFile(newSlug, shop.dbPath, shop.port, extraEnv);
     await startTenantProcess(newSlug);
 
     await deleteDnsRecord(oldSlug).catch(() => {});
@@ -360,7 +399,7 @@ export async function changeShopSlug(oldSlug: string, newSlug: string): Promise<
   } catch (e) {
     // 최대한 기존 주소가 계속 동작하도록 되돌린다.
     if (oldProcessStopped) {
-      writeTenantEcosystemFile(oldSlug, shop.dbPath, shop.port, oauth);
+      writeTenantEcosystemFile(oldSlug, shop.dbPath, shop.port, extraEnv);
       await startTenantProcess(oldSlug).catch(() => {});
     }
     if (newNginxWritten) removeNginxConfig(newSlug);
