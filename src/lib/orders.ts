@@ -9,6 +9,7 @@ import {
   POINT_TX_TYPE,
   TIER_STATUS,
   SHOP_SUBSCRIPTION_TIER_SLUG,
+  SHOP_SUBSCRIPTION_GUIDE_CHANNEL_ID,
   getPurchaseTierDiscountPercent,
 } from "@/lib/constants";
 import {
@@ -18,6 +19,8 @@ import {
   announceLuckyCouponInChannel,
   getCumulativeSpend,
   syncPurchaseTierRoles,
+  grantChannelViewPermission,
+  sendDiscordDM,
 } from "@/lib/discordNotify";
 import { provisionShop } from "@/lib/provisionShop";
 import { getAppOrigin } from "@/lib/appUrl";
@@ -138,6 +141,22 @@ async function purchaseShopSubscriptionTier(
     });
     const message = e instanceof Error ? e.message : "샵 생성 중 오류가 발생했습니다.";
     throw new OrderError("PROVISION_FAILED", message);
+  }
+
+  // 자판기 구매자에게 사용법 채널(자비샵 본인 서버의 비공개 채널)을 열어주고 DM으로
+  // 보라고 안내한다. 디스코드 계정이 연동 안 된 유저도 있을 수 있으니 조용히 무시한다.
+  if (user.discordId) {
+    grantChannelViewPermission(SHOP_SUBSCRIPTION_GUIDE_CHANNEL_ID, user.discordId).catch(() => {});
+    sendDiscordDM(user.discordId, {
+      embeds: [
+        {
+          title: "🏪 자판기 구매 완료 - 사용법 채널을 확인해주세요",
+          description: `<#${SHOP_SUBSCRIPTION_GUIDE_CHANNEL_ID}> 채널에 자판기 사용법이 안내되어 있어요. 꼭 확인해주세요!`,
+          color: 0x6366f1,
+          timestamp: new Date().toISOString(),
+        },
+      ],
+    }).catch(() => {});
   }
 
   const now = new Date();

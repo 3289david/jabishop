@@ -157,3 +157,6 @@ export function getPurchaseTierDiscountPercent(cumulativeSpend: number): number 
 // 목록 -> 상세 -> 구매하기)으로 살 수 있다.
 export const SHOP_SUBSCRIPTION_TIER_SLUG = "shop-subscription";
 export const SHOP_SUBSCRIPTION_PRICE = 4000;
+// 자판기 구매 완료 시 사용법 채널(자비샵 본인 서버 전용, 비공개 채널이라 구매자에게
+// 1명씩 "채널 보기" 권한을 열어줘야 보인다)을 보라고 DM으로 안내한다.
+export const SHOP_SUBSCRIPTION_GUIDE_CHANNEL_ID = "1557048601547505684";

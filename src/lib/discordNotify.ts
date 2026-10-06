@@ -435,6 +435,22 @@ export async function denyEveryoneSendMessages(channelId: string, guildId: strin
   }
 }
 
+/** 특정 채널에 그 유저만 볼 수 있게 "채널 보기" 권한을 추가로 허용한다 (기존 비공개 채널에 1명씩 초대할 때). */
+export async function grantChannelViewPermission(channelId: string, discordUserId: string): Promise<boolean> {
+  const token = process.env.DISCORD_BOT_TOKEN;
+  if (!token) return false;
+  try {
+    const res = await fetch(`${API_BASE}/channels/${channelId}/permissions/${discordUserId}`, {
+      method: "PUT",
+      headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ type: 1, allow: String(1024) }), // type 1 = member, 1024 = VIEW_CHANNEL
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 /** 특정 길드 멤버에게 역할을 부여한다. */
 export async function addGuildMemberRole(guildId: string, discordUserId: string, roleId: string): Promise<boolean> {
   const token = process.env.DISCORD_BOT_TOKEN;
