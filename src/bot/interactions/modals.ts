@@ -123,9 +123,16 @@ export async function showShopPurchaseModal(interaction: ButtonInteraction, slug
     .setPlaceholder("비워두면 자동으로 정해집니다")
     .setStyle(TextInputStyle.Short)
     .setRequired(false);
+  const couponCode = new TextInputBuilder()
+    .setCustomId("couponCode")
+    .setLabel("적용할 쿠폰 코드 (선택)")
+    .setPlaceholder("비워두면 쿠폰 없이 구매")
+    .setStyle(TextInputStyle.Short)
+    .setRequired(false);
   modal.addComponents(
     new ActionRowBuilder<TextInputBuilder>().addComponents(shopSlug),
-    new ActionRowBuilder<TextInputBuilder>().addComponents(shopName)
+    new ActionRowBuilder<TextInputBuilder>().addComponents(shopName),
+    new ActionRowBuilder<TextInputBuilder>().addComponents(couponCode)
   );
   await interaction.showModal(modal);
 }
@@ -134,13 +141,21 @@ export async function handleShopPurchaseModalSubmit(interaction: ModalSubmitInte
   await interaction.deferReply({ ephemeral: true });
   const shopSlug = interaction.fields.getTextInputValue("shopSlug").trim() || undefined;
   const shopName = interaction.fields.getTextInputValue("shopName").trim() || undefined;
+  const couponCode = interaction.fields.getTextInputValue("couponCode").trim() || undefined;
 
   try {
     const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
     const tier = await prisma.tier.findUnique({ where: { slug } });
     if (!tier) throw new OrderError("TIER_NOT_FOUND", "존재하지 않는 상품입니다.");
 
-    const order = await purchaseTier({ userId: user.id, tierId: tier.id, shopSlug, shopName, guildId: interaction.guildId });
+    const order = await purchaseTier({
+      userId: user.id,
+      tierId: tier.id,
+      shopSlug,
+      shopName,
+      couponCode,
+      guildId: interaction.guildId,
+    });
     const artwork = order.artwork;
 
     const embed = successEmbed(`${tier.name} 구매 완료!`)
@@ -149,6 +164,9 @@ export async function handleShopPurchaseModalSubmit(interaction: ModalSubmitInte
         { name: "결제 금액", value: pt(order.finalAmount), inline: true },
         { name: "지급된 계정", value: artwork?.title ?? "-", inline: true }
       );
+    if (order.discountAmount > 0) {
+      embed.addFields({ name: "🎟️ 쿠폰 적용", value: `-${pt(order.discountAmount)} 할인`, inline: true });
+    }
 
     const files = [];
     if (artwork) {

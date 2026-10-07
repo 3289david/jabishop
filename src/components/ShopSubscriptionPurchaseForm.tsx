@@ -1,10 +1,19 @@
 "use client";
 
-import { useActionState } from "react";
+import { useState, useActionState } from "react";
 import { purchaseShopSubscriptionAction, type ActionState } from "@/lib/actions/shop";
 
-export function ShopSubscriptionPurchaseForm({ tierId, price }: { tierId: string; price: number }) {
+export function ShopSubscriptionPurchaseForm({
+  tierId,
+  price,
+  coupons,
+}: {
+  tierId: string;
+  price: number;
+  coupons: { code: string; name: string; discount: number }[];
+}) {
   const [state, formAction, pending] = useActionState<ActionState, FormData>(purchaseShopSubscriptionAction, undefined);
+  const [couponCode, setCouponCode] = useState("");
 
   return (
     <form action={formAction} className="space-y-3">
@@ -32,6 +41,22 @@ export function ShopSubscriptionPurchaseForm({ tierId, price }: { tierId: string
           maxLength={40}
           className="w-full border rounded-md px-3 py-2 text-sm"
         />
+      </div>
+      <div>
+        <label className="block text-xs text-neutral-500 mb-1">쿠폰 (선택)</label>
+        <select
+          name="couponCode"
+          value={couponCode}
+          onChange={(e) => setCouponCode(e.target.value)}
+          className="w-full border rounded-md px-3 py-2 text-sm"
+        >
+          <option value="">쿠폰 사용 안 함</option>
+          {coupons.map((c) => (
+            <option key={c.code} value={c.code}>
+              {c.name} (-{c.discount.toLocaleString()}P)
+            </option>
+          ))}
+        </select>
       </div>
       {state?.error && <p className="text-sm text-red-600">{state.error}</p>}
       <button

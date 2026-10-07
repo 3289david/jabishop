@@ -67,11 +67,10 @@ export async function ensureShopSubscriptionTier() {
 async function purchaseShopSubscriptionTier(
   userId: string,
   tier: Tier,
-  opts?: { slug?: string; shopName?: string }
+  opts?: { slug?: string; shopName?: string; couponCode?: string }
 ) {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) throw new OrderError("USER_NOT_FOUND", "사용자를 찾을 수 없습니다.");
-  if (user.points < tier.price) throw new OrderError("INSUFFICIENT_POINTS", "포인트가 부족합니다.");
 
   const desiredSlug = opts?.slug?.trim().toLowerCase();
   if (desiredSlug && !/^[a-z0-9-]{3,30}$/.test(desiredSlug)) {
@@ -81,19 +80,50 @@ async function purchaseShopSubscriptionTier(
     throw new OrderError("SHOP_SLUG_TAKEN", "이미 사용 중인 샵 주소입니다. 다른 주소를 입력해주세요.");
   }
 
+  const baseAmount = tier.price;
   const orderNo = await generateOrderNo();
   const order = await prisma.$transaction(async (tx) => {
-    const newBalance = user.points - tier.price;
+    let discountAmount = 0;
+    let couponId: string | null = null;
+
+    if (opts?.couponCode) {
+      const coupon = await tx.coupon.findUnique({ where: { code: opts.couponCode } });
+      if (!coupon) throw new OrderError("INVALID_COUPON", "존재하지 않는 쿠폰입니다.");
+
+      try {
+        discountAmount = computeDiscount(coupon, baseAmount, tier.id);
+      } catch (e) {
+        if (e instanceof CouponError) throw new OrderError("INVALID_COUPON", e.message);
+        throw e;
+      }
+
+      if (coupon.usageLimitTotal != null) {
+        const totalUsed = await tx.couponUsage.count({ where: { couponId: coupon.id } });
+        if (totalUsed >= coupon.usageLimitTotal)
+          throw new OrderError("COUPON_EXHAUSTED", "쿠폰 사용 가능 횟수를 초과했습니다.");
+      }
+      const usedByUser = await tx.couponUsage.count({ where: { couponId: coupon.id, userId } });
+      if (usedByUser >= coupon.usageLimitPerUser)
+        throw new OrderError("COUPON_EXHAUSTED", "이미 사용한 쿠폰입니다.");
+
+      couponId = coupon.id;
+    }
+
+    const finalAmount = Math.max(baseAmount - discountAmount, 0);
+    if (user.points < finalAmount) throw new OrderError("INSUFFICIENT_POINTS", "포인트가 부족합니다.");
+
+    const newBalance = user.points - finalAmount;
     await tx.user.update({ where: { id: userId }, data: { points: newBalance } });
     const o = await tx.order.create({
       data: {
         orderNo,
         userId,
         tierId: tier.id,
-        priceAtPurchase: tier.price,
-        discountAmount: 0,
-        pointsUsed: tier.price,
-        finalAmount: tier.price,
+        priceAtPurchase: baseAmount,
+        couponId,
+        discountAmount,
+        pointsUsed: finalAmount,
+        finalAmount,
         status: ORDER_STATUS.RESERVED,
       },
     });
@@ -101,12 +131,16 @@ async function purchaseShopSubscriptionTier(
       data: {
         userId,
         type: POINT_TX_TYPE.USE,
-        amount: -tier.price,
+        amount: -finalAmount,
         balanceAfter: newBalance,
         relatedOrderId: o.id,
         memo: `${tier.name} 구매`,
       },
     });
+    if (couponId) {
+      await tx.couponUsage.create({ data: { couponId, userId, orderId: o.id } });
+      await tx.userCoupon.updateMany({ where: { userId, couponId }, data: { usedAt: new Date() } }).catch(() => {});
+    }
     return o;
   });
 
@@ -121,14 +155,21 @@ async function purchaseShopSubscriptionTier(
     shop = await provisionShop({ slug, name: shopName, ownerUserId: userId, claimDiscordId: user.discordId ?? undefined });
   } catch (e) {
     const refundTarget = await prisma.user.findUnique({ where: { id: userId } });
-    const refundedBalance = (refundTarget?.points ?? 0) + tier.price;
+    const refundedBalance = (refundTarget?.points ?? 0) + order.finalAmount;
     await prisma.$transaction(async (tx) => {
       await tx.user.update({ where: { id: userId }, data: { points: refundedBalance } });
+      // 쿠폰을 썼다면 인프라 생성 실패로 환불되는 것이니 쿠폰도 다시 쓸 수 있게 되돌린다.
+      if (order.couponId) {
+        await tx.couponUsage.deleteMany({ where: { orderId: order.id } });
+        await tx.userCoupon
+          .updateMany({ where: { userId, couponId: order.couponId }, data: { usedAt: null } })
+          .catch(() => {});
+      }
       await tx.pointTransaction.create({
         data: {
           userId,
           type: POINT_TX_TYPE.REFUND,
-          amount: tier.price,
+          amount: order.finalAmount,
           balanceAfter: refundedBalance,
           relatedOrderId: order.id,
           memo: `${tier.name} 생성 실패 환불`,
@@ -231,7 +272,7 @@ export async function purchaseTier(params: {
     if (shopTierCheck.status !== TIER_STATUS.ON_SALE) {
       throw new OrderError("TIER_NOT_ON_SALE", "현재 판매 중이 아닌 상품입니다.");
     }
-    const completedOrder = await purchaseShopSubscriptionTier(userId, shopTierCheck, { slug: shopSlug, shopName });
+    const completedOrder = await purchaseShopSubscriptionTier(userId, shopTierCheck, { slug: shopSlug, shopName, couponCode });
     notifyPurchaseByDM(userId, completedOrder.id).catch(() => {});
     announcePurchaseInChannel(userId, completedOrder.id).catch(() => {});
     return completedOrder;

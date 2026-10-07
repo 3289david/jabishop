@@ -92,7 +92,15 @@ export default async function ProductDetailPage({
             <>
               <p className="text-sm text-neutral-500 mb-3">보유 포인트: {user.points.toLocaleString()}P</p>
               {isUnlimited ? (
-                <ShopSubscriptionPurchaseForm tierId={tier.id} price={tier.price} />
+                <ShopSubscriptionPurchaseForm
+                  tierId={tier.id}
+                  price={tier.price}
+                  coupons={usableCoupons.map(({ coupon, discount }) => ({
+                    code: coupon.code,
+                    name: coupon.name,
+                    discount,
+                  }))}
+                />
               ) : (
                 <PurchaseForm
                   tierId={tier.id}
