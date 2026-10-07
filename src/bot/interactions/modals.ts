@@ -5,6 +5,7 @@ import {
   ActionRowBuilder,
   AttachmentBuilder,
   type ButtonInteraction,
+  type StringSelectMenuInteraction,
   type ModalSubmitInteraction,
 } from "discord.js";
 import { prisma } from "@/lib/prisma";
@@ -109,8 +110,18 @@ export async function handleAnswerModalSubmit(interaction: ModalSubmitInteractio
 // "자판기 통째로 구매"는 다른 등급과 똑같이 상품 목록 → "구매하기" 버튼으로 산다.
 // 다만 이 상품만은 원하는 웹사이트 주소/샵 이름을 직접 정할 수 있어야 해서, 구매
 // 직전에 이 모달로 입력받는다 (둘 다 비워두면 자동으로 정해짐 - src/lib/orders.ts 참고).
-export async function showShopPurchaseModal(interaction: ButtonInteraction, slug: string) {
-  const modal = new ModalBuilder().setCustomId(`${SHOP_PURCHASE_MODAL_PREFIX}${slug}`).setTitle("자판기(샵) 구매");
+// 쿠폰은 모달 안에서는 텍스트로만 입력받을 수 있어(디스코드 모달은 select를 지원 안 함)
+// "쿠폰함에서 선택" 경험을 주기 위해, 이 모달을 띄우기 전에 먼저 쿠폰함 select 메뉴를
+// 보여주고(src/bot/interactions/buttons.ts의 startShopPurchaseFlow), 거기서 고른
+// 쿠폰 코드를 이 모달의 customId에 실어서 넘긴다.
+export async function showShopPurchaseModal(
+  interaction: ButtonInteraction | StringSelectMenuInteraction,
+  slug: string,
+  couponCode: string
+) {
+  const modal = new ModalBuilder()
+    .setCustomId(`${SHOP_PURCHASE_MODAL_PREFIX}${slug}:${couponCode}`)
+    .setTitle("자판기(샵) 구매");
   const shopSlug = new TextInputBuilder()
     .setCustomId("shopSlug")
     .setLabel("원하는 웹사이트 주소 (예: myshop)")
@@ -123,25 +134,22 @@ export async function showShopPurchaseModal(interaction: ButtonInteraction, slug
     .setPlaceholder("비워두면 자동으로 정해집니다")
     .setStyle(TextInputStyle.Short)
     .setRequired(false);
-  const couponCode = new TextInputBuilder()
-    .setCustomId("couponCode")
-    .setLabel("적용할 쿠폰 코드 (선택)")
-    .setPlaceholder("비워두면 쿠폰 없이 구매")
-    .setStyle(TextInputStyle.Short)
-    .setRequired(false);
   modal.addComponents(
     new ActionRowBuilder<TextInputBuilder>().addComponents(shopSlug),
-    new ActionRowBuilder<TextInputBuilder>().addComponents(shopName),
-    new ActionRowBuilder<TextInputBuilder>().addComponents(couponCode)
+    new ActionRowBuilder<TextInputBuilder>().addComponents(shopName)
   );
   await interaction.showModal(modal);
 }
 
-export async function handleShopPurchaseModalSubmit(interaction: ModalSubmitInteraction, slug: string) {
+export async function handleShopPurchaseModalSubmit(interaction: ModalSubmitInteraction, param: string) {
   await interaction.deferReply({ ephemeral: true });
+  // 샵 코드(slug)는 영문 소문자/숫자/하이픈만 쓰므로 콜론이 절대 안 들어간다 - 쿠폰
+  // 코드 쪽에 콜론이 섞여 있어도 안전하게 나뉘도록 첫 콜론 기준으로만 자른다.
+  const sepIndex = param.indexOf(":");
+  const slug = sepIndex === -1 ? param : param.slice(0, sepIndex);
+  const couponCode = sepIndex === -1 ? "" : param.slice(sepIndex + 1);
   const shopSlug = interaction.fields.getTextInputValue("shopSlug").trim() || undefined;
   const shopName = interaction.fields.getTextInputValue("shopName").trim() || undefined;
-  const couponCode = interaction.fields.getTextInputValue("couponCode").trim() || undefined;
 
   try {
     const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
@@ -153,7 +161,7 @@ export async function handleShopPurchaseModalSubmit(interaction: ModalSubmitInte
       tierId: tier.id,
       shopSlug,
       shopName,
-      couponCode,
+      couponCode: couponCode || undefined,
       guildId: interaction.guildId,
     });
     const artwork = order.artwork;

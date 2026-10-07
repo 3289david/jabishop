@@ -1,6 +1,14 @@
-import { AttachmentBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, type ButtonInteraction } from "discord.js";
+import {
+  AttachmentBuilder,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  StringSelectMenuBuilder,
+  type ButtonInteraction,
+} from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { purchaseTier, OrderError } from "@/lib/orders";
+import { listUsableCoupons } from "@/lib/coupon";
 import { confirmTopUp, rejectTopUp, TopUpError } from "@/lib/points";
 import { approveRefund, rejectRefund, RefundError } from "@/lib/refunds";
 import { assertActiveShopUser, requireLinkedAdmin, isDiscordGuildAdmin } from "@/bot/discordAuth";
@@ -111,9 +119,47 @@ async function handlePartnerManage(interaction: ButtonInteraction) {
   await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
 }
 
+/**
+ * 디스코드 모달은 select 컴포넌트를 못 담기 때문에, "쿠폰함에서 선택" 경험을 주려면
+ * 모달을 띄우기 전에 먼저 쿠폰함 select 메뉴를 보여준다. 고른 쿠폰 코드는 다음
+ * 단계(모달)의 customId에 실어서 넘긴다 (handleShopCouponSelect가 모달을 띄움).
+ * 쓸 수 있는 쿠폰이 하나도 없으면 이 단계를 건너뛰고 바로 모달로 간다.
+ */
+async function startShopPurchaseFlow(interaction: ButtonInteraction, slug: string) {
+  const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
+  const tier = await prisma.tier.findUnique({ where: { slug } });
+  if (!tier) throw new OrderError("TIER_NOT_FOUND", "존재하지 않는 상품입니다.");
+
+  const usable = await listUsableCoupons(user.id, tier.id, tier.price);
+  if (usable.length === 0) {
+    return showShopPurchaseModal(interaction, slug, "");
+  }
+
+  const menu = new StringSelectMenuBuilder()
+    .setCustomId(`shopcoupon:${slug}`)
+    .setPlaceholder("쿠폰함에서 적용할 쿠폰을 선택하세요")
+    .addOptions(
+      { label: "쿠폰 사용 안 함", value: "__none__" },
+      ...usable.slice(0, 24).map(({ coupon, discount }) => ({
+        label: `${coupon.name} (-${discount.toLocaleString()}P)`.slice(0, 100),
+        value: coupon.code,
+      }))
+    );
+  await interaction.reply({
+    content: "적용할 쿠폰을 쿠폰함에서 골라주세요. 선택하면 바로 주소/이름 입력창이 뜹니다.",
+    components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu)],
+    ephemeral: true,
+  });
+}
+
 async function handleBuy(interaction: ButtonInteraction, slug: string) {
   if (slug === SHOP_SUBSCRIPTION_TIER_SLUG) {
-    return showShopPurchaseModal(interaction, slug);
+    try {
+      return await startShopPurchaseFlow(interaction, slug);
+    } catch (e) {
+      const message = e instanceof OrderError || e instanceof Error ? e.message : "처리 중 오류가 발생했습니다.";
+      return interaction.reply({ embeds: [errorEmbed(message)], ephemeral: true });
+    }
   }
   await interaction.deferUpdate();
   try {
