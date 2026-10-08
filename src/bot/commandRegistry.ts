@@ -57,6 +57,12 @@ import { shopClaimCommand } from "@/bot/commands/shopSale";
 import { shopSaleGuideChannelCommand } from "@/bot/commands/shopSaleGuide";
 import { shopOAuthSetupCommand } from "@/bot/commands/shopOAuthSetup";
 import { shopDomainChangeCommand } from "@/bot/commands/shopDomain";
+import { sellerSetupCommand } from "@/bot/commands/sellerSetup";
+import { sellerApplyCommand } from "@/bot/commands/sellerApply";
+import { sellerProductCommand } from "@/bot/commands/sellerProduct";
+import { sellerListCommand, sellerStatsCommand } from "@/bot/commands/sellerList";
+import { sellerReportCommand } from "@/bot/commands/sellerReport";
+import { sellerManageCommand } from "@/bot/commands/sellerAdmin";
 
 export const commands: BotCommand[] = [
   // 패널 (버튼 UI)
@@ -111,6 +117,13 @@ export const commands: BotCommand[] = [
   shopClaimCommand,
   shopOAuthSetupCommand,
   shopDomainChangeCommand,
+  sellerSetupCommand,
+  sellerApplyCommand,
+  sellerProductCommand,
+  sellerListCommand,
+  sellerStatsCommand,
+  sellerReportCommand,
+  sellerManageCommand,
   shopSaleGuideChannelCommand,
   topUpListCommand,
   topUpConfirmCommand,

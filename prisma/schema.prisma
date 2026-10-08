@@ -479,6 +479,16 @@ model ShopSetting {
   // 마지막으로 일일 파트너 웹훅 발송을 실행한 시각 - 봇이 재시작돼도 하루 1회를 지키기 위해 저장해둔다.
   partnerLastBroadcast DateTime?
 
+  // 판매자(제3자 입점) 기능 - 승인 시 이 카테고리 밑에 채널을 만들고 이 역할을 지급한다.
+  // 구매 문의 티켓 채널은 별도로 sellerTicketCategoryId 밑에 만든다 (판매자 쇼룸 카테고리와
+  // 분리해야 다른 판매자/구매자 거래 내역이 서로 안 보인다).
+  sellerCategoryId       String?
+  sellerTicketCategoryId String?
+  sellerRoleId           String?
+  // 월 이용료(원) / 첫 가입 시 무료로 쓸 수 있는 기간(일) - 관리자가 /설정수정에서 조정 가능.
+  sellerMonthlyPrice   Int @default(1000)
+  sellerFreeTrialDays  Int @default(30)
+
   // 매일 1회 오늘 매출/이용자 등 통계를 자동으로 게시할 공지 채널
   announcementChannelId String?
   // 마지막으로 일일 통계 공지를 게시한 시각 - 봇이 재시작돼도 하루 1회를 지키기 위해 저장해둔다.
@@ -671,4 +681,109 @@ model RestockSubscription {
   createdAt DateTime @default(now())
 
   @@unique([userId, tierId])
+}
+
+// ─────────────────────────────────────────────────────────────
+// 판매자(제3자 입점) 마켓플레이스
+// ─────────────────────────────────────────────────────────────
+
+// 제3자 판매자(입점 신청자). 파트너(Partner)와는 별개 개념 - 파트너는 "홍보 교환"이고
+// 판매자는 "서버 안에서 돈 받고 자기 상품을 파는" 유료 입점이다.
+model Seller {
+  id            String  @id @default(cuid())
+  discordUserId String  @unique
+  discordTag    String
+  storeName     String
+  category      String? // 🎮게임/💻디지털/🎨디자인/🤖봇/🖥️개발/📦기타 등 자유 텍스트
+  saleMethod    String? // 판매 방식(예: 계좌이체, DM 거래 등) - 신청 시 입력
+  description   String?
+  // PENDING(승인대기) | ACTIVE(정상 운영) | SUSPENDED(관리자 정지) | EXPIRED(이용기간 만료) |
+  // REJECTED(신청 거절) | WITHDRAWN(자진 탈퇴/퇴출)
+  status        String  @default("PENDING")
+  channelId     String? // 승인 시 판매자 카테고리 밑에 자동 생성된 쇼룸 채널
+
+  // 이용기간 관리 - 결제는 포인트 자동차감이 아니라 관리자가 입금 확인 후 /판매자연장으로
+  // 수동 연장한다 (사용자가 직접 결제하는 방식이 운영 쪽에서 더 관리하기 편하다는 판단).
+  startedAt          DateTime?
+  nextBillingAt      DateTime? // 이 시각 이후로는 만료 처리 대상
+  lastReminderDays   Int? // 마지막으로 보낸 만료 예정 알림이 "며칠 전" 알림이었는지(7/3/1) - 중복 발송 방지
+  expiredAt          DateTime?
+
+  ratingSum   Int @default(0)
+  ratingCount Int @default(0)
+  dealCount   Int @default(0) // 거래완료로 종료된 티켓 수
+
+  adminNote          String?
+  processedByAdminId String?
+  processedAt        DateTime?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  products SellerProduct[]
+  tickets  SellerTicket[]
+  reviews  SellerReview[]
+  reports  SellerReport[]
+}
+
+model SellerProduct {
+  id             String   @id @default(cuid())
+  sellerId       String
+  seller         Seller   @relation(fields: [sellerId], references: [id])
+  name           String
+  price          Int
+  stock          Int? // null = 재고 표시 안 함(무제한/별도 문의)
+  description    String?
+  purchaseMethod String?
+  refundPolicy   String?
+  channelId      String? // 올라간 채널(보통 판매자 쇼룸 채널과 동일)
+  messageId      String? // 상품 임베드 메시지 id - 재게시/수정 시 참조
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+
+  tickets SellerTicket[]
+}
+
+// 구매 문의(비공개 티켓). 채널 하나 = 티켓 하나.
+model SellerTicket {
+  id             String         @id @default(cuid())
+  sellerId       String
+  seller         Seller         @relation(fields: [sellerId], references: [id])
+  productId      String?
+  product        SellerProduct? @relation(fields: [productId], references: [id])
+  buyerDiscordId String
+  buyerTag       String
+  channelId      String?
+  // OPEN(문의중) | PAID(결제완료) | DELIVERED(상품전달) | COMPLETED(거래완료) |
+  // CANCELLED(구매자취소) | CLOSED(그냥닫음)
+  status    String    @default("OPEN")
+  createdAt DateTime  @default(now())
+  closedAt  DateTime?
+
+  review SellerReview?
+}
+
+model SellerReview {
+  id             String   @id @default(cuid())
+  sellerId       String
+  seller         Seller   @relation(fields: [sellerId], references: [id])
+  ticketId       String   @unique
+  ticket         SellerTicket @relation(fields: [ticketId], references: [id])
+  buyerDiscordId String
+  rating         Int // 1~5
+  content        String?
+  createdAt      DateTime @default(now())
+}
+
+model SellerReport {
+  id                String    @id @default(cuid())
+  sellerId          String
+  seller            Seller    @relation(fields: [sellerId], references: [id])
+  reporterDiscordId String
+  reason            String // 사기/상품 미제공/허위 상품/가격 문제/욕설·비매너/규정 위반/기타
+  detail            String?
+  status            String    @default("PENDING") // PENDING | RESOLVED
+  action            String? // WARNING | SUSPEND | EXPEL
+  processedByAdminId String?
+  processedAt       DateTime?
+  createdAt         DateTime  @default(now())
 }

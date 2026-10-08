@@ -2,6 +2,7 @@ import type { StringSelectMenuInteraction } from "discord.js";
 import { tierDetailPayload, productSelectRow } from "@/bot/panels";
 import { showShopPurchaseModal } from "@/bot/interactions/modals";
 import { handleBuyCouponSelect } from "@/bot/interactions/buttons";
+import { handleSellerProductToggleSelect } from "@/bot/sellerPanelHandlers";
 import { errorEmbed } from "@/bot/format";
 
 export async function handleSelectMenuInteraction(interaction: StringSelectMenuInteraction) {
@@ -21,6 +22,10 @@ export async function handleSelectMenuInteraction(interaction: StringSelectMenuI
   if (interaction.customId.startsWith("buycoupon:")) {
     const slug = interaction.customId.slice("buycoupon:".length);
     return handleBuyCouponSelect(interaction, slug);
+  }
+
+  if (interaction.customId === "sellerpanel:toggleproduct") {
+    return handleSellerProductToggleSelect(interaction);
   }
 
   if (interaction.customId !== "select:tier") return;

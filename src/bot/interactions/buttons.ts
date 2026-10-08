@@ -47,6 +47,15 @@ import { SHOP_SUBSCRIPTION_TIER_SLUG } from "@/lib/constants";
 import { subscribeRestock, RestockError } from "@/lib/restock";
 import { setAdminDutyStatus, DUTY_STATUS_LABEL } from "@/lib/adminDuty";
 import { updateAdminDutyPanel } from "@/bot/adminDutyPanel";
+import { showSellerApplyModal } from "@/bot/commands/sellerApply";
+import {
+  handleSellerBuyInquiry,
+  handleSellerTicketAction,
+  showSellerReportModal,
+  handleSellerReviewButton,
+} from "@/bot/sellerTicketHandlers";
+import { handleSellerPanelProducts, handleSellerPanelTickets } from "@/bot/sellerPanelHandlers";
+import { showSellerProductModal } from "@/bot/commands/sellerProduct";
 
 async function handlePanelProducts(interaction: ButtonInteraction) {
   const categories = await listProductCategories();
@@ -539,4 +548,12 @@ export async function handleButtonInteraction(interaction: ButtonInteraction) {
   if (ns === "partner" && a === "manage") return handlePartnerManage(interaction);
   if (ns === "partner" && a === "promo") return showPartnerPromoModal(interaction);
   if (ns === "verify" && a === "claim") return handleVerifyClaim(interaction);
+  if (ns === "seller" && a === "apply") return showSellerApplyModal(interaction);
+  if (ns === "seller" && a === "buy") return handleSellerBuyInquiry(interaction, b);
+  if (ns === "sellerticket" && a === "report") return showSellerReportModal(interaction, b);
+  if (ns === "sellerticket") return handleSellerTicketAction(interaction, a, b);
+  if (ns === "sellerreview") return handleSellerReviewButton(interaction, a, b);
+  if (ns === "sellerpanel" && a === "newproduct") return showSellerProductModal(interaction);
+  if (ns === "sellerpanel" && a === "products") return handleSellerPanelProducts(interaction);
+  if (ns === "sellerpanel" && a === "tickets") return handleSellerPanelTickets(interaction);
 }

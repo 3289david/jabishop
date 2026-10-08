@@ -88,6 +88,39 @@ export const PARTNER_STATUS = {
   REJECTED: "REJECTED",
 } as const;
 
+export const SELLER_STATUS = {
+  PENDING: "PENDING",
+  ACTIVE: "ACTIVE",
+  SUSPENDED: "SUSPENDED",
+  EXPIRED: "EXPIRED",
+  REJECTED: "REJECTED",
+  WITHDRAWN: "WITHDRAWN",
+} as const;
+
+export const SELLER_TICKET_STATUS = {
+  OPEN: "OPEN",
+  PAID: "PAID",
+  DELIVERED: "DELIVERED",
+  COMPLETED: "COMPLETED",
+  CANCELLED: "CANCELLED",
+  CLOSED: "CLOSED",
+} as const;
+
+export const SELLER_REPORT_STATUS = {
+  PENDING: "PENDING",
+  RESOLVED: "RESOLVED",
+} as const;
+
+export const SELLER_REPORT_REASONS = [
+  "사기",
+  "상품 미제공",
+  "허위 상품",
+  "가격 문제",
+  "욕설/비매너",
+  "규정 위반",
+  "기타",
+] as const;
+
 export const STICKY_KIND = {
   CUSTOM: "CUSTOM",
   ADMIN_PANEL: "ADMIN_PANEL",

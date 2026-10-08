@@ -466,6 +466,160 @@ export async function addGuildMemberRole(guildId: string, discordUserId: string,
   }
 }
 
+/** 채널에 특정 사용자 전용 권한 overwrite를 정확히 지정한 값으로 덮어쓴다 (판매자 정지/복구용). */
+export async function setChannelMemberOverwrite(
+  channelId: string,
+  discordUserId: string,
+  allow: number,
+  deny: number
+): Promise<boolean> {
+  const token = process.env.DISCORD_BOT_TOKEN;
+  if (!token) return false;
+  try {
+    const res = await fetch(`${API_BASE}/channels/${channelId}/permissions/${discordUserId}`, {
+      method: "PUT",
+      headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ type: 1, allow: String(allow), deny: String(deny) }),
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/** 특정 길드 멤버에게서 역할을 뺏는다 (판매자 정지/퇴출/이용기간 만료 시). */
+export async function removeGuildMemberRole(guildId: string, discordUserId: string, roleId: string): Promise<boolean> {
+  const token = process.env.DISCORD_BOT_TOKEN;
+  if (!token) return false;
+  try {
+    const res = await fetch(`${API_BASE}/guilds/${guildId}/members/${discordUserId}/roles/${roleId}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bot ${token}` },
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/** 카테고리(채널 분류)를 새로 만든다. 판매자 시스템 설치 시 한 번만 호출한다. */
+export async function createGuildCategory(guildId: string, name: string): Promise<string | null> {
+  const token = process.env.DISCORD_BOT_TOKEN;
+  if (!token) return null;
+  try {
+    const res = await fetch(`${API_BASE}/guilds/${guildId}/channels`, {
+      method: "POST",
+      headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ name, type: 4 }), // 4 = GUILD_CATEGORY
+    });
+    if (!res.ok) return null;
+    const channel = (await res.json()) as { id: string };
+    return channel.id;
+  } catch {
+    return null;
+  }
+}
+
+/** 보통 텍스트 채널(권한 설정 없이, @everyone 그대로)을 특정 카테고리 밑에 만든다 - 안내/신청/공지/후기 채널용. */
+export async function createPlainGuildChannel(
+  guildId: string,
+  name: string,
+  categoryId: string | null
+): Promise<string | null> {
+  const token = process.env.DISCORD_BOT_TOKEN;
+  if (!token) return null;
+  try {
+    const res = await fetch(`${API_BASE}/guilds/${guildId}/channels`, {
+      method: "POST",
+      headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ name, type: 0, parent_id: categoryId || undefined }),
+    });
+    if (!res.ok) return null;
+    const channel = (await res.json()) as { id: string };
+    return channel.id;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * @everyone은 아예 볼 수도 없고(VIEW_CHANNEL 거부), 지정한 사용자들만 보고 쓸 수 있는
+ * 완전 비공개 채널을 만든다 - 구매 문의 티켓 채널용 (구매자+판매자+필요한 관리자만).
+ */
+export async function createPrivateGuildChannel(
+  guildId: string,
+  name: string,
+  categoryId: string | null,
+  allowedDiscordIds: string[]
+): Promise<string | null> {
+  const token = process.env.DISCORD_BOT_TOKEN;
+  if (!token) return null;
+
+  const safeName = name
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[\x00-\x1F\x7F]/g, "")
+    .slice(0, 90) || "ticket";
+
+  try {
+    const res = await fetch(`${API_BASE}/guilds/${guildId}/channels`, {
+      method: "POST",
+      headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: safeName,
+        type: 0,
+        parent_id: categoryId || undefined,
+        permission_overwrites: [
+          { id: guildId, type: 0, deny: String(1024) }, // @everyone: VIEW_CHANNEL 거부
+          ...allowedDiscordIds.map((id) => ({
+            id,
+            type: 1,
+            allow: String(1024 | 2048 | 65536), // VIEW_CHANNEL | SEND_MESSAGES | READ_MESSAGE_HISTORY
+          })),
+        ],
+      }),
+    });
+    if (!res.ok) return null;
+    const channel = (await res.json()) as { id: string };
+    return channel.id;
+  } catch {
+    return null;
+  }
+}
+
+/** 채널을 완전히 삭제한다 (티켓 닫기용). */
+export async function deleteGuildChannel(channelId: string): Promise<boolean> {
+  const token = process.env.DISCORD_BOT_TOKEN;
+  if (!token) return false;
+  try {
+    const res = await fetch(`${API_BASE}/channels/${channelId}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bot ${token}` },
+    });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
+/** 역할을 새로 만든다 (판매자 역할 등). mentionable은 끄고 색만 지정한다. */
+export async function createGuildRole(guildId: string, name: string, color?: number): Promise<string | null> {
+  const token = process.env.DISCORD_BOT_TOKEN;
+  if (!token) return null;
+  try {
+    const res = await fetch(`${API_BASE}/guilds/${guildId}/roles`, {
+      method: "POST",
+      headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ name, color, permissions: "0", mentionable: false }),
+    });
+    if (!res.ok) return null;
+    const role = (await res.json()) as { id: string };
+    return role.id;
+  } catch {
+    return null;
+  }
+}
+
 /** 디스코드 웹훅 URL로 텍스트 메시지를 보낸다 (봇 토큰 불필요 - 웹훅 자체가 인증 수단). */
 export async function sendWebhookMessage(webhookUrl: string, content: string): Promise<boolean> {
   try {

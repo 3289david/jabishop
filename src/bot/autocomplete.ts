@@ -47,6 +47,19 @@ export async function purchaseAutocomplete(interaction: AutocompleteInteraction)
   return tierAutocomplete(interaction);
 }
 
+/** 판매자 관리 명령어들의 "판매자" 옵션 자동완성 - 상점이름/디스코드태그로 검색, value는 Seller.id. */
+export async function sellerAutocomplete(interaction: AutocompleteInteraction) {
+  const focused = interaction.options.getFocused().toString();
+  const sellers = await prisma.seller.findMany({
+    where: focused ? { OR: [{ storeName: { contains: focused } }, { discordTag: { contains: focused } }] } : undefined,
+    orderBy: { createdAt: "desc" },
+    take: 25,
+  });
+  await interaction.respond(
+    sellers.map((s) => ({ name: `${s.storeName} (${s.discordTag}) - ${s.status}`, value: s.id }))
+  );
+}
+
 export async function openRaffleAutocomplete(interaction: AutocompleteInteraction) {
   const focused = interaction.options.getFocused().toString();
   const raffles = await prisma.raffleEvent.findMany({

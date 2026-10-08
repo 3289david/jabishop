@@ -23,6 +23,9 @@ import {
   handleShopPurchaseModalSubmit,
 } from "@/bot/interactions/modals";
 import { SHOP_OAUTH_MODAL_ID, handleShopOAuthModalSubmit } from "@/bot/commands/shopOAuthSetup";
+import { SELLER_APPLY_MODAL_ID, handleSellerApplyModalSubmit } from "@/bot/commands/sellerApply";
+import { SELLER_PRODUCT_MODAL_ID, handleSellerProductModalSubmit } from "@/bot/commands/sellerProduct";
+import { SELLER_REPORT_MODAL_PREFIX, handleSellerReportModalSubmit } from "@/bot/sellerTicketHandlers";
 import { handleButtonInteraction } from "@/bot/interactions/buttons";
 import { handleSelectMenuInteraction } from "@/bot/interactions/selects";
 import { errorEmbed } from "@/bot/format";
@@ -39,6 +42,7 @@ import { startAdminDutyPanelLoop, updateAdminDutyPanel } from "@/bot/adminDutyPa
 import { syncAdminDutyFromPresence } from "@/lib/adminDuty";
 import { runForGuild, resolveShopByGuildId } from "@/lib/shop";
 import { startShopBillingLoop } from "@/bot/shopBillingLoop";
+import { startSellerBillingLoop } from "@/bot/sellerBillingLoop";
 import { ensureShopSubscriptionTier } from "@/lib/orders";
 
 // 관리자 근무 현황 자동 감지(온라인=출근/오프라인=일시중지)에는 Presence Intent가 필요하다.
@@ -68,6 +72,7 @@ client.once(Events.ClientReady, (c) => {
   startStaleRequestsLoop();
   startAdminDutyPanelLoop(client);
   startShopBillingLoop();
+  startSellerBillingLoop();
 });
 
 client.on(Events.MessageCreate, (message) => {
@@ -178,6 +183,11 @@ async function handleInteraction(interaction: Interaction) {
       }
       if (interaction.customId.startsWith(SHOP_PURCHASE_MODAL_PREFIX)) {
         return handleShopPurchaseModalSubmit(interaction, interaction.customId.slice(SHOP_PURCHASE_MODAL_PREFIX.length));
+      }
+      if (interaction.customId === SELLER_APPLY_MODAL_ID) return handleSellerApplyModalSubmit(interaction);
+      if (interaction.customId === SELLER_PRODUCT_MODAL_ID) return handleSellerProductModalSubmit(interaction);
+      if (interaction.customId.startsWith(SELLER_REPORT_MODAL_PREFIX)) {
+        return handleSellerReportModalSubmit(interaction, interaction.customId.slice(SELLER_REPORT_MODAL_PREFIX.length));
       }
       return;
     }
