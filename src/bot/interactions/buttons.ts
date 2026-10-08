@@ -5,6 +5,7 @@ import {
   ButtonStyle,
   StringSelectMenuBuilder,
   type ButtonInteraction,
+  type StringSelectMenuInteraction,
 } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { purchaseTier, OrderError } from "@/lib/orders";
@@ -152,6 +153,47 @@ async function startShopPurchaseFlow(interaction: ButtonInteraction, slug: strin
   });
 }
 
+/** 실제 구매를 실행하고, 결과를 보여줄 임베드/첨부파일을 만든다 (buy 버튼/쿠폰선택 공용). */
+async function buildPurchaseResultPayload(
+  userId: string,
+  tier: { id: string; name: string },
+  guildId: string | null,
+  couponCode?: string
+) {
+  const order = await purchaseTier({ userId, tierId: tier.id, couponCode, guildId });
+  const artwork = order.artwork;
+
+  const embed = successEmbed(`${tier.name} 구매 완료!`)
+    .setTitle(`주문 #${order.orderNo}`)
+    .addFields({ name: "결제 금액", value: pt(order.finalAmount), inline: true }, { name: "지급된 계정", value: artwork?.title ?? "-", inline: true });
+  if (order.discountAmount > 0) {
+    embed.addFields({ name: couponCode ? "🎟️ 쿠폰 적용" : "💸 할인 적용", value: `-${pt(order.discountAmount)} 할인`, inline: true });
+  }
+  if (order.luckyCoupon) {
+    embed.addFields({ name: "🎉 구매 축하 쿠폰 당첨!", value: `5% 할인 쿠폰 \`${order.luckyCoupon.code}\`이 지급되었습니다.` });
+  }
+  if (order.referralReward) {
+    embed.addFields({ name: "🎁 친구 초대 보상", value: `첫 구매 보상 +${pt(order.referralReward.refereeReward)}가 지급되었습니다.` });
+  }
+
+  const files: AttachmentBuilder[] = [];
+  if (artwork) {
+    if (!isUploadKey(artwork.fileKey)) {
+      embed.addFields({ name: "지급 내용", value: artwork.fileKey });
+    } else {
+      try {
+        const buffer = await readUploadedFile(artwork.fileKey);
+        const ext = artwork.fileKey.split(".").pop() || "png";
+        files.push(new AttachmentBuilder(buffer, { name: `${artwork.code}.${ext}` }));
+        embed.setImage(`attachment://${artwork.code}.${ext}`);
+      } catch {
+        // 파일 누락 시 이미지 없이 결과만 표시
+      }
+    }
+  }
+  return { embed, files };
+}
+
 async function handleBuy(interaction: ButtonInteraction, slug: string) {
   if (slug === SHOP_SUBSCRIPTION_TIER_SLUG) {
     try {
@@ -161,47 +203,61 @@ async function handleBuy(interaction: ButtonInteraction, slug: string) {
       return interaction.reply({ embeds: [errorEmbed(message)], ephemeral: true });
     }
   }
-  await interaction.deferUpdate();
+
   try {
     const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
     const tier = await prisma.tier.findUnique({ where: { slug } });
     if (!tier) throw new OrderError("TIER_NOT_FOUND", "존재하지 않는 등급입니다.");
 
-    const order = await purchaseTier({ userId: user.id, tierId: tier.id, guildId: interaction.guildId });
-    const artwork = order.artwork;
+    // 쿠폰함에 쓸 수 있는 쿠폰이 있으면 먼저 어떤 쿠폰을 쓸지(또는 안 쓸지) 고르게 하고,
+    // 없으면 예전처럼 곧바로 구매를 진행한다 (불필요한 단계 추가 안 함).
+    const usable = await listUsableCoupons(user.id, tier.id, tier.price);
+    if (usable.length > 0) {
+      const menu = new StringSelectMenuBuilder()
+        .setCustomId(`buycoupon:${slug}`)
+        .setPlaceholder("쿠폰함에서 적용할 쿠폰을 선택하세요")
+        .addOptions(
+          { label: "쿠폰 사용 안 함", value: "__none__" },
+          ...usable.slice(0, 24).map(({ coupon, discount }) => ({
+            label: `${coupon.name} (-${discount.toLocaleString()}P)`.slice(0, 100),
+            value: coupon.code,
+          }))
+        );
+      return interaction.reply({
+        content: "적용할 쿠폰을 쿠폰함에서 골라주세요.",
+        components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu)],
+        ephemeral: true,
+      });
+    }
 
-    const embed = successEmbed(`${tier.name} 구매 완료!`)
-      .setTitle(`주문 #${order.orderNo}`)
-      .addFields({ name: "결제 금액", value: pt(order.finalAmount), inline: true }, { name: "지급된 계정", value: artwork?.title ?? "-", inline: true });
-    if (order.discountAmount > 0) {
-      embed.addFields({ name: "💸 할인 적용", value: `-${pt(order.discountAmount)} 할인`, inline: true });
-    }
-    if (order.luckyCoupon) {
-      embed.addFields({ name: "🎉 구매 축하 쿠폰 당첨!", value: `5% 할인 쿠폰 \`${order.luckyCoupon.code}\`이 지급되었습니다.` });
-    }
-    if (order.referralReward) {
-      embed.addFields({ name: "🎁 친구 초대 보상", value: `첫 구매 보상 +${pt(order.referralReward.refereeReward)}가 지급되었습니다.` });
-    }
-
-    const files = [];
-    if (artwork) {
-      if (!isUploadKey(artwork.fileKey)) {
-        embed.addFields({ name: "지급 내용", value: artwork.fileKey });
-      } else {
-        try {
-          const buffer = await readUploadedFile(artwork.fileKey);
-          const ext = artwork.fileKey.split(".").pop() || "png";
-          files.push(new AttachmentBuilder(buffer, { name: `${artwork.code}.${ext}` }));
-          embed.setImage(`attachment://${artwork.code}.${ext}`);
-        } catch {
-          // 파일 누락 시 이미지 없이 결과만 표시
-        }
-      }
-    }
+    await interaction.deferUpdate();
+    const { embed, files } = await buildPurchaseResultPayload(user.id, tier, interaction.guildId);
     await interaction.editReply({ embeds: [embed], components: [], files });
   } catch (e) {
     const message = e instanceof OrderError || e instanceof Error ? e.message : "구매 중 오류가 발생했습니다.";
-    await interaction.editReply({ embeds: [errorEmbed(message)], components: [] });
+    if (interaction.deferred || interaction.replied) {
+      await interaction.editReply({ embeds: [errorEmbed(message)], components: [] });
+    } else {
+      await interaction.reply({ embeds: [errorEmbed(message)], ephemeral: true });
+    }
+  }
+}
+
+/** buy 버튼에서 쿠폰함에 쓸 쿠폰이 있을 때 띄운 select 메뉴의 결과 처리. */
+export async function handleBuyCouponSelect(interaction: StringSelectMenuInteraction, slug: string) {
+  await interaction.deferUpdate();
+  const chosen = interaction.values[0];
+  const couponCode = chosen === "__none__" ? undefined : chosen;
+  try {
+    const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
+    const tier = await prisma.tier.findUnique({ where: { slug } });
+    if (!tier) throw new OrderError("TIER_NOT_FOUND", "존재하지 않는 등급입니다.");
+
+    const { embed, files } = await buildPurchaseResultPayload(user.id, tier, interaction.guildId, couponCode);
+    await interaction.editReply({ content: null, embeds: [embed], components: [], files });
+  } catch (e) {
+    const message = e instanceof OrderError || e instanceof Error ? e.message : "구매 중 오류가 발생했습니다.";
+    await interaction.editReply({ content: null, embeds: [errorEmbed(message)], components: [] });
   }
 }
 

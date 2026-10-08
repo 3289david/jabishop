@@ -34,9 +34,12 @@ export function computeDiscount(coupon: Coupon, baseAmount: number, tierId: stri
 }
 
 /**
- * 지금 이 사용자가 이 등급 구매에 쓸 수 있는 쿠폰(개인 발급된 UserCoupon뿐 아니라, 아직
- * 이 사용자가 안 쓴 활성 상태의 공개 코드 쿠폰까지 전부) 목록을 예상 할인액과 함께 돌려준다.
- * 자동으로 적용하지 않고, 구매 화면에서 사용자가 직접 골라 쓰도록(또는 안 쓰도록) 하기 위해 쓴다.
+ * 지금 이 사용자가 이 등급 구매에 쓸 수 있는 쿠폰 목록을 예상 할인액과 함께 돌려준다.
+ * "쿠폰함"(UserCoupon)에 실제로 지급받아 보유 중이고 아직 안 쓴 쿠폰만 대상으로 한다 -
+ * 예전에는 발급 여부와 무관하게 활성 상태인 모든 쿠폰(다른 사람이 구매 축하로 당첨된
+ * 1회용 쿠폰 포함)을 전부 돌려줘서, 누구나 아무 쿠폰이나 쓸 수 있는 것처럼 보이는
+ * 문제가 있었다. 자동으로 적용하지 않고, 구매 화면에서 사용자가 직접 골라 쓰도록
+ * (또는 안 쓰도록) 하기 위해 쓴다.
  */
 export async function listUsableCoupons(
   userId: string,
@@ -44,23 +47,23 @@ export async function listUsableCoupons(
   baseAmount: number
 ): Promise<{ coupon: Coupon; discount: number }[]> {
   const now = new Date();
-  const candidates = await prisma.coupon.findMany({
-    where: { active: true, validFrom: { lte: now }, validTo: { gte: now } },
-    orderBy: { createdAt: "desc" },
+  const owned = await prisma.userCoupon.findMany({
+    where: { userId, usedAt: null },
+    include: { coupon: true },
   });
-  if (candidates.length === 0) return [];
+  if (owned.length === 0) return [];
 
   const usable: { coupon: Coupon; discount: number }[] = [];
-  for (const coupon of candidates) {
+  for (const { coupon } of owned) {
+    if (!coupon.active) continue;
+    if (now < coupon.validFrom || now > coupon.validTo) continue;
+
     let discount: number;
     try {
       discount = computeDiscount(coupon, baseAmount, tierId);
     } catch {
       continue; // 이 쿠폰은 지금 조건에 안 맞음 - 다음 쿠폰 확인
     }
-
-    const usedByUser = await prisma.couponUsage.count({ where: { couponId: coupon.id, userId } });
-    if (usedByUser >= coupon.usageLimitPerUser) continue;
 
     if (coupon.usageLimitTotal != null) {
       const totalUsed = await prisma.couponUsage.count({ where: { couponId: coupon.id } });
