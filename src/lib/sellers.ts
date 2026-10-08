@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
-import { SELLER_STATUS, SELLER_TICKET_STATUS } from "@/lib/constants";
+import { SELLER_STATUS, SELLER_TICKET_STATUS, STICKY_KIND } from "@/lib/constants";
+import type { Seller } from "@prisma/client";
 import {
   notifyAdminsNewPendingItem,
   sendDiscordDM,
@@ -22,6 +23,57 @@ const SELLER_CHANNEL_READONLY_DENY = 2048;
 
 function buildStoreChannelName(storeName: string): string {
   return `🏪${storeName}`;
+}
+
+function buildManageChannelName(storeName: string): string {
+  return `🔧${storeName}-관리`;
+}
+
+// 관리 패널 메시지는 discord.js의 EmbedBuilder/ButtonBuilder를 안 쓰고 디스코드 API가
+// 그대로 받는 순수 JSON으로 직접 만든다 - 이 파일(src/lib/sellers.ts)은 관리자
+// 웹페이지(src/lib/actions/adminSellers.ts)에서도 호출되는데, "discord.js"를 import하면
+// 그 안의 게이트웨이(@discordjs/ws) 등 봇 전용 의존성까지 웹 번들에 끌려들어가
+// 빌드가 깨진다. 버튼을 눌렀을 때의 실시간 갱신(src/bot/sellerPanelHandlers.ts)은
+// 봇 프로세스 안에서만 돌기 때문에 거기서는 discord.js 빌더를 그대로 써도 안전하다.
+function buildSellerManagePanelPayload(seller: Seller) {
+  const avg = seller.ratingCount > 0 ? (seller.ratingSum / seller.ratingCount).toFixed(1) : "-";
+  return {
+    embeds: [
+      {
+        title: `🏪 ${seller.storeName} 관리 패널`,
+        color: 0x6366f1,
+        timestamp: new Date().toISOString(),
+        fields: [
+          { name: "상태", value: seller.status, inline: true },
+          { name: "평점", value: `⭐ ${avg} (${seller.ratingCount}개)`, inline: true },
+          { name: "거래완료", value: `${seller.dealCount}건`, inline: true },
+          {
+            name: "다음 결제일",
+            value: seller.nextBillingAt ? seller.nextBillingAt.toLocaleDateString("ko-KR") : "-",
+            inline: true,
+          },
+          { name: "쇼룸 채널", value: seller.channelId ? `<#${seller.channelId}>` : "-", inline: true },
+        ],
+      },
+    ],
+    components: [
+      {
+        type: 1,
+        components: [
+          { type: 2, custom_id: "sellerpanel:newproduct", label: "🛒 상품 등록", style: 1 },
+          { type: 2, custom_id: "sellerpanel:products", label: "📦 내 상품 관리", style: 2 },
+          { type: 2, custom_id: "sellerpanel:tickets", label: "🎫 진행 중인 문의", style: 2 },
+        ],
+      },
+      {
+        type: 1,
+        components: [
+          { type: 2, custom_id: "sellerpanel:stats", label: "📊 통계 보기", style: 2 },
+          { type: 2, custom_id: "sellerpanel:editinfo", label: "⚙️ 상점 정보 수정", style: 2 },
+        ],
+      },
+    ],
+  };
 }
 
 /** 판매자 입점 신청. 관리자 승인 전까지는 아무 권한도 생기지 않는다. */
@@ -88,6 +140,12 @@ export async function approveSeller(sellerId: string, adminId: string, guildId: 
     // 쇼룸은 누구나 볼 수 있어야 하지만 글은 판매자 본인만 쓸 수 있어야 한다.
     await setChannelMemberOverwrite(channelId, seller.discordUserId, SELLER_CHANNEL_ACTIVE_ALLOW, 0);
   }
+  // 관리 패널은 쇼룸(공개 진열대)과 분리된, 판매자 본인만 볼 수 있는 완전 비공개 채널에 둔다.
+  const manageChannelId = settings.sellerManageCategoryId
+    ? await createPrivateGuildChannel(guildId, buildManageChannelName(seller.storeName), settings.sellerManageCategoryId, [
+        seller.discordUserId,
+      ])
+    : null;
   if (settings.sellerRoleId) {
     await addGuildMemberRole(guildId, seller.discordUserId, settings.sellerRoleId);
   }
@@ -101,6 +159,7 @@ export async function approveSeller(sellerId: string, adminId: string, guildId: 
     data: {
       status: SELLER_STATUS.ACTIVE,
       channelId,
+      manageChannelId,
       startedAt: now,
       nextBillingAt,
       lastReminderDays: null,
@@ -110,13 +169,37 @@ export async function approveSeller(sellerId: string, adminId: string, guildId: 
     },
   });
 
+  // 관리 패널(상품 등록/내 상품 관리/진행 중인 문의/통계/정보수정 버튼)을 비공개 관리
+  // 채널 맨 아래에 고정 메시지로 올려둔다 - 기존 고정 메시지 로직
+  // (src/bot/stickyMessage.ts)이 그 채널에서 다른 메시지가 쌓여도 자동으로 맨 아래로
+  // 다시 올려준다.
+  if (manageChannelId) {
+    try {
+      const res = await fetch(`https://discord.com/api/v10/channels/${manageChannelId}/messages`, {
+        method: "POST",
+        headers: { Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`, "Content-Type": "application/json" },
+        body: JSON.stringify(buildSellerManagePanelPayload(updated)),
+      });
+      if (res.ok) {
+        const message = (await res.json()) as { id: string };
+        await prisma.stickyMessage.create({
+          data: { channelId: manageChannelId, kind: STICKY_KIND.SELLER_PANEL, messageId: message.id, createdByAdminId: adminId },
+        });
+      }
+    } catch {
+      // 패널 게시에 실패해도 승인 자체는 완료된 상태이므로 조용히 무시한다 (판매자는
+      // /판매자통계로도 동일한 관리 버튼에 접근할 수 있다).
+    }
+  }
+
   sendDiscordDM(seller.discordUserId, {
     embeds: [
       {
         title: "🏪 판매자 입점 승인 완료",
         description: [
           `**${seller.storeName}** 입점이 승인되었습니다!`,
-          channelId ? `<#${channelId}> 채널이 생성되었습니다 - 이 채널에 \`/상품등록\`으로 상품을 올려주세요.` : null,
+          channelId ? `<#${channelId}> 쇼룸 채널이 생성되었습니다 (구매자에게 공개).` : null,
+          manageChannelId ? `<#${manageChannelId}> 관리 채널이 생성되었습니다 (본인만 보임) - 여기서 상품 등록/통계/문의 확인을 할 수 있습니다.` : null,
           `첫 ${freeTrialDays}일은 무료입니다 (다음 결제일: ${nextBillingAt.toLocaleDateString("ko-KR")}).`,
         ]
           .filter(Boolean)
@@ -229,11 +312,25 @@ export async function expelSeller(sellerId: string, adminId: string, guildId: st
 
   const settings = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
   if (settings?.sellerRoleId) await removeGuildMemberRole(guildId, seller.discordUserId, settings.sellerRoleId);
-  if (seller.channelId) await deleteGuildChannel(seller.channelId);
+  if (seller.channelId) {
+    await prisma.stickyMessage.deleteMany({ where: { channelId: seller.channelId } });
+    await deleteGuildChannel(seller.channelId);
+  }
+  if (seller.manageChannelId) {
+    await prisma.stickyMessage.deleteMany({ where: { channelId: seller.manageChannelId } });
+    await deleteGuildChannel(seller.manageChannelId);
+  }
 
   await prisma.seller.update({
     where: { id: sellerId },
-    data: { status: SELLER_STATUS.WITHDRAWN, channelId: null, adminNote: note, processedByAdminId: adminId, processedAt: new Date() },
+    data: {
+      status: SELLER_STATUS.WITHDRAWN,
+      channelId: null,
+      manageChannelId: null,
+      adminNote: note,
+      processedByAdminId: adminId,
+      processedAt: new Date(),
+    },
   });
 
   sendDiscordDM(seller.discordUserId, {

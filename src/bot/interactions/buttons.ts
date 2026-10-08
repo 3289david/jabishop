@@ -54,7 +54,12 @@ import {
   showSellerReportModal,
   handleSellerReviewButton,
 } from "@/bot/sellerTicketHandlers";
-import { handleSellerPanelProducts, handleSellerPanelTickets } from "@/bot/sellerPanelHandlers";
+import {
+  handleSellerPanelProducts,
+  handleSellerPanelTickets,
+  handleSellerPanelStats,
+  showSellerEditInfoModal,
+} from "@/bot/sellerPanelHandlers";
 import { showSellerProductModal } from "@/bot/commands/sellerProduct";
 
 async function handlePanelProducts(interaction: ButtonInteraction) {
@@ -556,4 +561,6 @@ export async function handleButtonInteraction(interaction: ButtonInteraction) {
   if (ns === "sellerpanel" && a === "newproduct") return showSellerProductModal(interaction);
   if (ns === "sellerpanel" && a === "products") return handleSellerPanelProducts(interaction);
   if (ns === "sellerpanel" && a === "tickets") return handleSellerPanelTickets(interaction);
+  if (ns === "sellerpanel" && a === "stats") return handleSellerPanelStats(interaction);
+  if (ns === "sellerpanel" && a === "editinfo") return showSellerEditInfoModal(interaction);
 }

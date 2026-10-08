@@ -124,6 +124,7 @@ export const SELLER_REPORT_REASONS = [
 export const STICKY_KIND = {
   CUSTOM: "CUSTOM",
   ADMIN_PANEL: "ADMIN_PANEL",
+  SELLER_PANEL: "SELLER_PANEL",
 } as const;
 
 export const RAFFLE_STATUS = {

@@ -1,4 +1,5 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } from "discord.js";
+import { prisma } from "@/lib/prisma";
 import { baseEmbed, won } from "@/bot/format";
 import { SELLER_STATUS } from "@/lib/constants";
 import type { Seller, SellerProduct, SellerTicket } from "@prisma/client";
@@ -145,6 +146,27 @@ export function sellerInfoEmbed(seller: Seller) {
 
 // ── 판매자 자기관리 패널 ("/판매자패널") ──────────────────────────────
 
+export async function sellerStatsEmbed(seller: Seller) {
+  const [productCount, openTickets, pendingReports] = await Promise.all([
+    prisma.sellerProduct.count({ where: { sellerId: seller.id, active: true } }),
+    prisma.sellerTicket.count({ where: { sellerId: seller.id, status: { notIn: ["CLOSED", "CANCELLED"] } } }),
+    prisma.sellerReport.count({ where: { sellerId: seller.id, status: "PENDING" } }),
+  ]);
+  const avg = seller.ratingCount > 0 ? (seller.ratingSum / seller.ratingCount).toFixed(1) : "-";
+  return baseEmbed(`📊 ${seller.storeName}`).addFields(
+    { name: "상태", value: sellerStatusLabel(seller.status), inline: true },
+    { name: "평점", value: `⭐ ${avg} (${seller.ratingCount}개)`, inline: true },
+    { name: "거래완료", value: `${seller.dealCount}건`, inline: true },
+    { name: "등록 상품", value: `${productCount}개`, inline: true },
+    { name: "진행 중 문의", value: `${openTickets}건`, inline: true },
+    { name: "미처리 신고", value: `${pendingReports}건`, inline: true },
+    {
+      name: "다음 결제일",
+      value: seller.nextBillingAt ? seller.nextBillingAt.toLocaleDateString("ko-KR") : "-",
+    }
+  );
+}
+
 export function sellerManagePanelEmbed(seller: Seller) {
   const avg = seller.ratingCount > 0 ? (seller.ratingSum / seller.ratingCount).toFixed(1) : "-";
   return baseEmbed(`🏪 ${seller.storeName} 관리 패널`).addFields(
@@ -161,11 +183,17 @@ export function sellerManagePanelEmbed(seller: Seller) {
 }
 
 export function sellerManagePanelRow() {
-  return new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder().setCustomId("sellerpanel:newproduct").setLabel("🛒 상품 등록").setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId("sellerpanel:products").setLabel("📦 내 상품 관리").setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId("sellerpanel:tickets").setLabel("🎫 진행 중인 문의").setStyle(ButtonStyle.Secondary)
-  );
+  return [
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder().setCustomId("sellerpanel:newproduct").setLabel("🛒 상품 등록").setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId("sellerpanel:products").setLabel("📦 내 상품 관리").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("sellerpanel:tickets").setLabel("🎫 진행 중인 문의").setStyle(ButtonStyle.Secondary)
+    ),
+    new ActionRowBuilder<ButtonBuilder>().addComponents(
+      new ButtonBuilder().setCustomId("sellerpanel:stats").setLabel("📊 통계 보기").setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder().setCustomId("sellerpanel:editinfo").setLabel("⚙️ 상점 정보 수정").setStyle(ButtonStyle.Secondary)
+    ),
+  ];
 }
 
 export function sellerProductListEmbed(products: SellerProduct[]) {

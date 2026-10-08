@@ -484,6 +484,9 @@ model ShopSetting {
   // 분리해야 다른 판매자/구매자 거래 내역이 서로 안 보인다).
   sellerCategoryId       String?
   sellerTicketCategoryId String?
+  // 판매자 본인만 볼 수 있는 비공개 "관리 패널" 채널들을 모아두는 카테고리 (쇼룸과
+  // 분리 - 쇼룸은 구매자에게 보여주는 공개 진열대, 관리 패널은 판매자 본인 전용 도구함).
+  sellerManageCategoryId String?
   sellerRoleId           String?
   // 월 이용료(원) / 첫 가입 시 무료로 쓸 수 있는 기간(일) - 관리자가 /설정수정에서 조정 가능.
   sellerMonthlyPrice   Int @default(1000)
@@ -700,7 +703,8 @@ model Seller {
   // PENDING(승인대기) | ACTIVE(정상 운영) | SUSPENDED(관리자 정지) | EXPIRED(이용기간 만료) |
   // REJECTED(신청 거절) | WITHDRAWN(자진 탈퇴/퇴출)
   status        String  @default("PENDING")
-  channelId     String? // 승인 시 판매자 카테고리 밑에 자동 생성된 쇼룸 채널
+  channelId     String? // 승인 시 판매자 카테고리 밑에 자동 생성된 쇼룸 채널 (구매자에게 보이는 공개 진열대)
+  manageChannelId String? // 판매자 본인만 보이는 비공개 "관리 패널" 채널 (상품등록/통계/문의 버튼)
 
   // 이용기간 관리 - 결제는 포인트 자동차감이 아니라 관리자가 입금 확인 후 /판매자연장으로
   // 수동 연장한다 (사용자가 직접 결제하는 방식이 운영 쪽에서 더 관리하기 편하다는 판단).

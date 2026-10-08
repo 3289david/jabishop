@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from "discord.js";
 import { prisma } from "@/lib/prisma";
-import { errorEmbed, baseEmbed } from "@/bot/format";
-import { sellerListEmbed, sellerStatusLabel, sellerManagePanelRow } from "@/bot/sellerPanels";
+import { errorEmbed } from "@/bot/format";
+import { sellerListEmbed, sellerManagePanelRow, sellerStatsEmbed } from "@/bot/sellerPanels";
 import { SELLER_STATUS } from "@/lib/constants";
 import type { BotCommand } from "@/bot/types";
 
@@ -27,25 +27,7 @@ export const sellerStatsCommand: BotCommand = {
       return interaction.reply({ embeds: [errorEmbed("판매자 등록 정보가 없습니다.")], ephemeral: true });
     }
 
-    const [productCount, openTickets, pendingReports] = await Promise.all([
-      prisma.sellerProduct.count({ where: { sellerId: seller.id, active: true } }),
-      prisma.sellerTicket.count({ where: { sellerId: seller.id, status: { notIn: ["CLOSED", "CANCELLED"] } } }),
-      prisma.sellerReport.count({ where: { sellerId: seller.id, status: "PENDING" } }),
-    ]);
-
-    const avg = seller.ratingCount > 0 ? (seller.ratingSum / seller.ratingCount).toFixed(1) : "-";
-    const embed = baseEmbed(`📊 ${seller.storeName}`).addFields(
-      { name: "상태", value: sellerStatusLabel(seller.status), inline: true },
-      { name: "평점", value: `⭐ ${avg} (${seller.ratingCount}개)`, inline: true },
-      { name: "거래완료", value: `${seller.dealCount}건`, inline: true },
-      { name: "등록 상품", value: `${productCount}개`, inline: true },
-      { name: "진행 중 문의", value: `${openTickets}건`, inline: true },
-      { name: "미처리 신고", value: `${pendingReports}건`, inline: true },
-      {
-        name: "다음 결제일",
-        value: seller.nextBillingAt ? seller.nextBillingAt.toLocaleDateString("ko-KR") : "-",
-      }
-    );
-    await interaction.reply({ embeds: [embed], components: [sellerManagePanelRow()], ephemeral: true });
+    const embed = await sellerStatsEmbed(seller);
+    await interaction.reply({ embeds: [embed], components: sellerManagePanelRow(), ephemeral: true });
   },
 };

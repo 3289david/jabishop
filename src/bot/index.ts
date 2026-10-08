@@ -26,6 +26,7 @@ import { SHOP_OAUTH_MODAL_ID, handleShopOAuthModalSubmit } from "@/bot/commands/
 import { SELLER_APPLY_MODAL_ID, handleSellerApplyModalSubmit } from "@/bot/commands/sellerApply";
 import { SELLER_PRODUCT_MODAL_ID, handleSellerProductModalSubmit } from "@/bot/commands/sellerProduct";
 import { SELLER_REPORT_MODAL_PREFIX, handleSellerReportModalSubmit } from "@/bot/sellerTicketHandlers";
+import { SELLER_EDIT_INFO_MODAL_ID, handleSellerEditInfoModalSubmit } from "@/bot/sellerPanelHandlers";
 import { handleButtonInteraction } from "@/bot/interactions/buttons";
 import { handleSelectMenuInteraction } from "@/bot/interactions/selects";
 import { errorEmbed } from "@/bot/format";
@@ -189,6 +190,7 @@ async function handleInteraction(interaction: Interaction) {
       if (interaction.customId.startsWith(SELLER_REPORT_MODAL_PREFIX)) {
         return handleSellerReportModalSubmit(interaction, interaction.customId.slice(SELLER_REPORT_MODAL_PREFIX.length));
       }
+      if (interaction.customId === SELLER_EDIT_INFO_MODAL_ID) return handleSellerEditInfoModalSubmit(interaction);
       return;
     }
   } catch (err) {
