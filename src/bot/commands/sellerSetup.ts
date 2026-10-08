@@ -33,9 +33,10 @@ export const sellerSetupCommand: BotCommand = {
     if (!infoCategoryId) {
       return interaction.editReply({ embeds: [errorEmbed("카테고리 생성에 실패했습니다 (봇 권한을 확인해주세요).")] });
     }
+    // 판매자 본인만 보이는 비공개 "관리 패널" 채널은 별도 카테고리 없이 이 쇼룸
+    // 카테고리 밑에 같이 둔다 (채널 자체 권한이 카테고리 상속보다 우선하므로 안전).
     const showroomCategoryId = await createGuildCategory(guildId, "🏪 입점 판매자");
     const ticketCategoryId = await createGuildCategory(guildId, "🎫 구매 문의");
-    const manageCategoryId = await createGuildCategory(guildId, "🔧 판매자 관리");
     const sellerRoleId = await createGuildRole(guildId, "판매자", 0xf59e0b);
 
     const guideChannelId = await createPlainGuildChannel(guildId, "📋판매자-안내", infoCategoryId);
@@ -47,7 +48,6 @@ export const sellerSetupCommand: BotCommand = {
       update: {
         sellerCategoryId: showroomCategoryId,
         sellerTicketCategoryId: ticketCategoryId,
-        sellerManageCategoryId: manageCategoryId,
         sellerRoleId,
       },
       create: {
@@ -57,7 +57,6 @@ export const sellerSetupCommand: BotCommand = {
         bankAccountHolder: "",
         sellerCategoryId: showroomCategoryId,
         sellerTicketCategoryId: ticketCategoryId,
-        sellerManageCategoryId: manageCategoryId,
         sellerRoleId,
       },
     });
@@ -78,7 +77,7 @@ export const sellerSetupCommand: BotCommand = {
           [
             "판매자 시스템 설치가 완료되었습니다!",
             guideChannelId ? `<#${guideChannelId}> 채널에서 신청받을 수 있습니다.` : null,
-            !showroomCategoryId || !ticketCategoryId || !manageCategoryId || !sellerRoleId
+            !showroomCategoryId || !ticketCategoryId || !sellerRoleId
               ? "⚠️ 일부 항목(카테고리/역할)이 생성되지 않았습니다 - 봇의 '채널 관리'/'역할 관리' 권한을 확인해주세요."
               : null,
           ]

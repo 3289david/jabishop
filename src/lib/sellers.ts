@@ -140,12 +140,15 @@ export async function approveSeller(sellerId: string, adminId: string, guildId: 
     // 쇼룸은 누구나 볼 수 있어야 하지만 글은 판매자 본인만 쓸 수 있어야 한다.
     await setChannelMemberOverwrite(channelId, seller.discordUserId, SELLER_CHANNEL_ACTIVE_ALLOW, 0);
   }
-  // 관리 패널은 쇼룸(공개 진열대)과 분리된, 판매자 본인만 볼 수 있는 완전 비공개 채널에 둔다.
-  const manageChannelId = settings.sellerManageCategoryId
-    ? await createPrivateGuildChannel(guildId, buildManageChannelName(seller.storeName), settings.sellerManageCategoryId, [
-        seller.discordUserId,
-      ])
-    : null;
+  // 관리 패널 채널은 별도 카테고리를 안 만들고 쇼룸과 같은 카테고리(sellerCategoryId)
+  // 밑에 둔다 - 채널 자체의 권한 overwrite가 카테고리 상속보다 항상 우선하므로, 같은
+  // 카테고리 안에 있어도 이 채널만 완전 비공개(판매자 본인만)로 유지된다.
+  const manageChannelId = await createPrivateGuildChannel(
+    guildId,
+    buildManageChannelName(seller.storeName),
+    settings.sellerCategoryId,
+    [seller.discordUserId]
+  );
   if (settings.sellerRoleId) {
     await addGuildMemberRole(guildId, seller.discordUserId, settings.sellerRoleId);
   }
