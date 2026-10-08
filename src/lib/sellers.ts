@@ -248,7 +248,12 @@ export async function expelSeller(sellerId: string, adminId: string, guildId: st
   }).catch(() => {});
 }
 
-/** 관리자가 입금(또는 결제)을 직접 확인한 뒤, 이용기간을 수동으로 30일 연장한다. */
+/**
+ * 이용기간을 수동으로 연장한다 - 평소엔 이용료가 매달 포인트에서 자동 결제되지만
+ * (src/bot/sellerBillingLoop.ts), 자동결제가 포인트 부족으로 실패해 정지된 뒤
+ * 포인트를 충전했을 때 관리자가 즉시 복구해주거나, 프로모션 등으로 예외적으로
+ * 기간을 더 줄 때 쓴다.
+ */
 export async function extendSeller(sellerId: string, adminId: string, guildId: string, days = 30) {
   const seller = await prisma.seller.findUnique({ where: { id: sellerId } });
   if (!seller) throw new SellerError("존재하지 않는 판매자입니다.");

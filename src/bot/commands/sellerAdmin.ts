@@ -71,7 +71,7 @@ export const sellerManageCommand: BotCommand = {
     .addSubcommand((sc) =>
       sc
         .setName("연장")
-        .setDescription("입금 확인 후 판매자 이용기간을 연장합니다 (기본 30일).")
+        .setDescription("판매자 이용기간을 수동으로 연장합니다 (기본 30일, 자동결제 실패 시 포인트 충전 후 복구용).")
         .addStringOption((o) =>
           o.setName("판매자").setDescription("판매자 상점이름/태그로 검색").setRequired(true).setAutocomplete(true)
         )
@@ -122,7 +122,7 @@ export const sellerManageCommand: BotCommand = {
 
     if (sub === "현황") {
       await requireLinkedAdmin(interaction.user.id);
-      const [total, active, pending, expiringSoon, reportsPending] = await Promise.all([
+      const [total, active, pending, expiringSoon, reportsPending, settings] = await Promise.all([
         prisma.seller.count(),
         prisma.seller.count({ where: { status: SELLER_STATUS.ACTIVE } }),
         prisma.seller.count({ where: { status: SELLER_STATUS.PENDING } }),
@@ -130,14 +130,16 @@ export const sellerManageCommand: BotCommand = {
           where: { status: SELLER_STATUS.ACTIVE, nextBillingAt: { lte: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) } },
         }),
         prisma.sellerReport.count({ where: { status: "PENDING" } }),
+        prisma.shopSetting.findUnique({ where: { id: "singleton" } }),
       ]);
+      const monthlyPrice = settings?.sellerMonthlyPrice ?? 1000;
       const embed = baseEmbed("📊 판매자 운영 현황").addFields(
         { name: "전체 판매자", value: `${total}명`, inline: true },
         { name: "활성 판매자", value: `${active}명`, inline: true },
         { name: "승인 대기", value: `${pending}명`, inline: true },
-        { name: "만료 예정(7일 내)", value: `${expiringSoon}명`, inline: true },
+        { name: "결제 예정(7일 내)", value: `${expiringSoon}명`, inline: true },
         { name: "신고 접수(미처리)", value: `${reportsPending}건`, inline: true },
-        { name: "이번 달 입점료 추정", value: `${(active * 1000).toLocaleString()}원`, inline: true }
+        { name: "이번 달 입점료 추정", value: `${(active * monthlyPrice).toLocaleString()}P`, inline: true }
       );
       return interaction.reply({ embeds: [embed], ephemeral: true });
     }

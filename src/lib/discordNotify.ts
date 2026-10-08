@@ -520,7 +520,16 @@ export async function createGuildCategory(guildId: string, name: string): Promis
   }
 }
 
-/** 보통 텍스트 채널(권한 설정 없이, @everyone 그대로)을 특정 카테고리 밑에 만든다 - 안내/신청/공지/후기 채널용. */
+/**
+ * "누구나 볼 수는 있지만 일반 멤버는 글을 못 쓰는" 채널을 특정 카테고리 밑에 만든다 -
+ * 안내/신청/공지/후기, 판매자 쇼룸 채널용. @everyone에게 VIEW_CHANNEL+READ_MESSAGE_HISTORY는
+ * 명시적으로 허용하고 SEND_MESSAGES만 거부하는 채널 자체 overwrite를 넣는다 - 부모
+ * 카테고리가 @everyone의 VIEW_CHANNEL까지 막아놓은 경우에도(이 서버의 판매자 카테고리가
+ * 실제로 그렇게 되어 있었음), 채널 자체 overwrite가 카테고리 상속보다 항상 우선하므로
+ * 이렇게 해야 일반 서버 멤버에게도 채널이 보인다. 관리자/스태프 역할처럼 카테고리에서
+ * 이미 SEND_MESSAGES를 허용받은 역할은 이 채널에 별도 overwrite가 없으므로 카테고리 설정이
+ * 그대로 유지되어(=계속 쓸 수 있음) 모더레이션에 영향이 없다.
+ */
 export async function createPlainGuildChannel(
   guildId: string,
   name: string,
@@ -532,7 +541,14 @@ export async function createPlainGuildChannel(
     const res = await fetch(`${API_BASE}/guilds/${guildId}/channels`, {
       method: "POST",
       headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ name, type: 0, parent_id: categoryId || undefined }),
+      body: JSON.stringify({
+        name,
+        type: 0,
+        parent_id: categoryId || undefined,
+        permission_overwrites: [
+          { id: guildId, type: 0, allow: String(1024 | 65536), deny: String(2048) }, // @everyone: 보기 허용, 쓰기 거부
+        ],
+      }),
     });
     if (!res.ok) return null;
     const channel = (await res.json()) as { id: string };

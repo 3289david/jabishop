@@ -9,7 +9,11 @@ export function sellerGuideEmbed(monthlyPrice: number, freeTrialDays: number) {
   return baseEmbed("🏪 판매자 시스템")
     .setDescription("서버 안에서 직접 상품을 판매할 수 있는 입점 시스템입니다. 아래 버튼으로 신청해주세요.")
     .addFields(
-      { name: "💰 이용료", value: `월 ${won(monthlyPrice)}\n첫 ${freeTrialDays}일 무료`, inline: true },
+      { name: "💰 이용료", value: `월 ${won(monthlyPrice)} (포인트에서 자동 결제)\n첫 ${freeTrialDays}일 무료`, inline: true },
+      {
+        name: "⚠️ 결제 안내",
+        value: "결제일 7/3/1일 전에 DM으로 미리 알려드립니다. 결제일에 포인트가 부족하면 자동으로 활동이 정지되니 미리 충전해주세요.",
+      },
       {
         name: "✅ 제공 혜택",
         value: [
