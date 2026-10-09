@@ -539,6 +539,8 @@ model ShopSetting {
 
   // 마지막으로 홍보직원 정산 보고 DM을 보낸 시각 - 매주 금요일 1회만 보내기 위해 저장해둔다.
   promoReportLastSentAt DateTime?
+  // 홍보직원으로 등록되면 자동으로 지급하고, 그만두면 회수하는 역할.
+  promoStaffRoleId      String?
 }
 
 // 어드민 웹 패널에서 지정하는 "홍보직원" - 디스코드 서버에 영구 초대 링크를 발급받아

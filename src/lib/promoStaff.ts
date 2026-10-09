@@ -1,5 +1,12 @@
 import { prisma } from "@/lib/prisma";
-import { createPermanentInvite, deleteGuildInvite, sendDiscordDM, getCumulativeSpend } from "@/lib/discordNotify";
+import {
+  createPermanentInvite,
+  deleteGuildInvite,
+  sendDiscordDM,
+  getCumulativeSpend,
+  addGuildMemberRole,
+  removeGuildMemberRole,
+} from "@/lib/discordNotify";
 
 export class PromoStaffError extends Error {}
 
@@ -27,6 +34,11 @@ export async function addPromoStaff(params: { discordUserId: string; name: strin
         data: { discordUserId, name, inviteCode: invite.code, inviteChannelId: invite.channelId },
       });
 
+  const settings = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
+  if (settings?.promoStaffRoleId) {
+    await addGuildMemberRole(guildId, discordUserId, settings.promoStaffRoleId).catch(() => {});
+  }
+
   await sendDiscordDM(discordUserId, {
     embeds: [
       {
@@ -47,12 +59,17 @@ export async function addPromoStaff(params: { discordUserId: string; name: strin
   return staff;
 }
 
-/** 홍보직원을 그만두게 한다 - 초대 링크를 무효화하고 상태만 바꾼다 (이미 쌓인 실적 기록은 남긴다). */
-export async function removePromoStaff(discordUserId: string) {
+/** 홍보직원을 그만두게 한다 - 초대 링크를 무효화하고, 지급했던 역할도 회수한다 (실적 기록은 남긴다). */
+export async function removePromoStaff(discordUserId: string, guildId: string) {
   const staff = await prisma.promoStaff.findUnique({ where: { discordUserId } });
   if (!staff || staff.status !== "ACTIVE") throw new PromoStaffError("활동 중인 홍보직원이 아닙니다.");
 
   await deleteGuildInvite(staff.inviteCode).catch(() => {});
+
+  const settings = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
+  if (settings?.promoStaffRoleId) {
+    await removeGuildMemberRole(guildId, discordUserId, settings.promoStaffRoleId).catch(() => {});
+  }
   await prisma.promoStaff.update({ where: { id: staff.id }, data: { status: "REMOVED", removedAt: new Date() } });
 }
 

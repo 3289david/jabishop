@@ -31,7 +31,7 @@ export async function removePromoStaffAction(formData: FormData) {
   const admin = await requireAdmin();
   const discordUserId = String(formData.get("discordUserId") || "");
   try {
-    await removePromoStaff(discordUserId);
+    await removePromoStaff(discordUserId, requireGuildId());
     await logAdminActivity(admin.id, "PROMO_STAFF_REMOVE", discordUserId);
   } catch (e) {
     if (!(e instanceof PromoStaffError)) throw e;
