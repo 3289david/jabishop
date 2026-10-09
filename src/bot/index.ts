@@ -45,6 +45,8 @@ import { runForGuild, resolveShopByGuildId } from "@/lib/shop";
 import { startShopBillingLoop } from "@/bot/shopBillingLoop";
 import { startSellerBillingLoop } from "@/bot/sellerBillingLoop";
 import { ensureShopSubscriptionTier } from "@/lib/orders";
+import { startPromoInviteTracking } from "@/bot/promoInviteTracking";
+import { startPromoStaffWeeklyReportLoop } from "@/bot/promoStaffWeeklyReport";
 
 // 관리자 근무 현황 자동 감지(온라인=출근/오프라인=일시중지)에는 Presence Intent가 필요하다.
 // 디스코드 개발자 포털 > Bot > Privileged Gateway Intents에서 "PRESENCE INTENT"를 켜지
@@ -74,6 +76,8 @@ client.once(Events.ClientReady, (c) => {
   startAdminDutyPanelLoop(client);
   startShopBillingLoop();
   startSellerBillingLoop();
+  startPromoInviteTracking(client).catch((e) => console.error("홍보직원 초대 추적 초기화 실패:", e));
+  startPromoStaffWeeklyReportLoop();
 });
 
 client.on(Events.MessageCreate, (message) => {

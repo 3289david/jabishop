@@ -63,6 +63,7 @@ import { sellerProductCommand } from "@/bot/commands/sellerProduct";
 import { sellerListCommand, sellerStatsCommand } from "@/bot/commands/sellerList";
 import { sellerReportCommand } from "@/bot/commands/sellerReport";
 import { sellerManageCommand } from "@/bot/commands/sellerAdmin";
+import { promoStaffCommand } from "@/bot/commands/promoStaff";
 
 export const commands: BotCommand[] = [
   // 패널 (버튼 UI)
@@ -98,6 +99,7 @@ export const commands: BotCommand[] = [
   gachaSpinCommand,
   leaderboardCommand,
   leaderboardPrivacyCommand,
+  promoStaffCommand,
   // 관리자 연동
   adminLinkCommand,
   adminUnlinkCommand,

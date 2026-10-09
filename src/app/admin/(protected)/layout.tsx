@@ -22,6 +22,7 @@ const NAV: { href: string; label: string }[] = [
   { href: "/admin/exchanges", label: "교환 관리" },
   { href: "/admin/partners", label: "파트너 관리" },
   { href: "/admin/sellers", label: "판매자 관리" },
+  { href: "/admin/promo-staff", label: "홍보직원 관리" },
   { href: "/admin/coupons", label: "쿠폰 관리" },
   { href: "/admin/points", label: "포인트 관리" },
   { href: "/admin/reviews", label: "리뷰 관리" },

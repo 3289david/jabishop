@@ -636,6 +636,54 @@ export async function createGuildRole(guildId: string, name: string, color?: num
   }
 }
 
+/**
+ * 영구(만료 없음, 무제한 사용) 디스코드 서버 초대 링크를 만든다 - 홍보직원용.
+ * 특정 채널을 못 고르니, 서버의 "시스템 채널"(기본 입장 안내 채널)이 있으면 거기,
+ * 없으면 봇이 볼 수 있는 가장 앞쪽 텍스트 채널에 건다.
+ */
+export async function createPermanentInvite(guildId: string): Promise<{ code: string; channelId: string } | null> {
+  const token = process.env.DISCORD_BOT_TOKEN;
+  if (!token) return null;
+  try {
+    const guildRes = await fetch(`${API_BASE}/guilds/${guildId}`, { headers: { Authorization: `Bot ${token}` } });
+    if (!guildRes.ok) return null;
+    const guild = (await guildRes.json()) as { system_channel_id: string | null };
+
+    let channelId = guild.system_channel_id;
+    if (!channelId) {
+      const chRes = await fetch(`${API_BASE}/guilds/${guildId}/channels`, { headers: { Authorization: `Bot ${token}` } });
+      if (!chRes.ok) return null;
+      const channels = (await chRes.json()) as { id: string; type: number; position: number }[];
+      const textChannels = channels.filter((c) => c.type === 0).sort((a, b) => a.position - b.position);
+      channelId = textChannels[0]?.id ?? null;
+    }
+    if (!channelId) return null;
+
+    const res = await fetch(`${API_BASE}/channels/${channelId}/invites`, {
+      method: "POST",
+      headers: { Authorization: `Bot ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ max_age: 0, max_uses: 0, unique: true, temporary: false }),
+    });
+    if (!res.ok) return null;
+    const invite = (await res.json()) as { code: string };
+    return { code: invite.code, channelId };
+  } catch {
+    return null;
+  }
+}
+
+/** 홍보직원 초대 링크를 무효화한다 (퇴출 시). */
+export async function deleteGuildInvite(code: string): Promise<boolean> {
+  const token = process.env.DISCORD_BOT_TOKEN;
+  if (!token) return false;
+  try {
+    const res = await fetch(`${API_BASE}/invites/${code}`, { method: "DELETE", headers: { Authorization: `Bot ${token}` } });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 /** 디스코드 웹훅 URL로 텍스트 메시지를 보낸다 (봇 토큰 불필요 - 웹훅 자체가 인증 수단). */
 export async function sendWebhookMessage(webhookUrl: string, content: string): Promise<boolean> {
   try {
