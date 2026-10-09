@@ -82,6 +82,9 @@ export const purchaseCommand: BotCommand = {
       if (order.referralReward) {
         embed.addFields({ name: "🎁 친구 초대 보상", value: `첫 구매 보상 +${pt(order.referralReward.refereeReward)}가 지급되었습니다.` });
       }
+      if (order.bonusOrder?.artwork) {
+        embed.addFields({ name: "🎁 1+1 이벤트 보너스!", value: `"${order.bonusOrder.artwork.title}" 계정을 하나 더 받았습니다 (DM으로도 전달됨).` });
+      }
 
       const files = [];
       if (artwork) {

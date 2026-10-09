@@ -30,7 +30,7 @@ export const tierListCommand: BotCommand = {
     for (const t of tiers.slice(0, MAX_EMBED_FIELDS)) {
       embed.addFields({
         name: `${t.name} (${t.slug})`,
-        value: `${won(t.price)} · 재고 ${t._count.artworks}개 · ${t.status}${t.category ? ` · ${t.category}` : ""}`,
+        value: `${won(t.price)} · 재고 ${t._count.artworks}개 · ${t.status}${t.category ? ` · ${t.category}` : ""}${t.buyOneGetOneEnabled ? " · 🎁1+1" : ""}`,
       });
     }
     if (tiers.length > MAX_EMBED_FIELDS) {
@@ -85,7 +85,10 @@ export const tierUpdateCommand: BotCommand = {
     .addStringOption((o) => o.setName("설명").setDescription("새 설명"))
     .addIntegerOption((o) => o.setName("구매제한").setDescription("1인당 구매 제한 (0=무제한)"))
     .addStringOption((o) => o.setName("카테고리").setDescription("구매하기 패널에서 묶일 카테고리 (빈 문자열=기타)"))
-    .addIntegerOption((o) => o.setName("원가").setDescription("계정 1개당 원가 (순이익/적자 계산용)")),
+    .addIntegerOption((o) => o.setName("원가").setDescription("계정 1개당 원가 (순이익/적자 계산용)"))
+    .addBooleanOption((o) =>
+      o.setName("원플러스원적용").setDescription("켜면 이 등급은 구매할 때마다 재고가 있으면 하나 더 공짜로 지급 (전역 스위치도 켜야 동작)")
+    ),
   autocomplete: tierAutocomplete,
   async execute(interaction) {
     const admin = await requireLinkedAdmin(interaction.user.id);
@@ -99,6 +102,7 @@ export const tierUpdateCommand: BotCommand = {
     const purchaseLimit = interaction.options.getInteger("구매제한");
     const category = interaction.options.getString("카테고리");
     const costPrice = interaction.options.getInteger("원가");
+    const buyOneGetOneEnabled = interaction.options.getBoolean("원플러스원적용");
 
     await prisma.tier.update({
       where: { id: tier.id },
@@ -109,6 +113,7 @@ export const tierUpdateCommand: BotCommand = {
         ...(purchaseLimit != null ? { purchaseLimitPerUser: purchaseLimit === 0 ? null : purchaseLimit } : {}),
         ...(category != null ? { category: category === "" ? null : category } : {}),
         ...(costPrice != null ? { costPrice } : {}),
+        ...(buyOneGetOneEnabled != null ? { buyOneGetOneEnabled } : {}),
       },
     });
     await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "TIER_UPDATE", target: tier.id } });

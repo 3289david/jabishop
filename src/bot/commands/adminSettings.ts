@@ -58,6 +58,7 @@ export const settingsViewCommand: BotCommand = {
           `타임세일: ${s?.flashSaleEventEnabled ? "🟢 켜짐" : "⚪ 꺼짐"}`,
           `친구 초대: ${s?.referralEventEnabled ? "🟢 켜짐" : "⚪ 꺼짐"}`,
           `룰렛/뽑기: ${s?.gachaEventEnabled ? "🟢 켜짐" : "⚪ 꺼짐"} (1회 ${s?.gachaCostPoints ?? 100}P)`,
+          `1+1: ${s?.buyOneGetOneEventEnabled ? "🟢 켜짐" : "⚪ 꺼짐"} (등급별 적용은 /등급수정 1+1적용)`,
         ].join("\n"),
       }
     );
@@ -110,7 +111,10 @@ export const settingsUpdateCommand: BotCommand = {
     )
     .addBooleanOption((o) => o.setName("친구초대이벤트").setDescription("켜면 /초대코드등록·첫 구매 보상 지급이 작동"))
     .addBooleanOption((o) => o.setName("룰렛이벤트").setDescription("켜면 /룰렛돌리기 사용 가능"))
-    .addIntegerOption((o) => o.setName("룰렛비용").setDescription("룰렛 1회 참가 비용 (포인트, 기본 100)").setMinValue(1)),
+    .addIntegerOption((o) => o.setName("룰렛비용").setDescription("룰렛 1회 참가 비용 (포인트, 기본 100)").setMinValue(1))
+    .addBooleanOption((o) =>
+      o.setName("원플러스원이벤트").setDescription("전역 스위치 - 켜면 /등급수정에서 원플러스원적용된 등급들이 실제로 동작함")
+    ),
   async execute(interaction) {
     const admin = await requireLinkedAdmin(interaction.user.id);
     requireSuperRole(admin.role);
@@ -139,6 +143,7 @@ export const settingsUpdateCommand: BotCommand = {
     const referralEventEnabled = interaction.options.getBoolean("친구초대이벤트");
     const gachaEventEnabled = interaction.options.getBoolean("룰렛이벤트");
     const gachaCostPoints = interaction.options.getInteger("룰렛비용");
+    const buyOneGetOneEventEnabled = interaction.options.getBoolean("원플러스원이벤트");
 
     await prisma.shopSetting.upsert({
       where: { id: "singleton" },
@@ -167,6 +172,7 @@ export const settingsUpdateCommand: BotCommand = {
         ...(referralEventEnabled != null ? { referralEventEnabled } : {}),
         ...(gachaEventEnabled != null ? { gachaEventEnabled } : {}),
         ...(gachaCostPoints != null ? { gachaCostPoints } : {}),
+        ...(buyOneGetOneEventEnabled != null ? { buyOneGetOneEventEnabled } : {}),
       },
       create: {
         id: "singleton",
@@ -194,6 +200,7 @@ export const settingsUpdateCommand: BotCommand = {
         referralEventEnabled: referralEventEnabled ?? false,
         gachaEventEnabled: gachaEventEnabled ?? false,
         ...(gachaCostPoints != null ? { gachaCostPoints } : {}),
+        buyOneGetOneEventEnabled: buyOneGetOneEventEnabled ?? false,
       },
     });
     await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "SETTINGS_UPDATE" } });

@@ -26,6 +26,76 @@ import { provisionShop } from "@/lib/provisionShop";
 import { getAppOrigin } from "@/lib/appUrl";
 import type { Tier } from "@prisma/client";
 
+/**
+ * "1+1" 이벤트 - 이 등급이 켜져있고(Tier.buyOneGetOneEnabled) 전역 스위치도 켜져있으면
+ * (ShopSetting.buyOneGetOneEventEnabled), 결제가 이미 끝난 뒤 추가로 재고 1개를 더
+ * 무료로(금액 0) 지급한다. 메인 구매 트랜잭션이 끝난 뒤 별도로 시도하는 best-effort라,
+ * 보너스 재고가 없어도(막 품절됨 등) 이미 완료된 원래 구매에는 전혀 영향을 주지 않는다.
+ */
+async function tryGrantBuyOneGetOneBonus(userId: string, tier: Tier, forOrderId: string) {
+  if (!tier.buyOneGetOneEnabled) return null;
+  const settings = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
+  if (!settings?.buyOneGetOneEventEnabled) return null;
+
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const orderNo = await generateOrderNo();
+      const bonusOrder = await tx.order.create({
+        data: {
+          orderNo,
+          userId,
+          tierId: tier.id,
+          priceAtPurchase: 0,
+          discountAmount: 0,
+          pointsUsed: 0,
+          finalAmount: 0,
+          status: ORDER_STATUS.RESERVED,
+          isBonusOrder: true,
+          bonusForOrderId: forOrderId,
+        },
+      });
+
+      const reserved = await tx.$executeRawUnsafe(
+        `UPDATE Artwork
+         SET status = 'RESERVED', reservedOrderId = ?, reservedAt = CURRENT_TIMESTAMP
+         WHERE id = (
+           SELECT id FROM Artwork
+           WHERE tierId = ? AND status = 'AVAILABLE'
+           ORDER BY RANDOM() LIMIT 1
+         )
+         AND status = 'AVAILABLE'`,
+        bonusOrder.id,
+        tier.id
+      );
+      if (reserved === 0) {
+        // 보너스용 재고가 없다 - 조용히 취소하고 null 반환 (원래 구매는 이미 끝났으므로 영향 없음).
+        await tx.order.delete({ where: { id: bonusOrder.id } });
+        return null;
+      }
+
+      const now = new Date();
+      await tx.artwork.update({ where: { reservedOrderId: bonusOrder.id }, data: { status: ARTWORK_STATUS.SOLD, soldAt: now } });
+      const completedBonusOrder = await tx.order.update({
+        where: { id: bonusOrder.id },
+        data: { status: ORDER_STATUS.COMPLETED, paidAt: now, drawnAt: now, completedAt: now },
+        include: { artwork: true },
+      });
+      await tx.notification.create({
+        data: {
+          userId,
+          orderId: bonusOrder.id,
+          type: "ORDER_COMPLETED",
+          title: "🎁 1+1 보너스 지급 완료",
+          message: `"${tier.name}" 1+1 이벤트로 계정을 하나 더 받았습니다!`,
+        },
+      });
+      return completedBonusOrder;
+    });
+  } catch {
+    return null;
+  }
+}
+
 export class OrderError extends Error {
   code: string;
   constructor(code: string, message: string) {
@@ -244,7 +314,7 @@ async function purchaseShopSubscriptionTier(
     },
   });
 
-  return { ...completedOrder, artwork, luckyCoupon: null, referralReward: null };
+  return { ...completedOrder, artwork, luckyCoupon: null, referralReward: null, bonusOrder: null };
 }
 
 /**
@@ -458,11 +528,22 @@ export async function purchaseTier(params: {
     return { ...completedOrder, luckyCoupon, referralReward };
   });
 
+  // "1+1" 이벤트 보너스 지급 시도 - 메인 구매가 이미 끝난 뒤라, 보너스 재고가 없어도
+  // 원래 구매에는 전혀 영향이 없다.
+  const bonusOrder = await tryGrantBuyOneGetOneBonus(userId, completedOrder.tier, completedOrder.id);
+
   // 웹/봇 어느 쪽에서 구매하든, 디스코드 계정이 연동되어 있으면 결과를 DM으로도 보낸다.
   // 실패해도(DM 차단 등) 구매 자체는 이미 완료된 상태이므로 조용히 무시한다.
   notifyPurchaseByDM(userId, completedOrder.id).catch(() => {});
+  if (bonusOrder) {
+    notifyPurchaseByDM(userId, bonusOrder.id, {
+      title: "🎁 1+1 이벤트 보너스 지급!",
+      description: `**${completedOrder.tier.name}** 1+1 이벤트로 계정을 하나 더 받았습니다!`,
+    }).catch(() => {});
+  }
 
-  // 재고 부족/품절 임박 시 관리자에게 알림 (핵심 요구사항: 재고 부족 방지).
+  // 재고 부족/품절 임박 시 관리자에게 알림 (핵심 요구사항: 재고 부족 방지). 1+1 보너스로
+  // 하나 더 빠져나갔을 수 있으니 그걸 반영한 뒤의 재고로 확인한다.
   prisma.artwork
     .count({ where: { tierId, status: ARTWORK_STATUS.AVAILABLE } })
     .then((remaining) => notifyLowStockIfNeeded(tierId, remaining))
@@ -480,7 +561,7 @@ export async function purchaseTier(params: {
     await syncPurchaseTierRoles(user.discordId, spend, guildId);
   })().catch(() => {});
 
-  return completedOrder;
+  return { ...completedOrder, bonusOrder };
 }
 
 /**
