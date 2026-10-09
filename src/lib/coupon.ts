@@ -12,13 +12,14 @@ export function computeDiscount(coupon: Coupon, baseAmount: number, tierId: stri
     throw new CouponError(`최소 주문 금액 ${coupon.minOrderAmount.toLocaleString()}원 이상부터 사용 가능합니다.`);
 
   if (coupon.applicableTierIds) {
+    let ids: string[] = [];
     try {
-      const ids: string[] = JSON.parse(coupon.applicableTierIds);
-      if (ids.length > 0 && !ids.includes(tierId)) {
-        throw new CouponError("해당 상품에는 사용할 수 없는 쿠폰입니다.");
-      }
+      ids = JSON.parse(coupon.applicableTierIds);
     } catch {
-      // 파싱 실패 시 제한 없음으로 간주
+      ids = []; // 파싱 실패 시 제한 없음으로 간주
+    }
+    if (ids.length > 0 && !ids.includes(tierId)) {
+      throw new CouponError("해당 상품에는 사용할 수 없는 쿠폰입니다.");
     }
   }
 

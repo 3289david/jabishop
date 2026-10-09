@@ -198,8 +198,15 @@ export async function handleShopPurchaseModalSubmit(interaction: ModalSubmitInte
   }
 }
 
-export async function showQuantityBuyModal(interaction: ButtonInteraction, slug: string) {
-  const modal = new ModalBuilder().setCustomId(`${QUANTITY_BUY_MODAL_PREFIX}${slug}`).setTitle("수량 지정 구매");
+// 수량 지정 구매도 쿠폰함에서 고른 쿠폰 코드를 이 모달의 customId에 실어서 넘긴다
+// (디스코드 모달은 select 컴포넌트를 못 담아서, 쿠폰 select는 이 모달을 띄우기 전
+// 단계에서 보여준다 - src/bot/interactions/buttons.ts의 startQuantityBuyFlow 참고).
+export async function showQuantityBuyModal(
+  interaction: ButtonInteraction | StringSelectMenuInteraction,
+  slug: string,
+  couponCode: string
+) {
+  const modal = new ModalBuilder().setCustomId(`${QUANTITY_BUY_MODAL_PREFIX}${slug}:${couponCode}`).setTitle("수량 지정 구매");
   const quantity = new TextInputBuilder()
     .setCustomId("quantity")
     .setLabel("구매할 수량 (1~50)")
@@ -209,7 +216,10 @@ export async function showQuantityBuyModal(interaction: ButtonInteraction, slug:
   await interaction.showModal(modal);
 }
 
-export async function handleQuantityBuyModalSubmit(interaction: ModalSubmitInteraction, slug: string) {
+export async function handleQuantityBuyModalSubmit(interaction: ModalSubmitInteraction, param: string) {
+  const sepIndex = param.indexOf(":");
+  const slug = sepIndex === -1 ? param : param.slice(0, sepIndex);
+  const couponCode = sepIndex === -1 ? "" : param.slice(sepIndex + 1);
   const quantity = Number(interaction.fields.getTextInputValue("quantity").replace(/[^0-9]/g, ""));
   await interaction.deferReply({ ephemeral: true });
 
@@ -222,7 +232,13 @@ export async function handleQuantityBuyModalSubmit(interaction: ModalSubmitInter
     const tier = await prisma.tier.findUnique({ where: { slug } });
     if (!tier) throw new OrderError("TIER_NOT_FOUND", "존재하지 않는 등급입니다.");
 
-    const result = await purchaseTierBulk({ userId: user.id, tierId: tier.id, quantity, guildId: interaction.guildId });
+    const result = await purchaseTierBulk({
+      userId: user.id,
+      tierId: tier.id,
+      quantity,
+      couponCode: couponCode || undefined,
+      guildId: interaction.guildId,
+    });
     const luckyNote =
       result.luckyCouponCount > 0 ? ` 🎉 5% 할인 쿠폰 ${result.luckyCouponCount}장 당첨! 쿠폰함에서 확인하세요.` : "";
 

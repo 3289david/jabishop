@@ -9,7 +9,8 @@ import {
 } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { purchaseTier, OrderError } from "@/lib/orders";
-import { listUsableCoupons } from "@/lib/coupon";
+import type { Coupon } from "@prisma/client";
+import { listUsableCoupons, computeDiscount } from "@/lib/coupon";
 import { confirmTopUp, rejectTopUp, TopUpError } from "@/lib/points";
 import { approveRefund, rejectRefund, RefundError } from "@/lib/refunds";
 import { assertActiveShopUser, requireLinkedAdmin, isDiscordGuildAdmin } from "@/bot/discordAuth";
@@ -167,6 +168,46 @@ async function startShopPurchaseFlow(interaction: ButtonInteraction, slug: strin
   });
 }
 
+/** "수량 지정 구매" 버튼도 일반 구매하기 버튼과 동일하게 쿠폰함에서 먼저 쿠폰을 고르게 한다. */
+async function startQuantityBuyFlow(interaction: ButtonInteraction, slug: string) {
+  try {
+    const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
+    const tier = await prisma.tier.findUnique({ where: { slug } });
+    if (!tier) throw new OrderError("TIER_NOT_FOUND", "존재하지 않는 등급입니다.");
+
+    const usable = await listUsableCoupons(user.id, tier.id, tier.price);
+    if (usable.length === 0) {
+      return showQuantityBuyModal(interaction, slug, "");
+    }
+
+    const menu = new StringSelectMenuBuilder()
+      .setCustomId(`qtycoupon:${slug}`)
+      .setPlaceholder("쿠폰함에서 적용할 쿠폰을 선택하세요")
+      .addOptions(
+        { label: "쿠폰 사용 안 함", value: "__none__" },
+        ...usable.slice(0, 24).map(({ coupon, discount }) => ({
+          label: `${coupon.name} (-${discount.toLocaleString()}P)`.slice(0, 100),
+          value: coupon.code,
+        }))
+      );
+    await interaction.reply({
+      content: "적용할 쿠폰을 쿠폰함에서 골라주세요. 선택하면 바로 수량 입력창이 뜹니다.",
+      components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu)],
+      ephemeral: true,
+    });
+  } catch (e) {
+    const message = e instanceof OrderError || e instanceof Error ? e.message : "처리 중 오류가 발생했습니다.";
+    await interaction.reply({ embeds: [errorEmbed(message)], ephemeral: true });
+  }
+}
+
+/** 수량 지정 구매 버튼에서 쿠폰함 select를 고른 뒤 수량 입력 모달을 띄운다. */
+export async function handleQtyCouponSelect(interaction: StringSelectMenuInteraction, slug: string) {
+  const chosen = interaction.values[0];
+  const couponCode = chosen === "__none__" ? "" : chosen;
+  return showQuantityBuyModal(interaction, slug, couponCode);
+}
+
 /** 실제 구매를 실행하고, 결과를 보여줄 임베드/첨부파일을 만든다 (buy 버튼/쿠폰선택 공용). */
 async function buildPurchaseResultPayload(
   userId: string,
@@ -291,19 +332,90 @@ async function handleCartAdd(interaction: ButtonInteraction, slug: string) {
   await interaction.reply({ embeds: [successEmbed(`${tier.name}을(를) 장바구니에 담았습니다.`)], ephemeral: true });
 }
 
+type CartItemWithTier = { id: string; tierId: string; quantity: number; tier: { name: string; price: number } };
+
 async function handleCartCheckout(interaction: ButtonInteraction) {
-  await interaction.deferUpdate();
   const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
   const items = await prisma.cartItem.findMany({ where: { userId: user.id }, include: { tier: true } });
-  if (items.length === 0) return interaction.editReply({ embeds: [errorEmbed("장바구니가 비어 있습니다.")], components: [] });
+  if (items.length === 0) {
+    await interaction.deferUpdate();
+    return interaction.editReply({ embeds: [errorEmbed("장바구니가 비어 있습니다.")], components: [] });
+  }
 
+  // 장바구니에 담긴 상품 중 하나라도 쓸 수 있는 쿠폰이 있으면 먼저 쿠폰함에서 고르게 한다.
+  // 서로 다른 등급이 섞여 있어도 쿠폰은 한 건의 주문에만 적용되는 구조라, 고른 쿠폰은
+  // 체크아웃 중 적용 가능한 첫 상품에만 적용된다.
+  const seenCodes = new Set<string>();
+  const usable: { coupon: Coupon; discount: number }[] = [];
+  for (const item of items) {
+    const forItem = await listUsableCoupons(user.id, item.tierId, item.tier.price);
+    for (const u of forItem) {
+      if (seenCodes.has(u.coupon.code)) continue;
+      seenCodes.add(u.coupon.code);
+      usable.push(u);
+    }
+  }
+
+  if (usable.length > 0) {
+    const menu = new StringSelectMenuBuilder()
+      .setCustomId("cartcoupon")
+      .setPlaceholder("쿠폰함에서 적용할 쿠폰을 선택하세요")
+      .addOptions(
+        { label: "쿠폰 사용 안 함", value: "__none__" },
+        ...usable.slice(0, 24).map(({ coupon, discount }) => ({
+          label: `${coupon.name} (-${discount.toLocaleString()}P)`.slice(0, 100),
+          value: coupon.code,
+        }))
+      );
+    return interaction.reply({
+      content: "적용할 쿠폰을 쿠폰함에서 골라주세요 (적용 가능한 상품 1개에만 적용됩니다).",
+      components: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu)],
+      ephemeral: true,
+    });
+  }
+
+  await interaction.deferUpdate();
+  await runCartCheckout(interaction, user.id, items);
+}
+
+/** 장바구니 체크아웃 버튼에서 쿠폰함 select를 고른 뒤 실제 체크아웃을 실행한다. */
+export async function handleCartCouponSelect(interaction: StringSelectMenuInteraction) {
+  await interaction.deferUpdate();
+  const chosen = interaction.values[0];
+  const couponCode = chosen === "__none__" ? undefined : chosen;
+  const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
+  const items = await prisma.cartItem.findMany({ where: { userId: user.id }, include: { tier: true } });
+  if (items.length === 0) return interaction.editReply({ content: null, embeds: [errorEmbed("장바구니가 비어 있습니다.")], components: [] });
+  await runCartCheckout(interaction, user.id, items, couponCode);
+}
+
+async function runCartCheckout(
+  interaction: ButtonInteraction | StringSelectMenuInteraction,
+  userId: string,
+  items: CartItemWithTier[],
+  couponCode?: string
+) {
+  const coupon = couponCode ? await prisma.coupon.findUnique({ where: { code: couponCode } }) : null;
+  let couponApplied = false;
   let successCount = 0;
   let luckyCouponCount = 0;
   const errors: string[] = [];
   for (const item of items) {
     for (let i = 0; i < item.quantity; i++) {
+      // 고른 쿠폰이 이 상품에도 적용 가능한지 미리 확인해둔다 - 적용 안 되는
+      // 상품에까지 쿠폰 코드를 억지로 넘기면 그 상품 구매 자체가 실패해버린다.
+      let useCoupon: string | undefined;
+      if (!couponApplied && coupon) {
+        try {
+          computeDiscount(coupon, item.tier.price, item.tierId);
+          useCoupon = coupon.code;
+        } catch {
+          // 이 상품엔 못 쓰는 쿠폰 - 쿠폰 없이 구매하고, 다른 상품에서 다시 시도한다.
+        }
+      }
       try {
-        const order = await purchaseTier({ userId: user.id, tierId: item.tierId, guildId: interaction.guildId });
+        const order = await purchaseTier({ userId, tierId: item.tierId, guildId: interaction.guildId, couponCode: useCoupon });
+        if (useCoupon) couponApplied = true;
         successCount++;
         if (order.luckyCoupon) luckyCouponCount++;
         await prisma.cartItem.update({ where: { id: item.id }, data: { quantity: { decrement: 1 } } }).catch(() => {});
@@ -314,14 +426,15 @@ async function handleCartCheckout(interaction: ButtonInteraction) {
       }
     }
   }
-  await prisma.cartItem.deleteMany({ where: { userId: user.id, quantity: { lte: 0 } } });
+  await prisma.cartItem.deleteMany({ where: { userId, quantity: { lte: 0 } } });
 
   const luckyNote = luckyCouponCount > 0 ? ` 🎉 5% 할인 쿠폰 ${luckyCouponCount}장 당첨! 쿠폰함에서 확인하세요.` : "";
+  const couponNote = couponApplied ? " 🎟️ 쿠폰이 적용되었습니다." : "";
   const embed =
     errors.length > 0
-      ? errorEmbed(`${successCount}건 결제 완료.${luckyNote}\n실패: ${errors.join(" / ")}`)
-      : successEmbed(`${successCount}건 결제가 완료되었습니다. 계정은 DM 또는 /주문내역에서 확인하세요.${luckyNote}`);
-  await interaction.editReply({ embeds: [embed], components: [] });
+      ? errorEmbed(`${successCount}건 결제 완료.${luckyNote}${couponNote}\n실패: ${errors.join(" / ")}`)
+      : successEmbed(`${successCount}건 결제가 완료되었습니다. 계정은 DM 또는 /주문내역에서 확인하세요.${luckyNote}${couponNote}`);
+  await interaction.editReply({ content: null, embeds: [embed], components: [] });
 }
 
 async function handleAdminSection(interaction: ButtonInteraction, section: string) {
@@ -536,7 +649,7 @@ export async function handleButtonInteraction(interaction: ButtonInteraction) {
     return;
   }
   if (ns === "buy") return handleBuy(interaction, a);
-  if (ns === "qtybuy") return showQuantityBuyModal(interaction, a);
+  if (ns === "qtybuy") return startQuantityBuyFlow(interaction, a);
   if (ns === "dutystatus") return handleDutyStatusChange(interaction, a);
   if (ns === "restock") return handleRestockSubscribe(interaction, a);
   if (ns === "cartadd") return handleCartAdd(interaction, a);
