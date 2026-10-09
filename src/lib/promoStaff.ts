@@ -6,12 +6,14 @@ import {
   getCumulativeSpend,
   addGuildMemberRole,
   removeGuildMemberRole,
+  guildMemberHasRole,
 } from "@/lib/discordNotify";
 
 export class PromoStaffError extends Error {}
 
-// 초대 1명당 100원, 그중 500원 이상 쓴 사람마다 추가로 200원 - 실제 지급은 관리자가
-// 매주 금요일 보고 DM을 받고 수동으로 계좌 송금한다 (이 모듈은 "얼마 줘야 하는지"만 계산).
+// 초대된 사람이 인증 역할(ShopSetting.verifyRoleId)을 얻어야 1명당 100원이 집계되고,
+// 그중 500원 이상 쓴 사람마다 추가로 200원 - 실제 지급은 관리자가 매주 금요일 보고
+// DM을 받고 수동으로 계좌 송금한다 (이 모듈은 "얼마 줘야 하는지"만 계산).
 export const PROMO_PER_INVITE_REWARD = 100;
 export const PROMO_PER_SPENDER_BONUS = 200;
 export const PROMO_SPENDER_THRESHOLD = 500;
@@ -45,7 +47,7 @@ export async function addPromoStaff(params: { discordUserId: string; name: strin
         title: "🎉 홍보직원으로 등록되었습니다",
         description:
           `아래 영구 링크로 서버에 들어온 사람 수만큼 보상이 계산됩니다.\n` +
-          `- 초대 1명당 ${PROMO_PER_INVITE_REWARD}원\n` +
+          `- 인증까지 완료한 1명당 ${PROMO_PER_INVITE_REWARD}원 (서버 입장만 하고 인증 안 하면 집계되지 않음)\n` +
           `- 그중 ${PROMO_SPENDER_THRESHOLD}원 이상 구매한 사람마다 ${PROMO_PER_SPENDER_BONUS}원 추가\n\n` +
           `**영구 초대 링크:** https://discord.gg/${invite.code}\n\n` +
           `디스코드에서 \`/홍보실적 계좌등록\` 명령어로 정산받을 계좌를 등록해주세요. ` +
@@ -73,21 +75,33 @@ export async function removePromoStaff(discordUserId: string, guildId: string) {
   await prisma.promoStaff.update({ where: { id: staff.id }, data: { status: "REMOVED", removedAt: new Date() } });
 }
 
-/** 이 홍보직원의 초대 수 / 그중 500원 이상 구매자 수 / 지급해야 할 금액을 계산한다. */
-export async function computePromoStaffStats(staffId: string) {
+/**
+ * 이 홍보직원의 초대 수 / 그중 인증(ShopSetting.verifyRoleId)된 인원 수(=100원 집계 대상) /
+ * 그중 500원 이상 구매자 수 / 지급해야 할 금액을 계산한다.
+ */
+export async function computePromoStaffStats(staffId: string, guildId?: string) {
+  const resolvedGuildId = guildId ?? process.env.DISCORD_GUILD_ID;
   const invites = await prisma.promoInvite.findMany({ where: { promoStaffId: staffId } });
   const inviteCount = invites.length;
+  const settings = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
+  const verifyRoleId = settings?.verifyRoleId;
 
+  let verifiedCount = 0;
   let qualifyingCount = 0;
   for (const inv of invites) {
+    if (verifyRoleId && resolvedGuildId) {
+      const verified = await guildMemberHasRole(resolvedGuildId, inv.discordUserId, verifyRoleId);
+      if (verified) verifiedCount++;
+    }
+
     const user = await prisma.user.findFirst({ where: { discordId: inv.discordUserId } });
     if (!user) continue;
     const spend = await getCumulativeSpend(user.id);
     if (spend >= PROMO_SPENDER_THRESHOLD) qualifyingCount++;
   }
 
-  const amountDue = inviteCount * PROMO_PER_INVITE_REWARD + qualifyingCount * PROMO_PER_SPENDER_BONUS;
-  return { inviteCount, qualifyingCount, amountDue };
+  const amountDue = verifiedCount * PROMO_PER_INVITE_REWARD + qualifyingCount * PROMO_PER_SPENDER_BONUS;
+  return { inviteCount, verifiedCount, qualifyingCount, amountDue };
 }
 
 /** 홍보직원 본인이 정산받을 계좌 정보를 등록/수정한다. */

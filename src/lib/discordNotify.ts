@@ -672,6 +672,20 @@ export async function createPermanentInvite(guildId: string): Promise<{ code: st
   }
 }
 
+/** 특정 길드 멤버가 특정 역할을 갖고 있는지 확인한다 (홍보직원 "인증된 초대인원"만 집계할 때 씀). */
+export async function guildMemberHasRole(guildId: string, discordUserId: string, roleId: string): Promise<boolean> {
+  const token = process.env.DISCORD_BOT_TOKEN;
+  if (!token) return false;
+  try {
+    const res = await fetch(`${API_BASE}/guilds/${guildId}/members/${discordUserId}`, { headers: { Authorization: `Bot ${token}` } });
+    if (!res.ok) return false;
+    const member = (await res.json()) as { roles: string[] };
+    return member.roles.includes(roleId);
+  } catch {
+    return false;
+  }
+}
+
 /** 홍보직원 초대 링크를 무효화한다 (퇴출 시). */
 export async function deleteGuildInvite(code: string): Promise<boolean> {
   const token = process.env.DISCORD_BOT_TOKEN;

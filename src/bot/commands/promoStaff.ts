@@ -35,7 +35,7 @@ export const promoStaffCommand: BotCommand = {
       const embed = baseEmbed("📣 내 홍보 실적")
         .addFields(
           { name: "영구 초대 링크", value: `discord.gg/${staff.inviteCode}` },
-          { name: "초대 인원", value: `${stat.inviteCount}명`, inline: true },
+          { name: "초대 인원 (인증완료)", value: `${stat.inviteCount}명 (${stat.verifiedCount}명)`, inline: true },
           { name: "500원↑ 구매자", value: `${stat.qualifyingCount}명`, inline: true },
           { name: "정산 예정액", value: `${stat.amountDue.toLocaleString()}원`, inline: true },
           { name: "등록된 계좌", value: bank }

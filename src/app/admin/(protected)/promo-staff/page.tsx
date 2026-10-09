@@ -10,10 +10,11 @@ export default async function AdminPromoStaffPage() {
     <div className="space-y-4">
       <h1 className="text-xl font-bold">홍보직원 관리</h1>
       <p className="text-sm text-neutral-500">
-        추가하면 디스코드 영구 초대 링크가 자동 발급되어 DM으로 전달됩니다. 그 링크로 서버에 들어온 사람
-        수만큼 1명당 100원, 그중 500원 이상 구매한 사람마다 200원이 추가로 계산됩니다. 실제 지급은 매주
-        금요일 관리자에게 DM으로 안내되는 계좌로 수동 송금합니다 (이 시스템이 자동으로 포인트/돈을
-        지급하지는 않습니다).
+        추가하면 디스코드 영구 초대 링크가 자동 발급되어 DM으로 전달됩니다. 그 링크로 서버에 들어와
+        인증 역할까지 받은 사람 수만큼 1명당 100원, 그중 500원 이상 구매한 사람마다 200원이 추가로
+        계산됩니다 (서버 입장만 하고 인증 안 한 사람은 집계되지 않음). 실제 지급은 매주 금요일
+        관리자에게 DM으로 안내되는 계좌로 수동 송금합니다 (이 시스템이 자동으로 포인트/돈을 지급하지는
+        않습니다).
       </p>
 
       <form action={addPromoStaffAction} className="bg-white border border-neutral-200 rounded-xl p-4 flex flex-wrap items-end gap-2">
@@ -40,7 +41,7 @@ export default async function AdminPromoStaffPage() {
               <th className="text-left px-4 py-2">이름</th>
               <th className="text-left px-4 py-2">디스코드 ID</th>
               <th className="text-left px-4 py-2">초대 링크</th>
-              <th className="text-left px-4 py-2">초대 인원</th>
+              <th className="text-left px-4 py-2">초대 인원(인증완료)</th>
               <th className="text-left px-4 py-2">500원↑ 구매자</th>
               <th className="text-left px-4 py-2">정산 예정액</th>
               <th className="text-left px-4 py-2">계좌 정보</th>
@@ -58,7 +59,9 @@ export default async function AdminPromoStaffPage() {
                   <td className="px-4 py-2 text-xs">
                     <span className="text-indigo-600">discord.gg/{s.inviteCode}</span>
                   </td>
-                  <td className="px-4 py-2 text-xs">{stat.inviteCount}명</td>
+                  <td className="px-4 py-2 text-xs">
+                    {stat.inviteCount}명 ({stat.verifiedCount}명)
+                  </td>
                   <td className="px-4 py-2 text-xs">{stat.qualifyingCount}명</td>
                   <td className="px-4 py-2 text-xs font-medium">{stat.amountDue.toLocaleString()}원</td>
                   <td className="px-4 py-2 text-xs">

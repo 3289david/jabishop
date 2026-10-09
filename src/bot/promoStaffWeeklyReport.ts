@@ -33,7 +33,7 @@ async function maybeSendPromoReport() {
     const bank = s.bankName ? `${s.bankName} ${s.bankAccountNumber} (${s.accountHolder})` : "⚠️ 계좌 미등록";
     fields.push({
       name: `${s.name} (<@${s.discordUserId}>)`,
-      value: `초대 ${stat.inviteCount}명 · 500원↑ 구매자 ${stat.qualifyingCount}명 → **${stat.amountDue.toLocaleString()}원**\n${bank}`,
+      value: `초대 ${stat.inviteCount}명(인증완료 ${stat.verifiedCount}명) · 500원↑ 구매자 ${stat.qualifyingCount}명 → **${stat.amountDue.toLocaleString()}원**\n${bank}`,
     });
   }
 
