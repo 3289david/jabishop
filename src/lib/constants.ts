@@ -169,20 +169,18 @@ export const RESERVATION_HOLD_MINUTES = 30;
 
 // 누적 구매금액(포인트 결제 완료 기준) 등급별 자동 할인율과, 해당 등급의
 // 디스코드 역할 ID가 저장된 ShopSetting 필드명. 높은 금액대부터 순서대로 검사한다.
+// 역할 지급 전용(배지) - 실제 주문 가격에는 아무 영향이 없다. 예전엔 여기 딸린
+// discountPercent로 구매할 때마다 쿠폰 할인 위에 몰래 10%/8%/5%를 추가로 더
+// 깎아주는 자동 할인이 있었는데, "쿠폰은 항상 명시적으로 고른 것만 적용한다"는
+// 이 코드베이스의 원칙과 어긋나는 조용한 매출 손실이라 완전히 제거했다
+// (src/lib/orders.ts purchaseTier 참고).
 export const PURCHASE_TIER_ROLES = [
-  { threshold: 150000, discountPercent: 10, settingKey: "discordRoleTier150k", label: "150,000원 이상" },
-  { threshold: 100000, discountPercent: 8, settingKey: "discordRoleTier100k", label: "100,000원 이상" },
-  { threshold: 50000, discountPercent: 5, settingKey: "discordRoleTier50k", label: "50,000원 이상" },
-  { threshold: 10000, discountPercent: 0, settingKey: "discordRoleTier10k", label: "10,000원 이상" },
-  { threshold: 1, discountPercent: 0, settingKey: "discordRoleBuyer", label: "구매자 (1원 이상)" },
+  { threshold: 150000, settingKey: "discordRoleTier150k", label: "150,000원 이상" },
+  { threshold: 100000, settingKey: "discordRoleTier100k", label: "100,000원 이상" },
+  { threshold: 50000, settingKey: "discordRoleTier50k", label: "50,000원 이상" },
+  { threshold: 10000, settingKey: "discordRoleTier10k", label: "10,000원 이상" },
+  { threshold: 1, settingKey: "discordRoleBuyer", label: "구매자 (1원 이상)" },
 ] as const;
-
-export function getPurchaseTierDiscountPercent(cumulativeSpend: number): number {
-  for (const tier of PURCHASE_TIER_ROLES) {
-    if (cumulativeSpend >= tier.threshold) return tier.discountPercent;
-  }
-  return 0;
-}
 
 // "자판기 판매" - 자비샵 자체를 구매해서 자기 이름으로 운영하는 상품의 고정 slug.
 // 이 등급은 미리 재고(Artwork)를 채워두는 보통 상품과 달리, 구매할 때마다

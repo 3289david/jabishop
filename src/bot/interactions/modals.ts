@@ -13,14 +13,12 @@ import { assertActiveShopUser, requireLinkedAdmin } from "@/bot/discordAuth";
 import { pt } from "@/bot/format";
 import { buildPanel, panelError, panelSuccess } from "@/bot/ui";
 import { createTopUpRequest } from "@/lib/points";
-import { createInquiry } from "@/lib/inquiries";
 import { updatePartnerWebhook, updatePartnerPromoMessage, requestPartner, PartnerError } from "@/lib/partners";
 import { linkReferral, EventError as ReferralError } from "@/lib/events/referral";
 import { purchaseTier, purchaseTierBulk, OrderError } from "@/lib/orders";
 import { readUploadedFile, isUploadKey } from "@/bot/fileStorage";
 
 export const TOPUP_MODAL_ID = "topup_modal";
-export const INQUIRY_MODAL_ID = "inquiry_modal";
 export const ANSWER_MODAL_PREFIX = "answer_modal:";
 export const PARTNER_WEBHOOK_MODAL_ID = "partner_webhook_modal";
 export const PARTNER_APPLY_MODAL_ID = "partner_apply_modal";
@@ -64,27 +62,6 @@ export async function handleTopUpModalSubmit(interaction: ModalSubmitInteraction
       accentColor: 0x22c55e,
     })
   );
-}
-
-export async function showInquiryModal(interaction: ButtonInteraction) {
-  const modal = new ModalBuilder().setCustomId(INQUIRY_MODAL_ID).setTitle("1:1 문의하기");
-  const title = new TextInputBuilder().setCustomId("title").setLabel("제목").setStyle(TextInputStyle.Short).setRequired(true);
-  const content = new TextInputBuilder().setCustomId("content").setLabel("내용").setStyle(TextInputStyle.Paragraph).setRequired(true);
-  modal.addComponents(
-    new ActionRowBuilder<TextInputBuilder>().addComponents(title),
-    new ActionRowBuilder<TextInputBuilder>().addComponents(content)
-  );
-  await interaction.showModal(modal);
-}
-
-export async function handleInquiryModalSubmit(interaction: ModalSubmitInteraction) {
-  const title = interaction.fields.getTextInputValue("title").trim();
-  const content = interaction.fields.getTextInputValue("content").trim();
-  await interaction.deferReply({ ephemeral: true });
-
-  const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
-  const inquiry = await createInquiry(user.id, title, content);
-  await interaction.editReply(panelSuccess(`문의가 등록되었습니다. (ID: ${inquiry.id.slice(-8)})`));
 }
 
 export async function showAnswerModal(interaction: ButtonInteraction, inquiryId: string) {

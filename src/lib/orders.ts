@@ -10,7 +10,6 @@ import {
   TIER_STATUS,
   SHOP_SUBSCRIPTION_TIER_SLUG,
   SHOP_SUBSCRIPTION_GUIDE_CHANNEL_ID,
-  getPurchaseTierDiscountPercent,
 } from "@/lib/constants";
 import {
   notifyPurchaseByDM,
@@ -405,17 +404,6 @@ export async function purchaseTier(params: {
     if (flashSale && flashSale.discount > discountAmount) {
       discountAmount = flashSale.discount;
       couponId = null;
-    }
-
-    // 누적 구매금액(이 주문 이전 기준) 등급에 따른 자동 할인. 쿠폰 할인 이후 금액에 추가로 적용된다.
-    const priorSpend = await tx.order.aggregate({
-      where: { userId, status: ORDER_STATUS.COMPLETED },
-      _sum: { finalAmount: true },
-    });
-    const tierDiscountPercent = getPurchaseTierDiscountPercent(priorSpend._sum.finalAmount ?? 0);
-    if (tierDiscountPercent > 0) {
-      const afterCoupon = baseAmount - discountAmount;
-      discountAmount += Math.floor((afterCoupon * tierDiscountPercent) / 100);
     }
 
     const finalAmount = Math.max(baseAmount - discountAmount, 0);

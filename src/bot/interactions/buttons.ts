@@ -21,7 +21,6 @@ import { pt } from "@/bot/format";
 import { buildPanel, panelError, panelSuccess, ephemeral } from "@/bot/ui";
 import {
   showTopUpModal,
-  showInquiryModal,
   showAnswerModal,
   showPartnerWebhookModal,
   showPartnerApplyModal,
@@ -640,7 +639,6 @@ export async function handleButtonInteraction(interaction: ButtonInteraction) {
     if (a === "cart") return handlePanelCart(interaction);
     if (a === "orders") return handlePanelOrders(interaction);
     if (a === "coupons") return handlePanelCoupons(interaction);
-    if (a === "inquiry") return showInquiryModal(interaction);
     return;
   }
   if (ns === "buy") return handleBuy(interaction, a);

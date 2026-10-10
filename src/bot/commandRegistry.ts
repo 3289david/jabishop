@@ -6,11 +6,8 @@ import { orderListCommand, orderDetailCommand } from "@/bot/commands/orders";
 import { pointsCommand, topUpCommand } from "@/bot/commands/points";
 import { couponListCommand } from "@/bot/commands/coupons";
 import { reviewCreateCommand } from "@/bot/commands/reviews";
-import { inquiryCreateCommand, inquiryListCommand } from "@/bot/commands/inquiries";
 import { reportCreateCommand } from "@/bot/commands/reports";
 import { notificationsCommand } from "@/bot/commands/notifications";
-import { refundRequestCommand } from "@/bot/commands/refunds";
-import { exchangeRequestCommand } from "@/bot/commands/exchanges";
 import { partnerRequestCommand, partnerPanelCommand } from "@/bot/commands/partners";
 import { adminLinkCommand } from "@/bot/commands/adminLink";
 import { adminUnlinkCommand } from "@/bot/commands/adminUnlink";
@@ -87,12 +84,8 @@ export const commands: BotCommand[] = [
   topUpCommand,
   couponListCommand,
   reviewCreateCommand,
-  inquiryCreateCommand,
-  inquiryListCommand,
   reportCreateCommand,
   notificationsCommand,
-  refundRequestCommand,
-  exchangeRequestCommand,
   partnerRequestCommand,
   checkInCommand,
   referralCodeCommand,

@@ -4,7 +4,6 @@ import { commandsByName } from "@/bot/commandRegistry";
 import { ADMIN_LINK_MODAL_ID, handleAdminLinkModalSubmit } from "@/bot/commands/adminLink";
 import {
   TOPUP_MODAL_ID,
-  INQUIRY_MODAL_ID,
   ANSWER_MODAL_PREFIX,
   PARTNER_WEBHOOK_MODAL_ID,
   PARTNER_APPLY_MODAL_ID,
@@ -13,7 +12,6 @@ import {
   QUANTITY_BUY_MODAL_PREFIX,
   SHOP_PURCHASE_MODAL_PREFIX,
   handleTopUpModalSubmit,
-  handleInquiryModalSubmit,
   handleAnswerModalSubmit,
   handlePartnerWebhookModalSubmit,
   handlePartnerApplyModalSubmit,
@@ -188,7 +186,6 @@ async function handleInteraction(interaction: Interaction) {
     if (interaction.isModalSubmit()) {
       if (interaction.customId === ADMIN_LINK_MODAL_ID) return handleAdminLinkModalSubmit(interaction);
       if (interaction.customId === TOPUP_MODAL_ID) return handleTopUpModalSubmit(interaction);
-      if (interaction.customId === INQUIRY_MODAL_ID) return handleInquiryModalSubmit(interaction);
       if (interaction.customId.startsWith(ANSWER_MODAL_PREFIX)) {
         return handleAnswerModalSubmit(interaction, interaction.customId.slice(ANSWER_MODAL_PREFIX.length));
       }

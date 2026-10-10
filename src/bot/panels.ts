@@ -30,8 +30,7 @@ export async function mainPanelPayload() {
   );
   const row2 = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder().setCustomId("panel:orders").setLabel("📦 주문내역").setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId("panel:coupons").setLabel("🎟️ 쿠폰함").setStyle(ButtonStyle.Secondary),
-    new ButtonBuilder().setCustomId("panel:inquiry").setLabel("💬 문의하기").setStyle(ButtonStyle.Secondary)
+    new ButtonBuilder().setCustomId("panel:coupons").setLabel("🎟️ 쿠폰함").setStyle(ButtonStyle.Secondary)
   );
   return buildPanel({
     title: `🎨 ${shopName}`,
