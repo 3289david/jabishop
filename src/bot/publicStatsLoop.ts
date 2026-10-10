@@ -1,6 +1,6 @@
 import type { Client } from "discord.js";
 import { prisma } from "@/lib/prisma";
-import { publicStatsEmbed } from "@/bot/publicStats";
+import { publicStatsPayload } from "@/bot/publicStats";
 import { forEachShop } from "@/lib/shop";
 
 // 공개 통계 패널이 항상 최신 상태를 보여주도록, 게시된 메시지를 주기적으로 편집한다.
@@ -16,8 +16,8 @@ export async function updatePublicStatsPanel(client: Client) {
   const message = await channel.messages.fetch(settings.publicStatsMessageId).catch(() => null);
   if (!message) return;
 
-  const embed = await publicStatsEmbed();
-  await message.edit({ embeds: [embed] }).catch(() => {});
+  const payload = await publicStatsPayload();
+  await message.edit({ ...payload, embeds: [] }).catch(() => {});
 }
 
 async function updatePublicStatsPanelForAllShops(client: Client) {

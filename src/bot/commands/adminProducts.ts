@@ -1,7 +1,8 @@
 import { SlashCommandBuilder } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { requireLinkedAdmin } from "@/bot/discordAuth";
-import { baseEmbed, errorEmbed, successEmbed, won } from "@/bot/format";
+import { won } from "@/bot/format";
+import { buildPanel, panelError, panelSuccess, ephemeral } from "@/bot/ui";
 import { tierAutocomplete } from "@/bot/autocomplete";
 import type { BotCommand } from "@/bot/types";
 
@@ -23,20 +24,21 @@ export const tierListCommand: BotCommand = {
       orderBy: { sortOrder: "asc" },
       include: { _count: { select: { artworks: true } } },
     });
-    const embed = baseEmbed("📋 등급 목록");
-    // 디스코드 임베드는 필드를 25개까지만 허용한다 - 그 이상이면 addFields가 에러를 던져
+    // 디스코드 컴포넌트는 필드를 25개까지만 허용한다 - 그 이상이면 에러를 던져
     // 목록이 아예 안 보이는 상태가 되므로, 여기서 미리 잘라서 방지한다.
-    const MAX_EMBED_FIELDS = 25;
-    for (const t of tiers.slice(0, MAX_EMBED_FIELDS)) {
-      embed.addFields({
-        name: `${t.name} (${t.slug})`,
-        value: `${won(t.price)} · 재고 ${t._count.artworks}개 · ${t.status}${t.category ? ` · ${t.category}` : ""}${t.buyOneGetOneEnabled ? " · 🎁1+1" : ""}`,
-      });
-    }
-    if (tiers.length > MAX_EMBED_FIELDS) {
-      embed.setDescription(`전체 ${tiers.length}개 중 ${MAX_EMBED_FIELDS}개만 표시됩니다.`);
-    }
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    const MAX_FIELDS = 25;
+    await interaction.reply(
+      ephemeral(
+        buildPanel({
+          title: "📋 등급 목록",
+          description: tiers.length > MAX_FIELDS ? `전체 ${tiers.length}개 중 ${MAX_FIELDS}개만 표시됩니다.` : undefined,
+          fields: tiers.slice(0, MAX_FIELDS).map((t) => ({
+            name: `${t.name} (${t.slug})`,
+            value: `${won(t.price)} · 재고 ${t._count.artworks}개 · ${t.status}${t.category ? ` · ${t.category}` : ""}${t.buyOneGetOneEnabled ? " · 🎁1+1" : ""}`,
+          })),
+        })
+      )
+    );
   },
 };
 
@@ -66,7 +68,7 @@ export const tierCreateCommand: BotCommand = {
       data: { slug, name, price, description, purchaseLimitPerUser, category, costPrice },
     });
     await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "TIER_CREATE", target: tier.id, detail: name } });
-    await interaction.reply({ embeds: [successEmbed(`"${name}" 등급이 생성되었습니다. (slug: ${slug})`)], ephemeral: true });
+    await interaction.reply(ephemeral(panelSuccess(`"${name}" 등급이 생성되었습니다. (slug: ${slug})`)));
   },
 };
 
@@ -94,7 +96,7 @@ export const tierUpdateCommand: BotCommand = {
     const admin = await requireLinkedAdmin(interaction.user.id);
     const slug = interaction.options.getString("등급", true);
     const tier = await prisma.tier.findUnique({ where: { slug } });
-    if (!tier) return interaction.reply({ embeds: [errorEmbed("존재하지 않는 등급입니다.")], ephemeral: true });
+    if (!tier) return interaction.reply(ephemeral(panelError("존재하지 않는 등급입니다.")));
 
     const price = interaction.options.getInteger("가격");
     const status = interaction.options.getString("상태");
@@ -117,7 +119,7 @@ export const tierUpdateCommand: BotCommand = {
       },
     });
     await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "TIER_UPDATE", target: tier.id } });
-    await interaction.reply({ embeds: [successEmbed(`"${tier.name}" 등급이 수정되었습니다.`)], ephemeral: true });
+    await interaction.reply(ephemeral(panelSuccess(`"${tier.name}" 등급이 수정되었습니다.`)));
   },
 };
 
@@ -131,20 +133,17 @@ export const tierDeleteCommand: BotCommand = {
     const admin = await requireLinkedAdmin(interaction.user.id);
     const slug = interaction.options.getString("등급", true);
     const tier = await prisma.tier.findUnique({ where: { slug } });
-    if (!tier) return interaction.reply({ embeds: [errorEmbed("존재하지 않는 등급입니다.")], ephemeral: true });
+    if (!tier) return interaction.reply(ephemeral(panelError("존재하지 않는 등급입니다.")));
 
     const artworkCount = await prisma.artwork.count({ where: { tierId: tier.id } });
     if (artworkCount > 0) {
       await prisma.tier.update({ where: { id: tier.id }, data: { status: "HIDDEN" } });
       await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "TIER_HIDE", target: tier.id, detail: "재고 있어 숨김" } });
-      return interaction.reply({
-        embeds: [successEmbed(`"${tier.name}" 등급은 재고(${artworkCount}개)가 있어 삭제 대신 숨김 처리했습니다.`)],
-        ephemeral: true,
-      });
+      return interaction.reply(ephemeral(panelSuccess(`"${tier.name}" 등급은 재고(${artworkCount}개)가 있어 삭제 대신 숨김 처리했습니다.`)));
     }
 
     await prisma.tier.delete({ where: { id: tier.id } });
     await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "TIER_DELETE", target: tier.id, detail: tier.name } });
-    await interaction.reply({ embeds: [successEmbed(`"${tier.name}" 등급이 삭제되었습니다.`)], ephemeral: true });
+    await interaction.reply(ephemeral(panelSuccess(`"${tier.name}" 등급이 삭제되었습니다.`)));
   },
 };

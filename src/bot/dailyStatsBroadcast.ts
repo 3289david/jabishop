@@ -1,6 +1,6 @@
 import type { Client } from "discord.js";
 import { prisma } from "@/lib/prisma";
-import { statsEmbed } from "@/bot/commands/adminStats";
+import { statsPayload } from "@/bot/commands/adminStats";
 import { forEachShop } from "@/lib/shop";
 
 // 하루에 한 번, 관리자가 설정한 공지 채널에 오늘 매출/주문/재고/회원/환불/문의 통계를 자동 게시한다.
@@ -20,8 +20,8 @@ export async function maybeSendDailyStatsBroadcast(client: Client) {
   const channel = await client.channels.fetch(settings.announcementChannelId).catch(() => null);
   if (!channel || !channel.isTextBased() || !("send" in channel)) return;
 
-  const embed = await statsEmbed();
-  await channel.send({ embeds: [embed] }).catch(() => {});
+  const payload = await statsPayload();
+  await channel.send(payload).catch(() => {});
 
   await prisma.shopSetting.update({ where: { id: "singleton" }, data: { dailyStatsLastPosted: new Date() } });
 }

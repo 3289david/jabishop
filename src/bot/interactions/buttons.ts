@@ -457,9 +457,8 @@ async function handleAdminSection(interaction: ButtonInteraction, section: strin
     return interaction.editReply(await tierListPayload());
   }
   if (section === "stats") {
-    const { statsEmbed } = await import("@/bot/commands/adminStats");
-    const embed = await statsEmbed();
-    return interaction.editReply({ embeds: [embed], components: [] });
+    const { statsPayload } = await import("@/bot/commands/adminStats");
+    return interaction.editReply(await statsPayload());
   }
 }
 

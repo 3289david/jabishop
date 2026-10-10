@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { requireLinkedAdmin } from "@/bot/discordAuth";
-import { baseEmbed, errorEmbed, successEmbed } from "@/bot/format";
+import { buildPanel, panelError, panelSuccess, ephemeral } from "@/bot/ui";
 import { approvePartner, rejectPartner, adminCreatePartner, PartnerError } from "@/lib/partners";
 import type { BotCommand } from "@/bot/types";
 
@@ -14,15 +14,18 @@ export const partnerListCommand: BotCommand = {
       orderBy: { createdAt: "asc" },
       take: 25,
     });
-    const embed = baseEmbed("🤝 대기 중인 파트너 신청");
-    if (partners.length === 0) embed.setDescription("대기 중인 신청이 없습니다.");
-    for (const p of partners) {
-      embed.addFields({
-        name: `${p.name} (${p.discordTag})`,
-        value: `${p.description ?? "-"} · 웹훅: ${p.webhookUrl ? "등록됨" : "없음"} · ID: \`${p.id}\``,
-      });
-    }
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply(
+      ephemeral(
+        buildPanel({
+          title: "🤝 대기 중인 파트너 신청",
+          description: partners.length === 0 ? "대기 중인 신청이 없습니다." : undefined,
+          fields: partners.map((p) => ({
+            name: `${p.name} (${p.discordTag})`,
+            value: `${p.description ?? "-"} · 웹훅: ${p.webhookUrl ? "등록됨" : "없음"} · ID: \`${p.id}\``,
+          })),
+        })
+      )
+    );
   },
 };
 
@@ -57,21 +60,17 @@ export const partnerCreateCommand: BotCommand = {
         guildId: interaction.guildId,
       });
     } catch (e) {
-      return interaction.editReply({
-        embeds: [errorEmbed(e instanceof PartnerError ? e.message : "생성 중 오류가 발생했습니다.")],
-      });
+      return interaction.editReply(panelError(e instanceof PartnerError ? e.message : "생성 중 오류가 발생했습니다."));
     }
 
     await prisma.adminActivityLog.create({
       data: { adminId: admin.id, action: "PARTNER_ADMIN_CREATE", target: result.partner.id, detail: `${name} → ${target.tag}` },
     });
-    await interaction.editReply({
-      embeds: [
-        successEmbed(
-          `${target.username}님을 파트너로 등록했습니다.${result.channelId ? ` <#${result.channelId}> 채널 생성됨.` : " (채널 생성 안 됨 - 파트너 카테고리 설정을 확인해주세요)"}${result.roleGranted ? " 역할도 지급됨." : ""}`
-        ),
-      ],
-    });
+    await interaction.editReply(
+      panelSuccess(
+        `${target.username}님을 파트너로 등록했습니다.${result.channelId ? ` <#${result.channelId}> 채널 생성됨.` : " (채널 생성 안 됨 - 파트너 카테고리 설정을 확인해주세요)"}${result.roleGranted ? " 역할도 지급됨." : ""}`
+      )
+    );
   },
 };
 
@@ -89,18 +88,14 @@ export const partnerApproveCommand: BotCommand = {
     try {
       result = await approvePartner(id, admin.id, interaction.guildId);
     } catch (e) {
-      return interaction.editReply({
-        embeds: [errorEmbed(e instanceof PartnerError ? e.message : "처리 중 오류가 발생했습니다.")],
-      });
+      return interaction.editReply(panelError(e instanceof PartnerError ? e.message : "처리 중 오류가 발생했습니다."));
     }
     await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "PARTNER_APPROVE", target: id } });
-    await interaction.editReply({
-      embeds: [
-        successEmbed(
-          `파트너를 승인했습니다.${result.channelId ? ` <#${result.channelId}> 채널 생성됨.` : " (채널 생성 안 됨 - 파트너 카테고리 설정을 확인해주세요)"}${result.roleGranted ? " 역할도 지급됨." : ""}`
-        ),
-      ],
-    });
+    await interaction.editReply(
+      panelSuccess(
+        `파트너를 승인했습니다.${result.channelId ? ` <#${result.channelId}> 채널 생성됨.` : " (채널 생성 안 됨 - 파트너 카테고리 설정을 확인해주세요)"}${result.roleGranted ? " 역할도 지급됨." : ""}`
+      )
+    );
   },
 };
 
@@ -117,12 +112,9 @@ export const partnerRejectCommand: BotCommand = {
     try {
       await rejectPartner(id, admin.id, note);
     } catch (e) {
-      return interaction.reply({
-        embeds: [errorEmbed(e instanceof PartnerError ? e.message : "처리 중 오류가 발생했습니다.")],
-        ephemeral: true,
-      });
+      return interaction.reply(ephemeral(panelError(e instanceof PartnerError ? e.message : "처리 중 오류가 발생했습니다.")));
     }
     await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "PARTNER_REJECT", target: id, detail: note } });
-    await interaction.reply({ embeds: [successEmbed("파트너 신청을 거절했습니다.")], ephemeral: true });
+    await interaction.reply(ephemeral(panelSuccess("파트너 신청을 거절했습니다.")));
   },
 };

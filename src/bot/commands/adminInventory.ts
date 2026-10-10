@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { requireLinkedAdmin, getOrCreateShopUser } from "@/bot/discordAuth";
-import { baseEmbed, errorEmbed, successEmbed } from "@/bot/format";
+import { buildPanel, panelError, panelSuccess, ephemeral } from "@/bot/ui";
 import { tierAutocomplete } from "@/bot/autocomplete";
 import { saveBufferToUploads, deleteUploadedFile, isUploadKey } from "@/bot/fileStorage";
 import { grantArtworkToUser, grantArtworkToUserBulk, OrderError } from "@/lib/orders";
@@ -26,9 +26,9 @@ export const artworkCreateCommand: BotCommand = {
     const attachment = interaction.options.getAttachment("파일", true);
 
     const tier = await prisma.tier.findUnique({ where: { slug } });
-    if (!tier) return interaction.editReply({ embeds: [errorEmbed("존재하지 않는 등급입니다.")] });
+    if (!tier) return interaction.editReply(panelError("존재하지 않는 등급입니다."));
     if (await prisma.artwork.findUnique({ where: { code } })) {
-      return interaction.editReply({ embeds: [errorEmbed("이미 사용 중인 재고 코드입니다.")] });
+      return interaction.editReply(panelError("이미 사용 중인 재고 코드입니다."));
     }
 
     const res = await fetch(attachment.url);
@@ -46,7 +46,7 @@ export const artworkCreateCommand: BotCommand = {
       },
     });
     await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "ARTWORK_CREATE", target: artwork.id, detail: code } });
-    await interaction.editReply({ embeds: [successEmbed(`"${code}" 계정이 등록되었습니다.`)] });
+    await interaction.editReply(panelSuccess(`"${code}" 계정이 등록되었습니다.`));
   },
 };
 
@@ -84,12 +84,15 @@ export const artworkListCommand: BotCommand = {
       take: 25,
     });
 
-    const embed = baseEmbed("🖼️ 계정 재고 목록 (최근 25개)");
-    if (artworks.length === 0) embed.setDescription("조건에 맞는 재고가 없습니다.");
-    for (const a of artworks) {
-      embed.addFields({ name: `${a.code} · ${a.tier.name}`, value: `${a.title} · ${a.status}` });
-    }
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply(
+      ephemeral(
+        buildPanel({
+          title: "🖼️ 계정 재고 목록 (최근 25개)",
+          description: artworks.length === 0 ? "조건에 맞는 재고가 없습니다." : undefined,
+          fields: artworks.map((a) => ({ name: `${a.code} · ${a.tier.name}`, value: `${a.title} · ${a.status}` })),
+        })
+      )
+    );
   },
 };
 
@@ -111,14 +114,14 @@ export const artworkStatusCommand: BotCommand = {
     const status = interaction.options.getString("상태", true);
 
     const artwork = await prisma.artwork.findUnique({ where: { code } });
-    if (!artwork) return interaction.reply({ embeds: [errorEmbed("존재하지 않는 재고 코드입니다.")], ephemeral: true });
+    if (!artwork) return interaction.reply(ephemeral(panelError("존재하지 않는 재고 코드입니다.")));
     if (artwork.status === "SOLD" || artwork.status === "RESERVED") {
-      return interaction.reply({ embeds: [errorEmbed("이미 판매/예약된 재고는 상태를 변경할 수 없습니다.")], ephemeral: true });
+      return interaction.reply(ephemeral(panelError("이미 판매/예약된 재고는 상태를 변경할 수 없습니다.")));
     }
 
     await prisma.artwork.update({ where: { id: artwork.id }, data: { status } });
     await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "ARTWORK_UPDATE", target: artwork.id, detail: status } });
-    await interaction.reply({ embeds: [successEmbed(`"${code}" 상태가 ${status}로 변경되었습니다.`)], ephemeral: true });
+    await interaction.reply(ephemeral(panelSuccess(`"${code}" 상태가 ${status}로 변경되었습니다.`)));
   },
 };
 
@@ -132,7 +135,7 @@ export const artworkDeleteCommand: BotCommand = {
     const code = interaction.options.getString("코드", true);
 
     const artwork = await prisma.artwork.findUnique({ where: { code } });
-    if (!artwork) return interaction.reply({ embeds: [errorEmbed("존재하지 않는 재고 코드입니다.")], ephemeral: true });
+    if (!artwork) return interaction.reply(ephemeral(panelError("존재하지 않는 재고 코드입니다.")));
 
     if (artwork.status === ARTWORK_STATUS.SOLD || artwork.status === ARTWORK_STATUS.RESERVED) {
       // 이미 판매/예약된 재고는 실수 삭제를 막기 위해 숨김 처리만 한다 (웹 관리자 패널과 동일한 정책).
@@ -140,10 +143,7 @@ export const artworkDeleteCommand: BotCommand = {
       await prisma.adminActivityLog.create({
         data: { adminId: admin.id, action: "ARTWORK_HIDE", target: artwork.id, detail: "판매/예약 상태라 숨김 처리" },
       });
-      return interaction.reply({
-        embeds: [successEmbed(`"${code}"는 이미 판매/예약되어 삭제 대신 숨김 처리했습니다.`)],
-        ephemeral: true,
-      });
+      return interaction.reply(ephemeral(panelSuccess(`"${code}"는 이미 판매/예약되어 삭제 대신 숨김 처리했습니다.`)));
     }
 
     if (isUploadKey(artwork.fileKey)) await deleteUploadedFile(artwork.fileKey);
@@ -152,7 +152,7 @@ export const artworkDeleteCommand: BotCommand = {
     }
     await prisma.artwork.delete({ where: { id: artwork.id } });
     await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "ARTWORK_DELETE", target: artwork.id, detail: code } });
-    await interaction.reply({ embeds: [successEmbed(`"${code}" 재고가 삭제되었습니다.`)], ephemeral: true });
+    await interaction.reply(ephemeral(panelSuccess(`"${code}" 재고가 삭제되었습니다.`)));
   },
 };
 
@@ -174,7 +174,7 @@ export const artworkGrantCommand: BotCommand = {
     const quantity = interaction.options.getInteger("수량") ?? 1;
 
     const tier = await prisma.tier.findUnique({ where: { slug } });
-    if (!tier) return interaction.editReply({ embeds: [errorEmbed("존재하지 않는 등급입니다.")] });
+    if (!tier) return interaction.editReply(panelError("존재하지 않는 등급입니다."));
 
     const user = await getOrCreateShopUser(target.id, target.tag);
 
@@ -194,13 +194,13 @@ export const artworkGrantCommand: BotCommand = {
         result.dmFailCount > 0
           ? `\n⚠️ 이 중 ${result.dmFailCount}건은 DM 발송에 실패했습니다 (DM 허용을 꺼뒀거나 봇을 차단한 것 같습니다). 마이페이지 주문내역에서 직접 확인하도록 안내해주세요.`
           : "";
-      const embed =
+      const payload =
         result.failedCount > 0
-          ? errorEmbed(
+          ? panelError(
               `${target.username}님에게 "${tier.name}" 계정 ${result.successCount}개 지급 완료 후 중단됨 - ${result.lastError}${dmWarning}`
             )
-          : successEmbed(`${target.username}님에게 "${tier.name}" 계정 ${result.successCount}개를 지급했습니다.${dmWarning}`);
-      await interaction.editReply({ embeds: [embed] });
+          : panelSuccess(`${target.username}님에게 "${tier.name}" 계정 ${result.successCount}개를 지급했습니다.${dmWarning}`);
+      await interaction.editReply(payload);
       return;
     }
 
@@ -212,12 +212,10 @@ export const artworkGrantCommand: BotCommand = {
       const dmWarning = order.dmSent
         ? ""
         : "\n⚠️ DM 발송에 실패했습니다 (서버 멤버 DM 허용을 꺼뒀거나 봇을 차단한 것 같습니다). 마이페이지 주문내역에서 직접 확인하도록 안내해주세요.";
-      await interaction.editReply({
-        embeds: [successEmbed(`${target.username}님에게 "${tier.name}" 계정을 지급했습니다. (주문 #${order.orderNo})${dmWarning}`)],
-      });
+      await interaction.editReply(panelSuccess(`${target.username}님에게 "${tier.name}" 계정을 지급했습니다. (주문 #${order.orderNo})${dmWarning}`));
     } catch (e) {
       const message = e instanceof OrderError ? e.message : "지급 중 오류가 발생했습니다.";
-      await interaction.editReply({ embeds: [errorEmbed(message)] });
+      await interaction.editReply(panelError(message));
     }
   },
 };
@@ -234,11 +232,11 @@ export const artworkBulkDeleteCommand: BotCommand = {
     const slug = interaction.options.getString("등급", true);
     const confirm = interaction.options.getString("확인", true);
     if (confirm !== "삭제") {
-      return interaction.reply({ embeds: [errorEmbed('확인 문구가 일치하지 않습니다. "삭제"를 정확히 입력해주세요.')], ephemeral: true });
+      return interaction.reply(ephemeral(panelError('확인 문구가 일치하지 않습니다. "삭제"를 정확히 입력해주세요.')));
     }
 
     const tier = await prisma.tier.findUnique({ where: { slug } });
-    if (!tier) return interaction.reply({ embeds: [errorEmbed("존재하지 않는 등급입니다.")], ephemeral: true });
+    if (!tier) return interaction.reply(ephemeral(panelError("존재하지 않는 등급입니다.")));
 
     await interaction.deferReply({ ephemeral: true });
 
@@ -264,12 +262,10 @@ export const artworkBulkDeleteCommand: BotCommand = {
         detail: `${result.count}건 삭제${protectedCount > 0 ? `, 판매/예약/교환 이력 ${protectedCount}건은 보존` : ""}`,
       },
     });
-    await interaction.editReply({
-      embeds: [
-        successEmbed(
-          `"${tier.name}" 등급 재고 ${result.count}건을 삭제했습니다.${protectedCount > 0 ? ` (판매/예약/교환 이력 ${protectedCount}건은 보존됨)` : ""}`
-        ),
-      ],
-    });
+    await interaction.editReply(
+      panelSuccess(
+        `"${tier.name}" 등급 재고 ${result.count}건을 삭제했습니다.${protectedCount > 0 ? ` (판매/예약/교환 이력 ${protectedCount}건은 보존됨)` : ""}`
+      )
+    );
   },
 };

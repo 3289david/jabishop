@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, ChannelType } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { requireLinkedAdmin, requireSuperRole } from "@/bot/discordAuth";
-import { baseEmbed, errorEmbed, successEmbed } from "@/bot/format";
+import { buildPanel, panelError, panelSuccess, ephemeral } from "@/bot/ui";
 import { purgeSeedData } from "@/lib/adminMaintenance";
 import type { BotCommand } from "@/bot/types";
 
@@ -10,7 +10,7 @@ export const settingsViewCommand: BotCommand = {
   async execute(interaction) {
     await requireLinkedAdmin(interaction.user.id);
     const s = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
-    const embed = baseEmbed("⚙️ 쇼핑몰 설정").addFields(
+    const fields = [
       { name: "쇼핑몰 이름", value: s?.shopName ?? "-" },
       { name: "인증 역할", value: s?.verifyRoleId ? `<@&${s.verifyRoleId}>` : "미설정" },
       { name: "입금 계좌", value: `${s?.bankName ?? "-"} ${s?.bankAccountNumber ?? ""} (${s?.bankAccountHolder ?? "-"})` },
@@ -60,9 +60,9 @@ export const settingsViewCommand: BotCommand = {
           `룰렛/뽑기: ${s?.gachaEventEnabled ? "🟢 켜짐" : "⚪ 꺼짐"} (1회 ${s?.gachaCostPoints ?? 100}P)`,
           `1+1: ${s?.buyOneGetOneEventEnabled ? "🟢 켜짐" : "⚪ 꺼짐"} (등급별 적용은 /등급수정 1+1적용)`,
         ].join("\n"),
-      }
-    );
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+      },
+    ];
+    await interaction.reply(ephemeral(buildPanel({ title: "⚙️ 쇼핑몰 설정", fields })));
   },
 };
 
@@ -204,7 +204,7 @@ export const settingsUpdateCommand: BotCommand = {
       },
     });
     await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "SETTINGS_UPDATE" } });
-    await interaction.reply({ embeds: [successEmbed("설정이 저장되었습니다.")], ephemeral: true });
+    await interaction.reply(ephemeral(panelSuccess("설정이 저장되었습니다.")));
   },
 };
 
@@ -218,7 +218,7 @@ export const purgeSeedDataCommand: BotCommand = {
     requireSuperRole(admin.role);
     const confirm = interaction.options.getString("확인", true);
     if (confirm !== "삭제") {
-      return interaction.reply({ embeds: [errorEmbed('확인 문구가 일치하지 않습니다. "삭제"를 정확히 입력해주세요.')], ephemeral: true });
+      return interaction.reply(ephemeral(panelError('확인 문구가 일치하지 않습니다. "삭제"를 정확히 입력해주세요.')));
     }
 
     await interaction.deferReply({ ephemeral: true });
@@ -230,10 +230,8 @@ export const purgeSeedDataCommand: BotCommand = {
         detail: `회원 ${result.deletedUsers}명, 주문 ${result.deletedOrders}건, 계정 ${result.deletedArtworks}개 삭제`,
       },
     });
-    await interaction.editReply({
-      embeds: [
-        successEmbed(`데모 데이터 삭제 완료: 회원 ${result.deletedUsers}명, 주문 ${result.deletedOrders}건, 계정 ${result.deletedArtworks}개`),
-      ],
-    });
+    await interaction.editReply(
+      panelSuccess(`데모 데이터 삭제 완료: 회원 ${result.deletedUsers}명, 주문 ${result.deletedOrders}건, 계정 ${result.deletedArtworks}개`)
+    );
   },
 };

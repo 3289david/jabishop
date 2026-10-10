@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { ORDER_STATUS, ARTWORK_STATUS, ADMIN_ROLE, ADMIN_STATUS, TOPUP_STATUS } from "@/lib/constants";
-import { baseEmbed, won } from "@/bot/format";
+import { won } from "@/bot/format";
+import { buildPanel } from "@/bot/ui";
 import { getShopName } from "@/lib/shop";
 
 /**
@@ -20,8 +21,8 @@ export async function getAdminExcludedUserIds(): Promise<string[]> {
   return users.map((u) => u.id);
 }
 
-/** 일반 회원도 볼 수 있는 공개 통계 임베드 - 관리자 전용 정보(환불/문의 대기 등)는 포함하지 않는다. */
-export async function publicStatsEmbed() {
+/** 일반 회원도 볼 수 있는 공개 통계 패널 - 관리자 전용 정보(환불/문의 대기 등)는 포함하지 않는다. */
+export async function publicStatsPayload() {
   const excludedUserIds = await getAdminExcludedUserIds();
 
   const now = new Date();
@@ -85,17 +86,19 @@ export async function publicStatsEmbed() {
   const totalProfit = totalRevenue - totalCost;
 
   const shopName = await getShopName();
-  return baseEmbed(`📊 ${shopName} 실시간 현황`)
-    .setDescription(`${shopName}의 오늘/누적 판매 현황이에요. 몇 분마다 자동으로 갱신됩니다.`)
-    .addFields(
-      { name: "💰 오늘 매출", value: won(todayRevenue), inline: true },
-      { name: "🧾 오늘 판매", value: `${todayOrders.length}건`, inline: true },
-      { name: todayProfit >= 0 ? "🟢 오늘 순이익" : "🔴 오늘 적자", value: won(todayProfit), inline: true },
-      { name: "🏆 누적 매출", value: won(totalRevenue), inline: true },
-      { name: totalProfit >= 0 ? "🟢 누적 순이익" : "🔴 누적 적자", value: won(totalProfit), inline: true },
-      { name: "👥 회원 수", value: `${memberCount.toLocaleString()}명`, inline: true },
-      { name: "🛍️ 구매자 수", value: `${buyerRows.length.toLocaleString()}명`, inline: true },
-      { name: "📦 판매 중인 계정", value: `${stockCount.toLocaleString()}개`, inline: true }
-    )
-    .setTimestamp();
+  return buildPanel({
+    title: `📊 ${shopName} 실시간 현황`,
+    description: `${shopName}의 오늘/누적 판매 현황이에요. 몇 분마다 자동으로 갱신됩니다.`,
+    fields: [
+      { name: "💰 오늘 매출", value: won(todayRevenue) },
+      { name: "🧾 오늘 판매", value: `${todayOrders.length}건` },
+      { name: todayProfit >= 0 ? "🟢 오늘 순이익" : "🔴 오늘 적자", value: won(todayProfit) },
+      { name: "🏆 누적 매출", value: won(totalRevenue) },
+      { name: totalProfit >= 0 ? "🟢 누적 순이익" : "🔴 누적 적자", value: won(totalProfit) },
+      { name: "👥 회원 수", value: `${memberCount.toLocaleString()}명` },
+      { name: "🛍️ 구매자 수", value: `${buyerRows.length.toLocaleString()}명` },
+      { name: "📦 판매 중인 계정", value: `${stockCount.toLocaleString()}개` },
+    ],
+    banner: true,
+  });
 }

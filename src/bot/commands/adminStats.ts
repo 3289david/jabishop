@@ -1,13 +1,14 @@
 import { SlashCommandBuilder, ChannelType } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { requireLinkedAdmin } from "@/bot/discordAuth";
-import { baseEmbed, won, errorEmbed, successEmbed } from "@/bot/format";
+import { won } from "@/bot/format";
+import { buildPanel, panelError, panelSuccess, ephemeral } from "@/bot/ui";
 import { ORDER_STATUS, ARTWORK_STATUS, REFUND_STATUS, INQUIRY_STATUS } from "@/lib/constants";
-import { publicStatsEmbed, getAdminExcludedUserIds } from "@/bot/publicStats";
+import { publicStatsPayload, getAdminExcludedUserIds } from "@/bot/publicStats";
 import { updatePublicStatsPanel } from "@/bot/publicStatsLoop";
 import type { BotCommand } from "@/bot/types";
 
-export async function statsEmbed() {
+export async function statsPayload() {
   const now = new Date();
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
@@ -44,28 +45,30 @@ export async function statsEmbed() {
     allRevenueOrders.reduce((sum, o) => sum + (o.tier.costPrice ?? 0), 0) + allCostAdj.reduce((sum, a) => sum + a.amount, 0);
   const totalProfit = totalRevenue - totalCost;
 
-  return baseEmbed("📊 관리자 대시보드").addFields(
-    { name: "오늘 매출", value: won(todayRevenue), inline: true },
-    { name: "오늘 원가", value: won(todayCost), inline: true },
-    { name: "오늘 순이익", value: `${todayProfit >= 0 ? "🟢 흑자" : "🔴 적자"} ${won(todayProfit)}`, inline: true },
-    { name: "오늘 주문", value: `${todayOrders.length}건`, inline: true },
-    { name: "현재 계정 재고", value: `${stockCount}개`, inline: true },
-    { name: "회원 수", value: `${memberCount.toLocaleString()}명`, inline: true },
-    {
-      name: "누적 순이익",
-      value: `${totalProfit >= 0 ? "🟢 흑자" : "🔴 적자"} ${won(totalProfit)} (매출 ${won(totalRevenue)} - 원가 ${won(totalCost)})`,
-    },
-    { name: "환불 요청", value: `${pendingRefunds}건`, inline: true },
-    { name: "문의", value: `${waitingInquiries}건`, inline: true }
-  );
+  return buildPanel({
+    title: "📊 관리자 대시보드",
+    fields: [
+      { name: "오늘 매출", value: won(todayRevenue) },
+      { name: "오늘 원가", value: won(todayCost) },
+      { name: "오늘 순이익", value: `${todayProfit >= 0 ? "🟢 흑자" : "🔴 적자"} ${won(todayProfit)}` },
+      { name: "오늘 주문", value: `${todayOrders.length}건` },
+      { name: "현재 계정 재고", value: `${stockCount}개` },
+      { name: "회원 수", value: `${memberCount.toLocaleString()}명` },
+      {
+        name: "누적 순이익",
+        value: `${totalProfit >= 0 ? "🟢 흑자" : "🔴 적자"} ${won(totalProfit)} (매출 ${won(totalRevenue)} - 원가 ${won(totalCost)})`,
+      },
+      { name: "환불 요청", value: `${pendingRefunds}건` },
+      { name: "문의", value: `${waitingInquiries}건` },
+    ],
+  });
 }
 
 export const statsCommand: BotCommand = {
   data: new SlashCommandBuilder().setName("통계").setDescription("[관리자] 오늘의 매출/주문 통계를 봅니다."),
   async execute(interaction) {
     await requireLinkedAdmin(interaction.user.id);
-    const embed = await statsEmbed();
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply(ephemeral(await statsPayload()));
   },
 };
 
@@ -83,11 +86,11 @@ export const publicStatsPanelCommand: BotCommand = {
     const channelOption = interaction.options.getChannel("채널", true);
     const channel = await interaction.guild?.channels.fetch(channelOption.id).catch(() => null);
     if (!channel || !channel.isTextBased() || !channel.isSendable()) {
-      return interaction.editReply({ embeds: [errorEmbed("텍스트 채널만 선택할 수 있습니다.")] });
+      return interaction.editReply(panelError("텍스트 채널만 선택할 수 있습니다."));
     }
 
-    const embed = await publicStatsEmbed();
-    const sent = await channel.send({ embeds: [embed] });
+    const payload = await publicStatsPayload();
+    const sent = await channel.send(payload);
 
     await prisma.shopSetting.upsert({
       where: { id: "singleton" },
@@ -103,9 +106,7 @@ export const publicStatsPanelCommand: BotCommand = {
     });
 
     await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "PUBLIC_STATS_PANEL_SET", target: channel.id } });
-    await interaction.editReply({
-      embeds: [successEmbed(`<#${channel.id}> 채널에 공개 통계 패널을 게시했습니다. 5분마다 자동으로 갱신됩니다.`)],
-    });
+    await interaction.editReply(panelSuccess(`<#${channel.id}> 채널에 공개 통계 패널을 게시했습니다. 5분마다 자동으로 갱신됩니다.`));
   },
 };
 
@@ -122,7 +123,7 @@ export const revenueAddCommand: BotCommand = {
     await interaction.deferReply({ ephemeral: true });
 
     if (amount === 0) {
-      return interaction.editReply({ embeds: [errorEmbed("0원은 추가할 수 없습니다.")] });
+      return interaction.editReply(panelError("0원은 추가할 수 없습니다."));
     }
 
     await prisma.manualRevenueAdjustment.create({ data: { amount, memo, createdByAdminId: admin.id } });
@@ -132,9 +133,7 @@ export const revenueAddCommand: BotCommand = {
 
     await updatePublicStatsPanel(interaction.client).catch(() => {});
 
-    await interaction.editReply({
-      embeds: [successEmbed(`매출 통계에 ${amount.toLocaleString()}원을 추가했습니다.${memo ? ` (메모: ${memo})` : ""}`)],
-    });
+    await interaction.editReply(panelSuccess(`매출 통계에 ${amount.toLocaleString()}원을 추가했습니다.${memo ? ` (메모: ${memo})` : ""}`));
   },
 };
 
@@ -151,7 +150,7 @@ export const costAddCommand: BotCommand = {
     await interaction.deferReply({ ephemeral: true });
 
     if (amount === 0) {
-      return interaction.editReply({ embeds: [errorEmbed("0원은 추가할 수 없습니다.")] });
+      return interaction.editReply(panelError("0원은 추가할 수 없습니다."));
     }
 
     await prisma.manualCostAdjustment.create({ data: { amount, memo, createdByAdminId: admin.id } });
@@ -161,8 +160,6 @@ export const costAddCommand: BotCommand = {
 
     await updatePublicStatsPanel(interaction.client).catch(() => {});
 
-    await interaction.editReply({
-      embeds: [successEmbed(`원가에 ${amount.toLocaleString()}원을 추가했습니다.${memo ? ` (메모: ${memo})` : ""}`)],
-    });
+    await interaction.editReply(panelSuccess(`원가에 ${amount.toLocaleString()}원을 추가했습니다.${memo ? ` (메모: ${memo})` : ""}`));
   },
 };
