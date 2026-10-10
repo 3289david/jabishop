@@ -556,6 +556,9 @@ model ShopSetting {
   // 사진/영상 첨부 자체를 아예 금지 (도배 여부와 무관하게 1개만 올려도 즉시 삭제).
   antiSpamBlockImages Boolean @default(false)
   antiSpamBlockVideos Boolean @default(false)
+  // 위 금지 규칙의 예외 - 이 카테고리 밑 채널에서는 사진/영상을 올려도 삭제하지 않는다
+  // (예: 구매 문의/티켓/관리자 카테고리는 스크린샷 공유가 필요함). 쉼표로 구분한 카테고리 ID 목록.
+  antiSpamMediaExemptCategoryIds String?
 
   // 부계정(알트) 의심 감지 - 메시지가 아니라 서버 입장(GuildMemberAdd) 시점에 본다.
   // 계정 생성일이 이 일수보다 어리면 "너무 새 계정"으로 의심한다 (0=비활성).

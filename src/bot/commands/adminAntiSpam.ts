@@ -43,6 +43,11 @@ export const antiSpamCommand: BotCommand = {
         )
         .addBooleanOption((o) =>
           o.setName("유사이름감지").setDescription("켜면 신규 입장자 닉네임이 기존 멤버와 너무 비슷할 때(예: eme/eme1) 부계정 의심")
+        )
+        .addStringOption((o) =>
+          o
+            .setName("미디어허용카테고리")
+            .setDescription("사진/영상금지의 예외 카테고리 ID들 (공백/쉼표로 구분, 예: 티켓/구매문의/관리자)")
         ),
     )
     .addSubcommand((sc) =>
@@ -127,6 +132,14 @@ export const antiSpamCommand: BotCommand = {
     const blockVideos = interaction.options.getBoolean("영상금지");
     const altAccountMinAgeDays = interaction.options.getInteger("부계정최소일수");
     const similarNameCheck = interaction.options.getBoolean("유사이름감지");
+    const mediaExemptRaw = interaction.options.getString("미디어허용카테고리");
+    const mediaExemptCategoryIds = mediaExemptRaw
+      ? mediaExemptRaw
+          .split(/[\s,]+/)
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .join(",")
+      : null;
 
     const data = {
       ...(enabled != null ? { antiSpamEnabled: enabled } : {}),
@@ -135,6 +148,7 @@ export const antiSpamCommand: BotCommand = {
       ...(floodWindowSec != null ? { antiSpamFloodWindowSec: floodWindowSec } : {}),
       ...(mentionLimit != null ? { antiSpamMentionLimit: mentionLimit } : {}),
       ...(emergencyThreshold != null ? { antiSpamEmergencyThreshold: emergencyThreshold } : {}),
+      ...(mediaExemptCategoryIds != null ? { antiSpamMediaExemptCategoryIds: mediaExemptCategoryIds } : {}),
       ...(emergencyDurationMin != null ? { antiSpamEmergencyDurationMin: emergencyDurationMin } : {}),
       ...(blockImages != null ? { antiSpamBlockImages: blockImages } : {}),
       ...(blockVideos != null ? { antiSpamBlockVideos: blockVideos } : {}),

@@ -71,6 +71,13 @@ const REPEAT_CHAR_REGEX = /(.)\1{9,}/u; // 같은 문자 10회 이상 반복
 const IMAGE_EXT = /\.(png|jpe?g|gif|webp|bmp|svg|avif|heic)$/i;
 const VIDEO_EXT = /\.(mp4|mov|webm|mkv|avi|m4v|gifv)$/i;
 
+/** 메시지가 올라온 채널의 카테고리 ID를 구한다 - 스레드면 부모 채널의 카테고리까지 한 단계 더 거슬러 올라간다. */
+function getCategoryId(channel: Message["channel"]): string | null {
+  if (channel.isThread()) return channel.parent?.parentId ?? null;
+  if ("parentId" in channel) return channel.parentId;
+  return null;
+}
+
 /** 첨부파일이 사진/영상인지 판별한다 - content-type이 있으면 그걸, 없으면 확장자로 폴백한다. */
 function classifyAttachmentKind(contentType: string | null, fileName: string | null): "image" | "video" | null {
   if (contentType?.startsWith("image/")) return "image";
@@ -126,7 +133,16 @@ export async function handleAntiSpamMessage(message: Message) {
   let violation: ViolationType | null = null;
 
   // 사진/영상 업로드 전면 금지 - 도배 여부와 무관하게 1개만 올려도 즉시 위반 (최우선 체크).
-  if ((settings.antiSpamBlockImages || settings.antiSpamBlockVideos) && message.attachments.size > 0) {
+  // 단, antiSpamMediaExemptCategoryIds에 등록된 카테고리(구매문의/티켓/관리자 등 스크린샷
+  // 공유가 필요한 채널) 밑에서는 예외로 둔다.
+  const exemptCategoryIds = (settings.antiSpamMediaExemptCategoryIds ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const channelCategoryId = getCategoryId(message.channel);
+  const mediaExempt = !!channelCategoryId && exemptCategoryIds.includes(channelCategoryId);
+
+  if (!mediaExempt && (settings.antiSpamBlockImages || settings.antiSpamBlockVideos) && message.attachments.size > 0) {
     for (const attachment of message.attachments.values()) {
       const kind = classifyAttachmentKind(attachment.contentType, attachment.name);
       if (kind === "image" && settings.antiSpamBlockImages) {
