@@ -162,12 +162,34 @@ async function reloadNginx() {
   await execFileAsync("systemctl", ["reload", "nginx"]);
 }
 
-async function createTenantDb(dbPath: string, shopName: string): Promise<string> {
-  fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+/**
+ * 테넌트 SQLite 파일에 메인 스키마의 "아직 적용 안 된" 마이그레이션을 전부 적용한다.
+ * 샵 생성 시 한 번만 돌리고 끝나면, 그 뒤로 메인 스키마에 새 컬럼/테이블이 추가될
+ * 때마다(이 세션에서만도 쿠폰/서버백업/홍보직원/안티스팸 등 여러 번 있었다) 기존
+ * 테넌트들은 계속 구버전 스키마로 멈춰있게 된다 - 그 결과가 정확히 지금까지 로그에
+ * 반복적으로 찍힌 "column ... does not exist" 에러다. migrateAllTenantDbs()가 봇
+ * 시작마다 이걸 모든 테넌트에 자동으로 재적용해서 이 드리프트를 막는다.
+ */
+export async function migrateTenantDb(dbPath: string): Promise<void> {
   await execFileAsync("npx", ["prisma", "migrate", "deploy"], {
     cwd: "/root/jabishop",
     env: { ...process.env, DATABASE_URL: `file:${dbPath}` },
   });
+}
+
+/** 등록된 모든 테넌트 샵의 DB를 최신 스키마로 맞춘다. 하나가 실패해도 나머지는 계속 진행한다. */
+export async function migrateAllTenantDbs(): Promise<void> {
+  const shops = await runWithTenant(null, () => prisma.shop.findMany({ select: { slug: true, dbPath: true } }));
+  for (const shop of shops) {
+    await migrateTenantDb(shop.dbPath).catch((e) =>
+      console.error(`테넌트 DB 마이그레이션 실패 (${shop.slug}, ${shop.dbPath}):`, e instanceof Error ? e.message : e)
+    );
+  }
+}
+
+async function createTenantDb(dbPath: string, shopName: string): Promise<string> {
+  fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+  await migrateTenantDb(dbPath);
   // 입금알림 앱 웹훅용 비밀키를 이 샵만의 값으로 자동 발급한다 - 다른 샵(자비샵 본인
   // 포함)과 절대 겹치지 않게, 그리고 사람이 따로 정해서 공유할 필요가 없게 하기 위함.
   const bankWebhookSecret = crypto.randomBytes(24).toString("hex");

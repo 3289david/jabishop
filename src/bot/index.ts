@@ -46,6 +46,7 @@ import { runForGuild, resolveShopByGuildId } from "@/lib/shop";
 import { startShopBillingLoop } from "@/bot/shopBillingLoop";
 import { startSellerBillingLoop } from "@/bot/sellerBillingLoop";
 import { ensureShopSubscriptionTier } from "@/lib/orders";
+import { migrateAllTenantDbs } from "@/lib/provisionShop";
 import { startPromoInviteTracking } from "@/bot/promoInviteTracking";
 import { startPromoStaffWeeklyReportLoop } from "@/bot/promoStaffWeeklyReport";
 import { startServerBackupLoop } from "@/bot/serverBackup";
@@ -66,8 +67,12 @@ const client = new Client({
   ],
 });
 
-client.once(Events.ClientReady, (c) => {
+client.once(Events.ClientReady, async (c) => {
   console.log(`✅ 자비샵 봇 로그인 완료: ${c.user.tag}`);
+  // 봇 재시작마다 모든 테넌트 DB를 메인 스키마 최신 상태로 맞춘다 - 샵 생성 시 한 번만
+  // 마이그레이션하고 끝나면 그 뒤로 메인 스키마가 바뀔 때마다 테넌트가 구버전에 멈춰있게
+  // 되는 드리프트를 막기 위함 (아래 다른 루프들이 새 컬럼을 건드리기 전에 끝나야 해서 await).
+  await migrateAllTenantDbs().catch((e) => console.error("테넌트 DB 일괄 마이그레이션 실패:", e));
   // "자판기 통째로 구매" 상품은 자비샵 본인 DB에만 있어야 한다(테넌트 샵이 또 자판기를
   // 되파는 건 지원 범위 밖) - forEachShop 안 쓰고 기본(자비샵 본인) DB에만 생성한다.
   ensureShopSubscriptionTier().catch((e) => console.error("자판기 등급 생성 실패:", e));
