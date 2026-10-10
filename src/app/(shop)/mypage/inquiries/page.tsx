@@ -15,12 +15,6 @@ export default async function InquiriesPage() {
     <div className="bg-white border border-neutral-200 rounded-xl p-5">
       <div className="flex items-center justify-between mb-3">
         <h1 className="font-semibold">문의 내역</h1>
-        <Link
-          href="/mypage/inquiries/new"
-          className="bg-indigo-600 text-white text-sm px-3 py-1.5 rounded-md hover:bg-indigo-700"
-        >
-          문의하기
-        </Link>
       </div>
       <div className="divide-y divide-neutral-100 text-sm">
         {inquiries.map((i) => (
