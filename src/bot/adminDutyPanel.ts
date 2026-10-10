@@ -1,6 +1,6 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits, type Client } from "discord.js";
 import { prisma } from "@/lib/prisma";
-import { baseEmbed } from "@/bot/format";
+import { buildPanel } from "@/bot/ui";
 import { listAdminDutyStatuses, reconcileAdminDutyRoster, DUTY_STATUS_LABEL } from "@/lib/adminDuty";
 import { ADMIN_DUTY_STATUS } from "@/lib/constants";
 import { forEachShop } from "@/lib/shop";
@@ -31,20 +31,17 @@ export async function fetchAdminRoleMembers(
 }
 
 /** 등록된 관리자(역할 보유자) 전원의 근무 상태 현황판. */
-export async function adminDutyStatusEmbed() {
+export async function adminDutyStatusPayload() {
   const admins = await listAdminDutyStatuses();
-  const embed = baseEmbed("👮 관리자 근무 현황");
-  if (admins.length === 0) {
-    embed.setDescription("관리자 역할을 가진 멤버가 없습니다.");
-    return embed;
-  }
-
-  for (const admin of admins) {
-    const label = DUTY_STATUS_LABEL[admin.status] ?? admin.status;
-    const since = `<t:${Math.floor(admin.updatedAt.getTime() / 1000)}:R>`;
-    embed.addFields({ name: admin.name, value: `${label} · ${since}`, inline: true });
-  }
-  return embed;
+  return buildPanel({
+    title: "👮 관리자 근무 현황",
+    description: admins.length === 0 ? "관리자 역할을 가진 멤버가 없습니다." : undefined,
+    fields: admins.map((admin) => {
+      const label = DUTY_STATUS_LABEL[admin.status] ?? admin.status;
+      const since = `<t:${Math.floor(admin.updatedAt.getTime() / 1000)}:R>`;
+      return { name: admin.name, value: `${label} · ${since}` };
+    }),
+  });
 }
 
 /** 관리자가 자기 상태를 직접 바꾸는 버튼 패널 (메시지는 고정, 관리자 역할 보유자만 사용 가능). */
@@ -67,8 +64,7 @@ export async function updateAdminDutyPanel(client: Client) {
   const message = await channel.messages.fetch(settings.adminDutyMessageId).catch(() => null);
   if (!message) return;
 
-  const embed = await adminDutyStatusEmbed();
-  await message.edit({ embeds: [embed] }).catch(() => {});
+  await message.edit(await adminDutyStatusPayload()).catch(() => {});
 }
 
 const PANEL_REFRESH_INTERVAL_MS = 5 * 60 * 1000; // presence 이벤트를 놓쳐도 5분마다 다시 맞춰준다

@@ -1,8 +1,8 @@
 import { SlashCommandBuilder, ChannelType } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { isDiscordGuildAdmin } from "@/bot/discordAuth";
-import { errorEmbed, successEmbed } from "@/bot/format";
-import { adminDutyStatusEmbed, adminDutyControlRow, fetchAdminRoleMembers } from "@/bot/adminDutyPanel";
+import { panelError, panelSuccess } from "@/bot/ui";
+import { adminDutyStatusPayload, adminDutyControlRow, fetchAdminRoleMembers } from "@/bot/adminDutyPanel";
 import { reconcileAdminDutyRoster } from "@/lib/adminDuty";
 import type { BotCommand } from "@/bot/types";
 
@@ -25,14 +25,13 @@ export const adminDutyStatusPanelCommand: BotCommand = {
     const channelOption = interaction.options.getChannel("채널", true);
     const channel = await interaction.guild?.channels.fetch(channelOption.id).catch(() => null);
     if (!channel || !channel.isTextBased() || !channel.isSendable()) {
-      return interaction.editReply({ embeds: [errorEmbed("텍스트 채널만 선택할 수 있습니다.")] });
+      return interaction.editReply(panelError("텍스트 채널만 선택할 수 있습니다."));
     }
 
     const members = await fetchAdminRoleMembers(interaction.client, interaction.guildId);
     await reconcileAdminDutyRoster(members);
 
-    const embed = await adminDutyStatusEmbed();
-    const sent = await channel.send({ embeds: [embed] });
+    const sent = await channel.send(await adminDutyStatusPayload());
 
     await prisma.shopSetting.upsert({
       where: { id: "singleton" },
@@ -47,9 +46,9 @@ export const adminDutyStatusPanelCommand: BotCommand = {
       },
     });
 
-    await interaction.editReply({
-      embeds: [successEmbed(`<#${channel.id}> 채널에 관리자 근무 현황판을 게시했습니다. 온라인/오프라인에 따라 자동으로 갱신됩니다.`)],
-    });
+    await interaction.editReply(
+      panelSuccess(`<#${channel.id}> 채널에 관리자 근무 현황판을 게시했습니다. 온라인/오프라인에 따라 자동으로 갱신됩니다.`)
+    );
   },
 };
 
@@ -67,7 +66,7 @@ export const adminDutyControlPanelCommand: BotCommand = {
     const channelOption = interaction.options.getChannel("채널", true);
     const channel = await interaction.guild?.channels.fetch(channelOption.id).catch(() => null);
     if (!channel || !channel.isTextBased() || !channel.isSendable()) {
-      return interaction.editReply({ embeds: [errorEmbed("텍스트 채널만 선택할 수 있습니다.")] });
+      return interaction.editReply(panelError("텍스트 채널만 선택할 수 있습니다."));
     }
 
     const sent = await channel.send({
@@ -88,8 +87,6 @@ export const adminDutyControlPanelCommand: BotCommand = {
       },
     });
 
-    await interaction.editReply({
-      embeds: [successEmbed(`<#${channel.id}> 채널에 관리자 근무 상태 변경 버튼 패널을 게시했습니다.`)],
-    });
+    await interaction.editReply(panelSuccess(`<#${channel.id}> 채널에 관리자 근무 상태 변경 버튼 패널을 게시했습니다.`));
   },
 };

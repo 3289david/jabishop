@@ -1,7 +1,8 @@
 import { SlashCommandBuilder } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { requireLinkedAdmin, getOrCreateShopUser } from "@/bot/discordAuth";
-import { baseEmbed, errorEmbed, successEmbed, pt } from "@/bot/format";
+import { pt } from "@/bot/format";
+import { buildPanel, panelError, panelSuccess, ephemeral } from "@/bot/ui";
 import { adjustPoints, TopUpError } from "@/lib/points";
 import type { BotCommand } from "@/bot/types";
 
@@ -14,15 +15,21 @@ export const memberViewCommand: BotCommand = {
     await requireLinkedAdmin(interaction.user.id);
     const target = interaction.options.getUser("대상", true);
     const user = await prisma.user.findUnique({ where: { discordId: target.id }, include: { _count: { select: { orders: true } } } });
-    if (!user) return interaction.reply({ embeds: [errorEmbed("아직 봇을 사용한 적 없는 사용자입니다.")], ephemeral: true });
+    if (!user) return interaction.reply(ephemeral(panelError("아직 봇을 사용한 적 없는 사용자입니다.")));
 
-    const embed = baseEmbed(`${user.name} 회원 정보`).addFields(
-      { name: "이메일", value: user.email, inline: true },
-      { name: "상태", value: user.status, inline: true },
-      { name: "포인트", value: pt(user.points), inline: true },
-      { name: "주문 수", value: `${user._count.orders}건`, inline: true }
+    await interaction.reply(
+      ephemeral(
+        buildPanel({
+          title: `${user.name} 회원 정보`,
+          fields: [
+            { name: "이메일", value: user.email },
+            { name: "상태", value: user.status },
+            { name: "포인트", value: pt(user.points) },
+            { name: "주문 수", value: `${user._count.orders}건` },
+          ],
+        })
+      )
     );
-    await interaction.reply({ embeds: [embed], ephemeral: true });
   },
 };
 
@@ -46,11 +53,11 @@ export const memberStatusCommand: BotCommand = {
     const reason = interaction.options.getString("사유");
 
     const user = await prisma.user.findUnique({ where: { discordId: target.id } });
-    if (!user) return interaction.reply({ embeds: [errorEmbed("아직 봇을 사용한 적 없는 사용자입니다.")], ephemeral: true });
+    if (!user) return interaction.reply(ephemeral(panelError("아직 봇을 사용한 적 없는 사용자입니다.")));
 
     await prisma.user.update({ where: { id: user.id }, data: { status, suspendedReason: reason } });
     await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "MEMBER_STATUS_UPDATE", target: user.id, detail: status } });
-    await interaction.reply({ embeds: [successEmbed(`${user.name}님의 상태를 ${status}로 변경했습니다.`)], ephemeral: true });
+    await interaction.reply(ephemeral(panelSuccess(`${user.name}님의 상태를 ${status}로 변경했습니다.`)));
   },
 };
 
@@ -71,12 +78,9 @@ export const memberPointAdjustCommand: BotCommand = {
     try {
       await adjustPoints(user.id, amount, memo);
     } catch (e) {
-      return interaction.reply({
-        embeds: [errorEmbed(e instanceof TopUpError ? e.message : "처리 중 오류가 발생했습니다.")],
-        ephemeral: true,
-      });
+      return interaction.reply(ephemeral(panelError(e instanceof TopUpError ? e.message : "처리 중 오류가 발생했습니다.")));
     }
     await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "POINT_ADMIN_ADJUST", target: user.id, detail: `${amount}P: ${memo}` } });
-    await interaction.reply({ embeds: [successEmbed(`${target.username}님의 포인트를 ${amount >= 0 ? "+" : ""}${amount}P 조정했습니다.`)], ephemeral: true });
+    await interaction.reply(ephemeral(panelSuccess(`${target.username}님의 포인트를 ${amount >= 0 ? "+" : ""}${amount}P 조정했습니다.`)));
   },
 };

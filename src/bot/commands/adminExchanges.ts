@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { requireLinkedAdmin } from "@/bot/discordAuth";
-import { baseEmbed, errorEmbed, successEmbed } from "@/bot/format";
+import { buildPanel, panelError, panelSuccess, ephemeral } from "@/bot/ui";
 import { approveExchange, rejectExchange, ExchangeError } from "@/lib/exchanges";
 import type { BotCommand } from "@/bot/types";
 
@@ -15,15 +15,18 @@ export const exchangeListCommand: BotCommand = {
       orderBy: { createdAt: "asc" },
       take: 25,
     });
-    const embed = baseEmbed("🔄 대기 중인 교환 요청");
-    if (exchanges.length === 0) embed.setDescription("대기 중인 요청이 없습니다.");
-    for (const ex of exchanges) {
-      embed.addFields({
-        name: `#${ex.order.orderNo} · ${ex.order.tier.name}${ex.order.artwork ? ` · ${ex.order.artwork.code}` : ""}`,
-        value: `회원: ${ex.user.name} · 사유: ${ex.reason} · ID: \`${ex.id}\``,
-      });
-    }
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply(
+      ephemeral(
+        buildPanel({
+          title: "🔄 대기 중인 교환 요청",
+          description: exchanges.length === 0 ? "대기 중인 요청이 없습니다." : undefined,
+          fields: exchanges.map((ex) => ({
+            name: `#${ex.order.orderNo} · ${ex.order.tier.name}${ex.order.artwork ? ` · ${ex.order.artwork.code}` : ""}`,
+            value: `회원: ${ex.user.name} · 사유: ${ex.reason} · ID: \`${ex.id}\``,
+          })),
+        })
+      )
+    );
   },
 };
 
@@ -39,18 +42,12 @@ export const exchangeApproveCommand: BotCommand = {
     try {
       result = await approveExchange(id, admin.id);
     } catch (e) {
-      return interaction.reply({
-        embeds: [errorEmbed(e instanceof ExchangeError ? e.message : "처리 중 오류가 발생했습니다.")],
-        ephemeral: true,
-      });
+      return interaction.reply(ephemeral(panelError(e instanceof ExchangeError ? e.message : "처리 중 오류가 발생했습니다.")));
     }
     await prisma.adminActivityLog.create({
       data: { adminId: admin.id, action: "EXCHANGE_APPROVE", target: id, detail: `${result.oldArtwork.code} → ${result.newArtwork.code}` },
     });
-    await interaction.reply({
-      embeds: [successEmbed(`교환을 승인했습니다. (${result.newArtwork.code}로 재발송됨)`)],
-      ephemeral: true,
-    });
+    await interaction.reply(ephemeral(panelSuccess(`교환을 승인했습니다. (${result.newArtwork.code}로 재발송됨)`)));
   },
 };
 
@@ -67,12 +64,9 @@ export const exchangeRejectCommand: BotCommand = {
     try {
       await rejectExchange(id, admin.id, note);
     } catch (e) {
-      return interaction.reply({
-        embeds: [errorEmbed(e instanceof ExchangeError ? e.message : "처리 중 오류가 발생했습니다.")],
-        ephemeral: true,
-      });
+      return interaction.reply(ephemeral(panelError(e instanceof ExchangeError ? e.message : "처리 중 오류가 발생했습니다.")));
     }
     await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "EXCHANGE_REJECT", target: id, detail: note } });
-    await interaction.reply({ embeds: [successEmbed("교환 요청을 거절했습니다.")], ephemeral: true });
+    await interaction.reply(ephemeral(panelSuccess("교환 요청을 거절했습니다.")));
   },
 };

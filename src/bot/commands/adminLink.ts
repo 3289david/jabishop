@@ -10,7 +10,7 @@ import { prisma } from "@/lib/prisma";
 import { verifyPassword } from "@/lib/password";
 import { verifyTotp } from "@/lib/totp";
 import { ADMIN_STATUS } from "@/lib/constants";
-import { errorEmbed, successEmbed } from "@/bot/format";
+import { panelError, panelSuccess } from "@/bot/ui";
 import type { BotCommand } from "@/bot/types";
 
 export const ADMIN_LINK_MODAL_ID = "admin_link_modal";
@@ -57,19 +57,19 @@ export async function handleAdminLinkModalSubmit(interaction: ModalSubmitInterac
 
   const admin = await prisma.adminUser.findUnique({ where: { loginId } });
   if (!admin || admin.status !== ADMIN_STATUS.ACTIVE) {
-    return interaction.editReply({ embeds: [errorEmbed("아이디 또는 비밀번호가 올바르지 않습니다.")] });
+    return interaction.editReply(panelError("아이디 또는 비밀번호가 올바르지 않습니다."));
   }
   const ok = await verifyPassword(password, admin.passwordHash);
   if (!ok) {
-    return interaction.editReply({ embeds: [errorEmbed("아이디 또는 비밀번호가 올바르지 않습니다.")] });
+    return interaction.editReply(panelError("아이디 또는 비밀번호가 올바르지 않습니다."));
   }
   if (admin.totpEnabled && admin.totpSecret) {
     if (!totp || !verifyTotp(admin.totpSecret, totp)) {
-      return interaction.editReply({ embeds: [errorEmbed("2FA 코드가 올바르지 않습니다.")] });
+      return interaction.editReply(panelError("2FA 코드가 올바르지 않습니다."));
     }
   }
   if (admin.discordId && admin.discordId !== interaction.user.id) {
-    return interaction.editReply({ embeds: [errorEmbed("이미 다른 디스코드 계정에 연동된 관리자입니다.")] });
+    return interaction.editReply(panelError("이미 다른 디스코드 계정에 연동된 관리자입니다."));
   }
 
   await prisma.adminUser.update({ where: { id: admin.id }, data: { discordId: interaction.user.id } });
@@ -77,7 +77,5 @@ export async function handleAdminLinkModalSubmit(interaction: ModalSubmitInterac
     data: { adminId: admin.id, action: "DISCORD_LINK", detail: `@${interaction.user.tag}` },
   });
 
-  await interaction.editReply({
-    embeds: [successEmbed(`${admin.loginId} 관리자 계정과 연동되었습니다. 이제 관리자 명령어를 사용할 수 있습니다.`)],
-  });
+  await interaction.editReply(panelSuccess(`${admin.loginId} 관리자 계정과 연동되었습니다. 이제 관리자 명령어를 사용할 수 있습니다.`));
 }

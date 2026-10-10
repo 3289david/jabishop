@@ -1,6 +1,6 @@
-import { EmbedBuilder, type Message, type TextBasedChannel, type MessageCreateOptions } from "discord.js";
+import type { Message, TextBasedChannel, MessageCreateOptions } from "discord.js";
 import { prisma } from "@/lib/prisma";
-import { BRAND_COLOR } from "@/bot/format";
+import { buildPanel, ACCENT_COLOR } from "@/bot/ui";
 import { STICKY_KIND } from "@/lib/constants";
 import { adminPanelPayload } from "@/bot/panels";
 import { sellerManagePanelEmbed, sellerManagePanelRow } from "@/bot/sellerPanels";
@@ -13,14 +13,14 @@ import type { StickyMessage } from "@prisma/client";
 const STICKY_DEBOUNCE_MS = 2000;
 const pendingTimers = new Map<string, NodeJS.Timeout>();
 
-export function buildStickyEmbed(sticky: Pick<StickyMessage, "title" | "content" | "imageUrl" | "color">) {
-  const embed = new EmbedBuilder()
-    .setColor(sticky.color ?? BRAND_COLOR)
-    .setDescription(sticky.content)
-    .setFooter({ text: "📌 고정 메시지" });
-  if (sticky.title) embed.setTitle(sticky.title);
-  if (sticky.imageUrl) embed.setImage(sticky.imageUrl);
-  return embed;
+export function buildStickyPayload(sticky: Pick<StickyMessage, "title" | "content" | "imageUrl" | "color">) {
+  return buildPanel({
+    title: sticky.title || "📌 고정 메시지",
+    description: sticky.content ?? undefined,
+    imageUrl: sticky.imageUrl ?? undefined,
+    accentColor: sticky.color ?? ACCENT_COLOR,
+    footer: "📌 고정 메시지",
+  });
 }
 
 /** 채널에 고정 메시지를 (재)게시하고 messageId를 최신화한다. 관리자 명령어와 자동 재게시가 공용으로 쓴다. */
@@ -49,7 +49,7 @@ export async function repostSticky(channelId: string, channel: TextBasedChannel)
     }
     payload = { embeds: [sellerManagePanelEmbed(seller)], components: sellerManagePanelRow() };
   } else {
-    payload = { embeds: [buildStickyEmbed(sticky)] };
+    payload = buildStickyPayload(sticky);
   }
 
   const sent = await channel.send(payload);

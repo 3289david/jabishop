@@ -1,7 +1,7 @@
 import { SlashCommandBuilder, ChannelType } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { requireLinkedAdmin } from "@/bot/discordAuth";
-import { errorEmbed, successEmbed } from "@/bot/format";
+import { panelError, panelSuccess } from "@/bot/ui";
 import { repostSticky } from "@/bot/stickyMessage";
 import { STICKY_KIND } from "@/lib/constants";
 import type { BotCommand } from "@/bot/types";
@@ -16,9 +16,9 @@ export const stickySetCommand: BotCommand = {
       o.setName("채널").setDescription("메시지를 고정할 채널").setRequired(true).addChannelTypes(ChannelType.GuildText)
     )
     .addStringOption((o) => o.setName("내용").setDescription("고정할 메시지 내용").setRequired(true).setMaxLength(1900))
-    .addStringOption((o) => o.setName("제목").setDescription("임베드 제목 (선택)"))
+    .addStringOption((o) => o.setName("제목").setDescription("패널 제목 (선택)"))
     .addStringOption((o) => o.setName("이미지url").setDescription("고정 메시지에 넣을 이미지 URL (선택)"))
-    .addStringOption((o) => o.setName("색상").setDescription("임베드 색상 hex, 예: #5865F2 (선택, 비우면 기본 색)")),
+    .addStringOption((o) => o.setName("색상").setDescription("패널 강조색 hex, 예: #5865F2 (선택, 비우면 기본 보라색)")),
   async execute(interaction) {
     const admin = await requireLinkedAdmin(interaction.user.id);
     await interaction.deferReply({ ephemeral: true });
@@ -30,13 +30,13 @@ export const stickySetCommand: BotCommand = {
     const colorInput = interaction.options.getString("색상");
 
     if (colorInput && !HEX_COLOR_RE.test(colorInput)) {
-      return interaction.editReply({ embeds: [errorEmbed("색상은 #5865F2 같은 hex 형식으로 입력해주세요.")] });
+      return interaction.editReply(panelError("색상은 #5865F2 같은 hex 형식으로 입력해주세요."));
     }
     const color = colorInput ? parseInt(colorInput.replace("#", ""), 16) : null;
 
     const channel = await interaction.guild?.channels.fetch(channelOption.id).catch(() => null);
     if (!channel || !channel.isTextBased()) {
-      return interaction.editReply({ embeds: [errorEmbed("텍스트 채널만 선택할 수 있습니다.")] });
+      return interaction.editReply(panelError("텍스트 채널만 선택할 수 있습니다."));
     }
 
     await prisma.stickyMessage.upsert({
@@ -54,11 +54,11 @@ export const stickySetCommand: BotCommand = {
 
     const sent = await repostSticky(channel.id, channel);
     if (!sent) {
-      return interaction.editReply({ embeds: [errorEmbed("고정 메시지를 게시하지 못했습니다. 봇 권한을 확인해주세요.")] });
+      return interaction.editReply(panelError("고정 메시지를 게시하지 못했습니다. 봇 권한을 확인해주세요."));
     }
 
     await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "STICKY_SET", target: channel.id } });
-    await interaction.editReply({ embeds: [successEmbed(`<#${channel.id}> 채널에 고정 메시지를 설정했습니다.`)] });
+    await interaction.editReply(panelSuccess(`<#${channel.id}> 채널에 고정 메시지를 설정했습니다.`));
   },
 };
 
@@ -76,7 +76,7 @@ export const stickyClearCommand: BotCommand = {
     const channelOption = interaction.options.getChannel("채널", true);
     const sticky = await prisma.stickyMessage.findUnique({ where: { channelId: channelOption.id } });
     if (!sticky) {
-      return interaction.editReply({ embeds: [errorEmbed("이 채널에는 설정된 고정 메시지가 없습니다.")] });
+      return interaction.editReply(panelError("이 채널에는 설정된 고정 메시지가 없습니다."));
     }
 
     if (sticky.messageId) {
@@ -89,6 +89,6 @@ export const stickyClearCommand: BotCommand = {
     await prisma.stickyMessage.delete({ where: { channelId: channelOption.id } });
 
     await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "STICKY_CLEAR", target: channelOption.id } });
-    await interaction.editReply({ embeds: [successEmbed(`<#${channelOption.id}> 채널의 고정 메시지를 해제했습니다.`)] });
+    await interaction.editReply(panelSuccess(`<#${channelOption.id}> 채널의 고정 메시지를 해제했습니다.`));
   },
 };
