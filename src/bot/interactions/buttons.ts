@@ -39,7 +39,7 @@ import {
   tierListPayload,
 } from "@/bot/panels";
 import { enterRaffle, RaffleError } from "@/lib/raffles";
-import { raffleEventEmbed } from "@/bot/raffleUI";
+import { raffleEventPayload } from "@/bot/raffleUI";
 import { performCheckIn, EventError as CheckInError } from "@/lib/events/checkin";
 import { getOrCreateReferralCode, EventError as ReferralError } from "@/lib/events/referral";
 import { spinGacha, EventError as GachaError } from "@/lib/events/gacha";
@@ -511,7 +511,7 @@ async function handleRaffleEnter(interaction: ButtonInteraction, raffleId: strin
   const raffle = await prisma.raffleEvent.findUnique({ where: { id: raffleId }, include: { tier: true } });
   if (raffle?.messageId && interaction.channel && "messages" in interaction.channel) {
     const msg = await interaction.channel.messages.fetch(raffle.messageId).catch(() => null);
-    if (msg) await msg.edit({ embeds: [raffleEventEmbed(raffle, entryCount)] }).catch(() => {});
+    if (msg) await msg.edit(raffleEventPayload(raffle, entryCount)).catch(() => {});
   }
 }
 

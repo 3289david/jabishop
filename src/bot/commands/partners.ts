@@ -1,5 +1,5 @@
 import { SlashCommandBuilder } from "discord.js";
-import { errorEmbed, successEmbed } from "@/bot/format";
+import { panelError, panelSuccess } from "@/bot/ui";
 import { requestPartner, PartnerError } from "@/lib/partners";
 import { requireLinkedAdmin } from "@/bot/discordAuth";
 import { partnerPanelPayload } from "@/bot/panels";
@@ -33,9 +33,7 @@ export const partnerRequestCommand: BotCommand = {
     const description = interaction.options.getString("소개") ?? undefined;
 
     if (!webhookUrl.startsWith("https://discord.com/api/webhooks/")) {
-      return interaction.editReply({
-        embeds: [errorEmbed("웹훅 URL 형식이 올바르지 않습니다. https://discord.com/api/webhooks/... 형태여야 합니다.")],
-      });
+      return interaction.editReply(panelError("웹훅 URL 형식이 올바르지 않습니다. https://discord.com/api/webhooks/... 형태여야 합니다."));
     }
 
     try {
@@ -49,8 +47,8 @@ export const partnerRequestCommand: BotCommand = {
       });
     } catch (e) {
       const message = e instanceof PartnerError ? e.message : "신청 중 오류가 발생했습니다.";
-      return interaction.editReply({ embeds: [errorEmbed(message)] });
+      return interaction.editReply(panelError(message));
     }
-    await interaction.editReply({ embeds: [successEmbed("파트너 신청이 접수되었습니다. 관리자 승인을 기다려주세요.")] });
+    await interaction.editReply(panelSuccess("파트너 신청이 접수되었습니다. 관리자 승인을 기다려주세요."));
   },
 };

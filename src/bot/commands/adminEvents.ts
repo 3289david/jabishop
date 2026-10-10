@@ -1,10 +1,10 @@
 import { SlashCommandBuilder, ChannelType, type TextChannel } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { requireLinkedAdmin } from "@/bot/discordAuth";
-import { errorEmbed, successEmbed } from "@/bot/format";
+import { panelError, panelSuccess } from "@/bot/ui";
 import { tierAutocomplete, openRaffleAutocomplete } from "@/bot/autocomplete";
 import { createRaffleEvent, attachRaffleMessage, drawRaffleWinners, RaffleError } from "@/lib/raffles";
-import { raffleEventEmbed, raffleEventRow } from "@/bot/raffleUI";
+import { raffleEventPayload, raffleEventRow } from "@/bot/raffleUI";
 import { announceRaffleResult } from "@/bot/raffleAnnounce";
 import type { BotCommand } from "@/bot/types";
 
@@ -35,11 +35,11 @@ export const eventCreateCommand: BotCommand = {
     const description = interaction.options.getString("설명") ?? undefined;
 
     const tier = await prisma.tier.findUnique({ where: { slug: tierSlug } });
-    if (!tier) return interaction.editReply({ embeds: [errorEmbed("존재하지 않는 상품입니다.")] });
+    if (!tier) return interaction.editReply(panelError("존재하지 않는 상품입니다."));
 
     const channel = await interaction.guild?.channels.fetch(channelOption.id).catch(() => null);
     if (!channel || !channel.isTextBased()) {
-      return interaction.editReply({ embeds: [errorEmbed("텍스트 채널만 선택할 수 있습니다.")] });
+      return interaction.editReply(panelError("텍스트 채널만 선택할 수 있습니다."));
     }
 
     let raffle;
@@ -55,17 +55,14 @@ export const eventCreateCommand: BotCommand = {
       });
     } catch (e) {
       const message = e instanceof RaffleError ? e.message : "이벤트 생성 중 오류가 발생했습니다.";
-      return interaction.editReply({ embeds: [errorEmbed(message)] });
+      return interaction.editReply(panelError(message));
     }
 
-    const message = await (channel as TextChannel).send({
-      embeds: [raffleEventEmbed({ ...raffle, tier }, 0)],
-      components: [raffleEventRow(raffle.id)],
-    });
+    const message = await (channel as TextChannel).send(raffleEventPayload({ ...raffle, tier }, 0, raffleEventRow(raffle.id)));
     await attachRaffleMessage(raffle.id, message.id);
 
     await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "RAFFLE_CREATE", target: raffle.id, detail: title } });
-    await interaction.editReply({ embeds: [successEmbed(`이벤트가 생성되어 <#${channel.id}> 채널에 게시되었습니다.`)] });
+    await interaction.editReply(panelSuccess(`이벤트가 생성되어 <#${channel.id}> 채널에 게시되었습니다.`));
   },
 };
 
@@ -86,7 +83,7 @@ export const eventDrawCommand: BotCommand = {
       result = await drawRaffleWinners(raffleId);
     } catch (e) {
       const message = e instanceof RaffleError ? e.message : "추첨 중 오류가 발생했습니다.";
-      return interaction.editReply({ embeds: [errorEmbed(message)] });
+      return interaction.editReply(panelError(message));
     }
 
     await announceRaffleResult(interaction.client, result.raffle, result.winners, result.entryCount);
@@ -102,6 +99,6 @@ export const eventDrawCommand: BotCommand = {
     ]
       .filter(Boolean)
       .join("\n");
-    await interaction.editReply({ embeds: [successEmbed(summary)] });
+    await interaction.editReply(panelSuccess(summary));
   },
 };

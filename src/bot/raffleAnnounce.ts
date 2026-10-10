@@ -1,5 +1,5 @@
 import type { Client } from "discord.js";
-import { raffleDrawnEmbed } from "@/bot/raffleUI";
+import { raffleDrawnPayload } from "@/bot/raffleUI";
 
 type RaffleForAnnounce = {
   title: string;
@@ -19,15 +19,18 @@ export async function announceRaffleResult(
   const channel = await client.channels.fetch(raffle.channelId).catch(() => null);
   if (!channel || !channel.isTextBased() || !("send" in channel)) return;
 
-  const embed = raffleDrawnEmbed(raffle, winners, entryCount);
+  const payload = raffleDrawnPayload(raffle, winners, entryCount);
 
   if (raffle.messageId && "messages" in channel) {
     const msg = await channel.messages.fetch(raffle.messageId).catch(() => null);
-    if (msg) await msg.edit({ embeds: [embed], components: [] }).catch(() => {});
+    if (msg) await msg.edit({ ...payload, components: [] }).catch(() => {});
   }
 
-  const mentions = winners.map((w) => `<@${w.discordUserId}>`).join(" ");
-  await channel
-    .send({ content: winners.length > 0 ? `🎊 축하합니다! ${mentions}` : undefined, embeds: [embed] })
-    .catch(() => {});
+  // Components V2 메시지는 content 필드를 못 쓴다(멘션 알림용 핑이 안 감) - 그래서
+  // 실제로 알림이 가는 멘션 핑은 별도의 일반 메시지로 먼저 보내고, 결과 패널은 이어서 보낸다.
+  if (winners.length > 0) {
+    const mentions = winners.map((w) => `<@${w.discordUserId}>`).join(" ");
+    await channel.send({ content: `🎊 축하합니다! ${mentions}` }).catch(() => {});
+  }
+  await channel.send(payload).catch(() => {});
 }

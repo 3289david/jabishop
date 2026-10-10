@@ -2,7 +2,7 @@ import { SlashCommandBuilder } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { requireLinkedAdmin } from "@/bot/discordAuth";
 import { getOrCreateShopUser } from "@/bot/discordAuth";
-import { baseEmbed, errorEmbed, successEmbed } from "@/bot/format";
+import { buildPanel, panelError, panelSuccess, ephemeral } from "@/bot/ui";
 import type { BotCommand } from "@/bot/types";
 
 export const couponCreateCommand: BotCommand = {
@@ -33,7 +33,7 @@ export const couponCreateCommand: BotCommand = {
     const usageLimitTotal = interaction.options.getInteger("전체사용제한");
 
     if (await prisma.coupon.findUnique({ where: { code } })) {
-      return interaction.reply({ embeds: [errorEmbed("이미 존재하는 쿠폰 코드입니다.")], ephemeral: true });
+      return interaction.reply(ephemeral(panelError("이미 존재하는 쿠폰 코드입니다.")));
     }
 
     const validFrom = new Date();
@@ -43,7 +43,7 @@ export const couponCreateCommand: BotCommand = {
       data: { code, name, discountType, discountValue, minOrderAmount, usageLimitTotal, validFrom, validTo },
     });
     await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "COUPON_CREATE", target: coupon.id, detail: code } });
-    await interaction.reply({ embeds: [successEmbed(`쿠폰 "${code}"가 생성되었습니다. (~${validTo.toLocaleDateString("ko-KR")})`)], ephemeral: true });
+    await interaction.reply(ephemeral(panelSuccess(`쿠폰 "${code}"가 생성되었습니다. (~${validTo.toLocaleDateString("ko-KR")})`)));
   },
 };
 
@@ -52,15 +52,20 @@ export const couponListAdminCommand: BotCommand = {
   async execute(interaction) {
     await requireLinkedAdmin(interaction.user.id);
     const coupons = await prisma.coupon.findMany({ orderBy: { createdAt: "desc" }, take: 25, include: { _count: { select: { usages: true } } } });
-    const embed = baseEmbed("🎟️ 쿠폰 목록");
-    for (const c of coupons) {
-      const value = c.discountType === "RATE" ? `${c.discountValue}%` : `${c.discountValue.toLocaleString()}원`;
-      embed.addFields({
-        name: `${c.code} (${c.active ? "사용중" : "중지"})`,
-        value: `${c.name} · ${value} 할인 · 사용 ${c._count.usages}${c.usageLimitTotal ? `/${c.usageLimitTotal}` : ""}회`,
-      });
-    }
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply(
+      ephemeral(
+        buildPanel({
+          title: "🎟️ 쿠폰 목록",
+          fields: coupons.map((c) => {
+            const value = c.discountType === "RATE" ? `${c.discountValue}%` : `${c.discountValue.toLocaleString()}원`;
+            return {
+              name: `${c.code} (${c.active ? "사용중" : "중지"})`,
+              value: `${c.name} · ${value} 할인 · 사용 ${c._count.usages}${c.usageLimitTotal ? `/${c.usageLimitTotal}` : ""}회`,
+            };
+          }),
+        })
+      )
+    );
   },
 };
 
@@ -78,7 +83,7 @@ export const couponIssueCommand: BotCommand = {
     const toAll = interaction.options.getBoolean("전체") ?? false;
 
     const coupon = await prisma.coupon.findUnique({ where: { code } });
-    if (!coupon) return interaction.reply({ embeds: [errorEmbed("존재하지 않는 쿠폰 코드입니다.")], ephemeral: true });
+    if (!coupon) return interaction.reply(ephemeral(panelError("존재하지 않는 쿠폰 코드입니다.")));
 
     if (toAll) {
       await interaction.deferReply({ ephemeral: true });
@@ -103,10 +108,10 @@ export const couponIssueCommand: BotCommand = {
       await prisma.adminActivityLog.create({
         data: { adminId: admin.id, action: "COUPON_ISSUE_ALL", target: coupon.id, detail: `${users.length}명` },
       });
-      return interaction.editReply({ embeds: [successEmbed(`전체 회원(${users.length}명)에게 "${code}" 쿠폰을 지급했습니다.`)] });
+      return interaction.editReply(panelSuccess(`전체 회원(${users.length}명)에게 "${code}" 쿠폰을 지급했습니다.`));
     }
 
-    if (!target) return interaction.reply({ embeds: [errorEmbed("지급 대상을 지정하거나 '전체'를 켜주세요.")], ephemeral: true });
+    if (!target) return interaction.reply(ephemeral(panelError("지급 대상을 지정하거나 '전체'를 켜주세요.")));
 
     const user = await getOrCreateShopUser(target.id, target.tag);
     await prisma.userCoupon.upsert({
@@ -118,6 +123,6 @@ export const couponIssueCommand: BotCommand = {
       data: { userId: user.id, type: "COUPON_ISSUED", title: "쿠폰 지급", message: `"${coupon.name}" 쿠폰이 지급되었습니다.` },
     });
     await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "COUPON_ISSUE", target: coupon.id, detail: target.tag } });
-    await interaction.reply({ embeds: [successEmbed(`${target.username}님에게 "${code}" 쿠폰을 지급했습니다.`)], ephemeral: true });
+    await interaction.reply(ephemeral(panelSuccess(`${target.username}님에게 "${code}" 쿠폰을 지급했습니다.`)));
   },
 };
