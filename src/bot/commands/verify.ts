@@ -1,8 +1,8 @@
-import { SlashCommandBuilder } from "discord.js";
+import { SlashCommandBuilder, MessageFlags } from "discord.js";
 import { prisma } from "@/lib/prisma";
-import { verifyPanelEmbed, verifyPanelRow } from "@/bot/panels";
+import { verifyPanelPayload } from "@/bot/panels";
 import { requireLinkedAdmin } from "@/bot/discordAuth";
-import { errorEmbed } from "@/bot/format";
+import { panelError } from "@/bot/ui";
 import type { BotCommand } from "@/bot/types";
 
 export const verifyPanelCommand: BotCommand = {
@@ -11,11 +11,9 @@ export const verifyPanelCommand: BotCommand = {
     await requireLinkedAdmin(interaction.user.id);
     const settings = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
     if (!settings?.verifyRoleId) {
-      return interaction.reply({
-        embeds: [errorEmbed("먼저 `/설정수정 인증역할:`로 인증 시 지급할 역할을 설정해주세요.")],
-        ephemeral: true,
-      });
+      const payload = panelError("먼저 `/설정수정 인증역할:`로 인증 시 지급할 역할을 설정해주세요.");
+      return interaction.reply({ ...payload, flags: payload.flags | MessageFlags.Ephemeral });
     }
-    await interaction.reply({ embeds: [await verifyPanelEmbed()], components: [verifyPanelRow()] });
+    await interaction.reply(await verifyPanelPayload());
   },
 };

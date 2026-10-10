@@ -4,7 +4,7 @@ import { errorEmbed, successEmbed, baseEmbed, pt } from "@/bot/format";
 import { performCheckIn, EventError as CheckInError } from "@/lib/events/checkin";
 import { getOrCreateReferralCode, linkReferral, EventError as ReferralError } from "@/lib/events/referral";
 import { spinGacha, EventError as GachaError } from "@/lib/events/gacha";
-import { eventPanelEmbed, eventPanelRows, eventPromoEmbed } from "@/bot/panels";
+import { eventPanelPayload, eventPromoPayload } from "@/bot/panels";
 import type { BotCommand } from "@/bot/types";
 
 export const eventPanelCommand: BotCommand = {
@@ -13,7 +13,7 @@ export const eventPanelCommand: BotCommand = {
     .setDescription("[관리자] 버튼으로 이벤트(출석체크/친구초대/룰렛)에 참여할 수 있는 패널을 엽니다."),
   async execute(interaction) {
     await requireLinkedAdmin(interaction.user.id);
-    await interaction.reply({ embeds: [await eventPanelEmbed()], components: await eventPanelRows() });
+    await interaction.reply(await eventPanelPayload());
   },
 };
 
@@ -34,7 +34,7 @@ export const eventPromoCommand: BotCommand = {
       return interaction.editReply({ embeds: [errorEmbed("텍스트 채널만 선택할 수 있습니다.")] });
     }
 
-    await (channel as TextChannel).send({ embeds: [eventPromoEmbed()] });
+    await (channel as TextChannel).send(eventPromoPayload());
     await interaction.editReply({ embeds: [successEmbed(`<#${channel.id}> 채널에 이벤트 홍보 공지를 올렸습니다.`)] });
   },
 };

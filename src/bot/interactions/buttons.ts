@@ -4,6 +4,7 @@ import {
   ButtonBuilder,
   ButtonStyle,
   StringSelectMenuBuilder,
+  MessageFlags,
   type ButtonInteraction,
   type StringSelectMenuInteraction,
 } from "discord.js";
@@ -25,14 +26,13 @@ import {
   showPartnerPromoModal,
 } from "@/bot/interactions/modals";
 import {
-  categorySelectRow,
+  categorySelectPayload,
   listProductCategories,
-  productSelectRow,
-  tierDetailPayload,
-  pointsPayload,
-  cartPayload,
-  ordersPayload,
-  couponsPayload,
+  productSelectPayload,
+  pointsPanelPayload,
+  cartPanelPayload,
+  ordersPanelPayload,
+  couponsPanelPayload,
   pendingTopUpsPayload,
   pendingRefundsPayload,
   pendingInquiriesPayload,
@@ -65,22 +65,22 @@ import { showSellerProductModal } from "@/bot/commands/sellerProduct";
 
 async function handlePanelProducts(interaction: ButtonInteraction) {
   const categories = await listProductCategories();
-  const { embed, row } = categories.length > 1 ? await categorySelectRow() : await productSelectRow();
-  await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
+  const payload = categories.length > 1 ? await categorySelectPayload() : await productSelectPayload();
+  await interaction.reply({ ...payload, flags: payload.flags | MessageFlags.Ephemeral });
 }
 
 async function handlePanelPoints(interaction: ButtonInteraction) {
   const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
   const txs = await prisma.pointTransaction.findMany({ where: { userId: user.id }, orderBy: { createdAt: "desc" }, take: 5 });
-  const { embed, row } = pointsPayload(user, txs);
-  await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
+  const payload = pointsPanelPayload(user, txs);
+  await interaction.reply({ ...payload, flags: payload.flags | MessageFlags.Ephemeral });
 }
 
 async function handlePanelCart(interaction: ButtonInteraction) {
   const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
   const items = await prisma.cartItem.findMany({ where: { userId: user.id }, include: { tier: true } });
-  const { embed, row } = cartPayload(items, items.length > 0);
-  await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
+  const payload = cartPanelPayload(items, items.length > 0);
+  await interaction.reply({ ...payload, flags: payload.flags | MessageFlags.Ephemeral });
 }
 
 async function handlePanelOrders(interaction: ButtonInteraction) {
@@ -91,15 +91,15 @@ async function handlePanelOrders(interaction: ButtonInteraction) {
     take: 10,
     include: { tier: true, artwork: true },
   });
-  const { embed } = ordersPayload(orders);
-  await interaction.reply({ embeds: [embed], ephemeral: true });
+  const payload = ordersPanelPayload(orders);
+  await interaction.reply({ ...payload, flags: payload.flags | MessageFlags.Ephemeral });
 }
 
 async function handlePanelCoupons(interaction: ButtonInteraction) {
   const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
   const userCoupons = await prisma.userCoupon.findMany({ where: { userId: user.id }, include: { coupon: true }, orderBy: { issuedAt: "desc" } });
-  const { embed } = couponsPayload(userCoupons);
-  await interaction.reply({ embeds: [embed], ephemeral: true });
+  const payload = couponsPanelPayload(userCoupons);
+  await interaction.reply({ ...payload, flags: payload.flags | MessageFlags.Ephemeral });
 }
 
 async function handlePartnerManage(interaction: ButtonInteraction) {
@@ -445,20 +445,16 @@ async function handleAdminSection(interaction: ButtonInteraction, section: strin
   await interaction.deferReply({ ephemeral: true });
 
   if (section === "topups") {
-    const { embed, rows } = await pendingTopUpsPayload();
-    return interaction.editReply({ embeds: [embed], components: rows });
+    return interaction.editReply(await pendingTopUpsPayload());
   }
   if (section === "refunds") {
-    const { embed, rows } = await pendingRefundsPayload();
-    return interaction.editReply({ embeds: [embed], components: rows });
+    return interaction.editReply(await pendingRefundsPayload());
   }
   if (section === "inquiries") {
-    const { embed, rows } = await pendingInquiriesPayload();
-    return interaction.editReply({ embeds: [embed], components: rows });
+    return interaction.editReply(await pendingInquiriesPayload());
   }
   if (section === "tiers") {
-    const { embed } = await tierListPayload();
-    return interaction.editReply({ embeds: [embed], components: [] });
+    return interaction.editReply(await tierListPayload());
   }
   if (section === "stats") {
     const { statsEmbed } = await import("@/bot/commands/adminStats");

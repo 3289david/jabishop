@@ -2,7 +2,7 @@ import { EmbedBuilder, type Message, type TextBasedChannel, type MessageCreateOp
 import { prisma } from "@/lib/prisma";
 import { BRAND_COLOR } from "@/bot/format";
 import { STICKY_KIND } from "@/lib/constants";
-import { adminPanelEmbed, adminPanelRows } from "@/bot/panels";
+import { adminPanelPayload } from "@/bot/panels";
 import { sellerManagePanelEmbed, sellerManagePanelRow } from "@/bot/sellerPanels";
 import type { StickyMessage } from "@prisma/client";
 
@@ -39,7 +39,7 @@ export async function repostSticky(channelId: string, channel: TextBasedChannel)
   // 판매자는 통계도 최신화)을 새로 만들어 올린다.
   let payload: MessageCreateOptions;
   if (sticky.kind === STICKY_KIND.ADMIN_PANEL) {
-    payload = { embeds: [await adminPanelEmbed()], components: adminPanelRows() };
+    payload = await adminPanelPayload();
   } else if (sticky.kind === STICKY_KIND.SELLER_PANEL) {
     const seller = await prisma.seller.findFirst({ where: { manageChannelId: channelId } });
     if (!seller) {
