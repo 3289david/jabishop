@@ -193,7 +193,7 @@ export const SHOP_SUBSCRIPTION_TIER_SLUG = "shop-subscription";
 export const SHOP_SUBSCRIPTION_PRICE = 4000;
 // 자판기 구매 완료 시 사용법 채널(자비샵 본인 서버 전용, 비공개 채널이라 구매자에게
 // 1명씩 "채널 보기" 권한을 열어줘야 보인다)을 보라고 DM으로 안내한다.
-export const SHOP_SUBSCRIPTION_GUIDE_CHANNEL_ID = "1557048601547505684";
+export const SHOP_SUBSCRIPTION_GUIDE_CHANNEL_ID = "1558492093314236586";
 
 export const SPAM_VIOLATION_TYPE = {
   FLOOD: "FLOOD", // 짧은 시간에 메시지 N개 이상
