@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { buildPanel, ACCENT_COLOR } from "@/bot/ui";
 import { STICKY_KIND } from "@/lib/constants";
 import { adminPanelPayload } from "@/bot/panels";
-import { sellerManagePanelEmbed, sellerManagePanelRow } from "@/bot/sellerPanels";
+import { sellerManagePanelPayload } from "@/bot/sellerPanels";
 import type { StickyMessage } from "@prisma/client";
 
 // 채널에 새 메시지가 올라올 때마다 고정 메시지를 지우고 다시 올려서, 항상 채널
@@ -47,7 +47,7 @@ export async function repostSticky(channelId: string, channel: TextBasedChannel)
       await prisma.stickyMessage.delete({ where: { channelId } }).catch(() => {});
       return null;
     }
-    payload = { embeds: [sellerManagePanelEmbed(seller)], components: sellerManagePanelRow() };
+    payload = sellerManagePanelPayload(seller);
   } else {
     payload = buildStickyPayload(sticky);
   }

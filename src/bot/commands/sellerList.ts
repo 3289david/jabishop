@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from "discord.js";
 import { prisma } from "@/lib/prisma";
-import { errorEmbed } from "@/bot/format";
-import { sellerListEmbed, sellerManagePanelRow, sellerStatsEmbed } from "@/bot/sellerPanels";
+import { panelError, ephemeral } from "@/bot/ui";
+import { sellerListPayload, sellerStatsWithManagePayload } from "@/bot/sellerPanels";
 import { SELLER_STATUS } from "@/lib/constants";
 import type { BotCommand } from "@/bot/types";
 
@@ -13,7 +13,7 @@ export const sellerListCommand: BotCommand = {
       orderBy: { dealCount: "desc" },
       take: 25,
     });
-    await interaction.reply({ embeds: [sellerListEmbed(sellers)], ephemeral: true });
+    await interaction.reply(ephemeral(sellerListPayload(sellers)));
   },
 };
 
@@ -24,10 +24,9 @@ export const sellerStatsCommand: BotCommand = {
   async execute(interaction) {
     const seller = await prisma.seller.findUnique({ where: { discordUserId: interaction.user.id } });
     if (!seller) {
-      return interaction.reply({ embeds: [errorEmbed("판매자 등록 정보가 없습니다.")], ephemeral: true });
+      return interaction.reply(ephemeral(panelError("판매자 등록 정보가 없습니다.")));
     }
 
-    const embed = await sellerStatsEmbed(seller);
-    await interaction.reply({ embeds: [embed], components: sellerManagePanelRow(), ephemeral: true });
+    await interaction.reply(ephemeral(await sellerStatsWithManagePayload(seller)));
   },
 };

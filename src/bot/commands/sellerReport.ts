@@ -1,6 +1,6 @@
 import { SlashCommandBuilder } from "discord.js";
 import { fileSellerReport, SellerError } from "@/lib/sellers";
-import { errorEmbed, successEmbed } from "@/bot/format";
+import { panelError, panelSuccess } from "@/bot/ui";
 import { sellerAutocomplete } from "@/bot/autocomplete";
 import { SELLER_REPORT_REASONS } from "@/lib/constants";
 import type { BotCommand } from "@/bot/types";
@@ -31,9 +31,9 @@ export const sellerReportCommand: BotCommand = {
 
     try {
       await fileSellerReport({ sellerId, reporterDiscordId: interaction.user.id, reason, detail });
-      await interaction.editReply({ embeds: [successEmbed("신고가 접수되었습니다. 관리자가 확인 후 조치합니다.")] });
+      await interaction.editReply(panelSuccess("신고가 접수되었습니다. 관리자가 확인 후 조치합니다."));
     } catch (e) {
-      await interaction.editReply({ embeds: [errorEmbed(e instanceof SellerError ? e.message : "처리 중 오류가 발생했습니다.")] });
+      await interaction.editReply(panelError(e instanceof SellerError ? e.message : "처리 중 오류가 발생했습니다."));
     }
   },
 };

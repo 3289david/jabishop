@@ -1,9 +1,9 @@
 import { SlashCommandBuilder } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { requireLinkedAdmin } from "@/bot/discordAuth";
-import { errorEmbed, successEmbed, baseEmbed } from "@/bot/format";
+import { buildPanel, panelError, panelSuccess, ephemeral } from "@/bot/ui";
 import { sellerAutocomplete } from "@/bot/autocomplete";
-import { sellerInfoEmbed } from "@/bot/sellerPanels";
+import { sellerInfoPayload } from "@/bot/sellerPanels";
 import {
   approveSeller,
   rejectSeller,
@@ -109,15 +109,18 @@ export const sellerManageCommand: BotCommand = {
     if (sub === "신청목록") {
       await requireLinkedAdmin(interaction.user.id);
       const pending = await prisma.seller.findMany({ where: { status: SELLER_STATUS.PENDING }, orderBy: { createdAt: "asc" }, take: 25 });
-      const embed = baseEmbed("📥 대기 중인 판매자 신청");
-      if (pending.length === 0) embed.setDescription("대기 중인 신청이 없습니다.");
-      for (const s of pending) {
-        embed.addFields({
-          name: `${s.storeName} (${s.discordTag})`,
-          value: `${s.category ?? "-"} · ${s.saleMethod ?? "-"}\n${s.description ?? ""}`,
-        });
-      }
-      return interaction.reply({ embeds: [embed], ephemeral: true });
+      return interaction.reply(
+        ephemeral(
+          buildPanel({
+            title: "📥 대기 중인 판매자 신청",
+            description: pending.length === 0 ? "대기 중인 신청이 없습니다." : undefined,
+            fields: pending.map((s) => ({
+              name: `${s.storeName} (${s.discordTag})`,
+              value: `${s.category ?? "-"} · ${s.saleMethod ?? "-"}\n${s.description ?? ""}`,
+            })),
+          })
+        )
+      );
     }
 
     if (sub === "현황") {
@@ -133,15 +136,21 @@ export const sellerManageCommand: BotCommand = {
         prisma.shopSetting.findUnique({ where: { id: "singleton" } }),
       ]);
       const monthlyPrice = settings?.sellerMonthlyPrice ?? 1000;
-      const embed = baseEmbed("📊 판매자 운영 현황").addFields(
-        { name: "전체 판매자", value: `${total}명`, inline: true },
-        { name: "활성 판매자", value: `${active}명`, inline: true },
-        { name: "승인 대기", value: `${pending}명`, inline: true },
-        { name: "결제 예정(7일 내)", value: `${expiringSoon}명`, inline: true },
-        { name: "신고 접수(미처리)", value: `${reportsPending}건`, inline: true },
-        { name: "이번 달 입점료 추정", value: `${(active * monthlyPrice).toLocaleString()}P`, inline: true }
+      return interaction.reply(
+        ephemeral(
+          buildPanel({
+            title: "📊 판매자 운영 현황",
+            fields: [
+              { name: "전체 판매자", value: `${total}명` },
+              { name: "활성 판매자", value: `${active}명` },
+              { name: "승인 대기", value: `${pending}명` },
+              { name: "결제 예정(7일 내)", value: `${expiringSoon}명` },
+              { name: "신고 접수(미처리)", value: `${reportsPending}건` },
+              { name: "이번 달 입점료 추정", value: `${(active * monthlyPrice).toLocaleString()}P` },
+            ],
+          })
+        )
       );
-      return interaction.reply({ embeds: [embed], ephemeral: true });
     }
 
     if (sub === "공지") {
@@ -155,15 +164,15 @@ export const sellerManageCommand: BotCommand = {
         }).catch(() => {});
       }
       await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "SELLER_NOTICE", detail: `${sellers.length}명` } });
-      return interaction.editReply({ embeds: [successEmbed(`활성 판매자 ${sellers.length}명에게 공지를 발송했습니다.`)] });
+      return interaction.editReply(panelSuccess(`활성 판매자 ${sellers.length}명에게 공지를 발송했습니다.`));
     }
 
     if (sub === "정보") {
       await requireLinkedAdmin(interaction.user.id);
       const sellerId = interaction.options.getString("판매자", true);
       const seller = await prisma.seller.findUnique({ where: { id: sellerId } });
-      if (!seller) return interaction.reply({ embeds: [errorEmbed("존재하지 않는 판매자입니다.")], ephemeral: true });
-      return interaction.reply({ embeds: [sellerInfoEmbed(seller)], ephemeral: true });
+      if (!seller) return interaction.reply(ephemeral(panelError("존재하지 않는 판매자입니다.")));
+      return interaction.reply(ephemeral(sellerInfoPayload(seller)));
     }
 
     if (sub === "경고") {
@@ -172,19 +181,19 @@ export const sellerManageCommand: BotCommand = {
       const reason = interaction.options.getString("사유", true);
       await interaction.deferReply({ ephemeral: true });
       const seller = await prisma.seller.findUnique({ where: { id: sellerId } });
-      if (!seller) return interaction.editReply({ embeds: [errorEmbed("존재하지 않는 판매자입니다.")] });
+      if (!seller) return interaction.editReply(panelError("존재하지 않는 판매자입니다."));
       await prisma.seller.update({ where: { id: sellerId }, data: { adminNote: `[경고] ${reason}` } });
       sendDiscordDM(seller.discordUserId, {
         embeds: [{ title: "⚠️ 판매자 경고", description: reason, color: 0xf59e0b, timestamp: new Date().toISOString() }],
       }).catch(() => {});
       await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "SELLER_WARN", target: sellerId, detail: reason } });
-      return interaction.editReply({ embeds: [successEmbed(`"${seller.storeName}"에게 경고를 보냈습니다.`)] });
+      return interaction.editReply(panelSuccess(`"${seller.storeName}"에게 경고를 보냈습니다.`));
     }
 
     // 아래는 전부 서버의 guildId가 필요한(채널/역할 변경) 액션들.
     const admin = await requireLinkedAdmin(interaction.user.id);
     const guildId = interaction.guildId;
-    if (!guildId) return interaction.reply({ embeds: [errorEmbed("서버 안에서만 사용할 수 있습니다.")], ephemeral: true });
+    if (!guildId) return interaction.reply(ephemeral(panelError("서버 안에서만 사용할 수 있습니다.")));
     const sellerId = interaction.options.getString("판매자", true);
     await interaction.deferReply({ ephemeral: true });
 
@@ -192,43 +201,43 @@ export const sellerManageCommand: BotCommand = {
       if (sub === "승인") {
         const seller = await approveSeller(sellerId, admin.id, guildId);
         await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "SELLER_APPROVE", target: sellerId } });
-        return interaction.editReply({
-          embeds: [successEmbed(`"${seller.storeName}" 입점을 승인했습니다.${seller.channelId ? ` <#${seller.channelId}> 채널 생성됨.` : " (채널 생성 실패 - 권한 확인 필요)"}`)],
-        });
+        return interaction.editReply(
+          panelSuccess(`"${seller.storeName}" 입점을 승인했습니다.${seller.channelId ? ` <#${seller.channelId}> 채널 생성됨.` : " (채널 생성 실패 - 권한 확인 필요)"}`)
+        );
       }
       if (sub === "거절") {
         const note = interaction.options.getString("사유") ?? undefined;
         await rejectSeller(sellerId, admin.id, note);
         await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "SELLER_REJECT", target: sellerId } });
-        return interaction.editReply({ embeds: [successEmbed("입점 신청을 거절했습니다.")] });
+        return interaction.editReply(panelSuccess("입점 신청을 거절했습니다."));
       }
       if (sub === "정지") {
         const note = interaction.options.getString("사유") ?? undefined;
         await suspendSeller(sellerId, admin.id, guildId, note);
         await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "SELLER_SUSPEND", target: sellerId } });
-        return interaction.editReply({ embeds: [successEmbed("판매자를 정지했습니다.")] });
+        return interaction.editReply(panelSuccess("판매자를 정지했습니다."));
       }
       if (sub === "복구") {
         await restoreSeller(sellerId, admin.id, guildId);
         await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "SELLER_RESTORE", target: sellerId } });
-        return interaction.editReply({ embeds: [successEmbed("판매자를 복구했습니다.")] });
+        return interaction.editReply(panelSuccess("판매자를 복구했습니다."));
       }
       if (sub === "퇴출") {
         const note = interaction.options.getString("사유") ?? undefined;
         await expelSeller(sellerId, admin.id, guildId, note);
         await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "SELLER_EXPEL", target: sellerId } });
-        return interaction.editReply({ embeds: [successEmbed("판매자를 퇴출했습니다.")] });
+        return interaction.editReply(panelSuccess("판매자를 퇴출했습니다."));
       }
       if (sub === "연장") {
         const days = interaction.options.getInteger("일수") ?? 30;
         const seller = await extendSeller(sellerId, admin.id, guildId, days);
         await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "SELLER_EXTEND", target: sellerId, detail: `${days}일` } });
-        return interaction.editReply({
-          embeds: [successEmbed(`"${seller.storeName}" 이용기간을 ${seller.nextBillingAt?.toLocaleDateString("ko-KR")}까지 연장했습니다.`)],
-        });
+        return interaction.editReply(
+          panelSuccess(`"${seller.storeName}" 이용기간을 ${seller.nextBillingAt?.toLocaleDateString("ko-KR")}까지 연장했습니다.`)
+        );
       }
     } catch (e) {
-      return interaction.editReply({ embeds: [errorEmbed(e instanceof SellerError ? e.message : "처리 중 오류가 발생했습니다.")] });
+      return interaction.editReply(panelError(e instanceof SellerError ? e.message : "처리 중 오류가 발생했습니다."));
     }
   },
 };

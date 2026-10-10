@@ -9,8 +9,8 @@ import {
   type ModalSubmitInteraction,
 } from "discord.js";
 import { prisma } from "@/lib/prisma";
-import { errorEmbed, successEmbed } from "@/bot/format";
-import { sellerProductEmbed, sellerProductRow } from "@/bot/sellerPanels";
+import { panelError, panelSuccess, ephemeral } from "@/bot/ui";
+import { sellerProductPayload } from "@/bot/sellerPanels";
 import { SELLER_STATUS } from "@/lib/constants";
 import { sendChannelMessage } from "@/lib/discordNotify";
 import type { BotCommand } from "@/bot/types";
@@ -29,7 +29,7 @@ export async function showSellerProductModal(interaction: ButtonInteraction | Ch
   try {
     await requireOwnActiveSeller(interaction.user.id);
   } catch (e) {
-    return interaction.reply({ embeds: [errorEmbed(e instanceof Error ? e.message : "오류가 발생했습니다.")], ephemeral: true });
+    return interaction.reply(ephemeral(panelError(e instanceof Error ? e.message : "오류가 발생했습니다.")));
   }
 
   const modal = new ModalBuilder().setCustomId(SELLER_PRODUCT_MODAL_ID).setTitle("상품 등록");
@@ -77,7 +77,7 @@ export async function handleSellerProductModalSubmit(interaction: ModalSubmitInt
 
   const price = Number(priceRaw);
   if (!Number.isFinite(price) || price <= 0) {
-    return interaction.editReply({ embeds: [errorEmbed("가격은 1 이상의 숫자로 입력해주세요.")] });
+    return interaction.editReply(panelError("가격은 1 이상의 숫자로 입력해주세요."));
   }
   const stock = stockRaw ? Number(stockRaw) : null;
 
@@ -85,16 +85,15 @@ export async function handleSellerProductModalSubmit(interaction: ModalSubmitInt
   try {
     seller = await requireOwnActiveSeller(interaction.user.id);
   } catch (e) {
-    return interaction.editReply({ embeds: [errorEmbed(e instanceof Error ? e.message : "오류가 발생했습니다.")] });
+    return interaction.editReply(panelError(e instanceof Error ? e.message : "오류가 발생했습니다."));
   }
 
   const product = await prisma.sellerProduct.create({
     data: { sellerId: seller.id, name, price, stock, description, purchaseMethod, channelId: seller.channelId },
   });
 
-  const embed = sellerProductEmbed(seller, product);
-  const row = sellerProductRow(product.id, stock === 0);
-  await sendChannelMessage(seller.channelId!, { embeds: [embed.toJSON()], components: [row.toJSON()] });
+  const payload = sellerProductPayload(seller, product, stock === 0);
+  await sendChannelMessage(seller.channelId!, { flags: payload.flags, components: payload.components.map((c) => c.toJSON()) });
 
-  await interaction.editReply({ embeds: [successEmbed(`"${name}" 상품이 <#${seller.channelId}> 채널에 등록되었습니다.`)] });
+  await interaction.editReply(panelSuccess(`"${name}" 상품이 <#${seller.channelId}> 채널에 등록되었습니다.`));
 }

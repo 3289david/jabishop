@@ -1,9 +1,9 @@
 import { SlashCommandBuilder } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { requireLinkedAdmin, requireSuperRole } from "@/bot/discordAuth";
-import { errorEmbed, successEmbed } from "@/bot/format";
+import { panelError, panelSuccess, ephemeral } from "@/bot/ui";
 import { createGuildCategory, createPlainGuildChannel, createGuildRole } from "@/lib/discordNotify";
-import { sellerGuideEmbed, sellerApplyRow } from "@/bot/sellerPanels";
+import { sellerGuidePayload } from "@/bot/sellerPanels";
 import type { BotCommand } from "@/bot/types";
 
 // 판매자 시스템에 필요한 카테고리/채널/역할을 전부 자동으로 만든다 - 관리자가 디스코드에서
@@ -17,21 +17,20 @@ export const sellerSetupCommand: BotCommand = {
     const admin = await requireLinkedAdmin(interaction.user.id);
     requireSuperRole(admin.role);
     const guildId = interaction.guildId;
-    if (!guildId) return interaction.reply({ embeds: [errorEmbed("서버 안에서만 사용할 수 있습니다.")], ephemeral: true });
+    if (!guildId) return interaction.reply(ephemeral(panelError("서버 안에서만 사용할 수 있습니다.")));
 
     const existing = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
     if (existing?.sellerCategoryId) {
-      return interaction.reply({
-        embeds: [errorEmbed("이미 판매자 시스템이 설치되어 있습니다. 다시 설치하려면 먼저 관리자에게 기존 채널/역할을 정리해달라고 요청해주세요.")],
-        ephemeral: true,
-      });
+      return interaction.reply(
+        ephemeral(panelError("이미 판매자 시스템이 설치되어 있습니다. 다시 설치하려면 먼저 관리자에게 기존 채널/역할을 정리해달라고 요청해주세요."))
+      );
     }
 
     await interaction.deferReply({ ephemeral: true });
 
     const infoCategoryId = await createGuildCategory(guildId, "🛒 판매자");
     if (!infoCategoryId) {
-      return interaction.editReply({ embeds: [errorEmbed("카테고리 생성에 실패했습니다 (봇 권한을 확인해주세요).")] });
+      return interaction.editReply(panelError("카테고리 생성에 실패했습니다 (봇 권한을 확인해주세요)."));
     }
     // 판매자 본인만 보이는 비공개 "관리 패널" 채널은 별도 카테고리 없이 이 쇼룸
     // 카테고리 밑에 같이 둔다 (채널 자체 권한이 카테고리 상속보다 우선하므로 안전).
@@ -62,29 +61,27 @@ export const sellerSetupCommand: BotCommand = {
     });
 
     if (guideChannelId) {
-      const embed = sellerGuideEmbed(settings.sellerMonthlyPrice, settings.sellerFreeTrialDays);
+      const payload = sellerGuidePayload(settings.sellerMonthlyPrice, settings.sellerFreeTrialDays);
       await fetch(`https://discord.com/api/v10/channels/${guideChannelId}/messages`, {
         method: "POST",
         headers: { Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ embeds: [embed.toJSON()], components: [sellerApplyRow().toJSON()] }),
+        body: JSON.stringify({ flags: payload.flags, components: payload.components.map((c) => c.toJSON()) }),
       }).catch(() => {});
     }
 
     await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "SELLER_SYSTEM_SETUP" } });
-    await interaction.editReply({
-      embeds: [
-        successEmbed(
-          [
-            "판매자 시스템 설치가 완료되었습니다!",
-            guideChannelId ? `<#${guideChannelId}> 채널에서 신청받을 수 있습니다.` : null,
-            !showroomCategoryId || !ticketCategoryId || !sellerRoleId
-              ? "⚠️ 일부 항목(카테고리/역할)이 생성되지 않았습니다 - 봇의 '채널 관리'/'역할 관리' 권한을 확인해주세요."
-              : null,
-          ]
-            .filter(Boolean)
-            .join("\n")
-        ),
-      ],
-    });
+    await interaction.editReply(
+      panelSuccess(
+        [
+          "판매자 시스템 설치가 완료되었습니다!",
+          guideChannelId ? `<#${guideChannelId}> 채널에서 신청받을 수 있습니다.` : null,
+          !showroomCategoryId || !ticketCategoryId || !sellerRoleId
+            ? "⚠️ 일부 항목(카테고리/역할)이 생성되지 않았습니다 - 봇의 '채널 관리'/'역할 관리' 권한을 확인해주세요."
+            : null,
+        ]
+          .filter(Boolean)
+          .join("\n")
+      )
+    );
   },
 };

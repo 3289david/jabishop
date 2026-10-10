@@ -7,7 +7,7 @@ import {
   type ModalSubmitInteraction,
 } from "discord.js";
 import { prisma } from "@/lib/prisma";
-import { errorEmbed, successEmbed, baseEmbed } from "@/bot/format";
+import { panelError, panelSuccess, ephemeral } from "@/bot/ui";
 import {
   openSellerTicket,
   setSellerTicketStatus,
@@ -16,7 +16,7 @@ import {
   fileSellerReport,
   SellerError,
 } from "@/lib/sellers";
-import { sellerTicketOpenEmbed, sellerTicketControlRow, sellerReviewPromptRow } from "@/bot/sellerPanels";
+import { sellerTicketOpenPayload, sellerReviewPromptPayload } from "@/bot/sellerPanels";
 import { sendChannelMessage } from "@/lib/discordNotify";
 import { SELLER_TICKET_STATUS } from "@/lib/constants";
 
@@ -26,8 +26,8 @@ export const SELLER_REPORT_MODAL_PREFIX = "seller_report_modal:";
 export async function handleSellerBuyInquiry(interaction: ButtonInteraction, productId: string) {
   await interaction.deferReply({ ephemeral: true });
   const product = await prisma.sellerProduct.findUnique({ where: { id: productId } });
-  if (!product) return interaction.editReply({ embeds: [errorEmbed("존재하지 않는 상품입니다.")] });
-  if (!interaction.guildId) return interaction.editReply({ embeds: [errorEmbed("서버 안에서만 사용할 수 있습니다.")] });
+  if (!product) return interaction.editReply(panelError("존재하지 않는 상품입니다."));
+  if (!interaction.guildId) return interaction.editReply(panelError("서버 안에서만 사용할 수 있습니다."));
 
   try {
     const ticket = await openSellerTicket({
@@ -41,17 +41,15 @@ export async function handleSellerBuyInquiry(interaction: ButtonInteraction, pro
     if (!seller) throw new SellerError("존재하지 않는 판매자입니다.");
 
     if (ticket.channelId) {
-      await sendChannelMessage(ticket.channelId, {
-        embeds: [sellerTicketOpenEmbed(seller, product, interaction.user.tag).toJSON()],
-        components: sellerTicketControlRow(ticket.id).map((r) => r.toJSON()),
-      });
+      const payload = sellerTicketOpenPayload(seller, product, interaction.user.tag, ticket.id);
+      await sendChannelMessage(ticket.channelId, { flags: payload.flags, components: payload.components.map((c) => c.toJSON()) });
     }
-    await interaction.editReply({
-      embeds: [successEmbed(ticket.channelId ? `구매 문의 채널이 열렸습니다: <#${ticket.channelId}>` : "문의 채널 생성에 실패했습니다. 관리자에게 문의해주세요.")],
-    });
+    await interaction.editReply(
+      panelSuccess(ticket.channelId ? `구매 문의 채널이 열렸습니다: <#${ticket.channelId}>` : "문의 채널 생성에 실패했습니다. 관리자에게 문의해주세요.")
+    );
   } catch (e) {
     const message = e instanceof SellerError ? e.message : "처리 중 오류가 발생했습니다.";
-    await interaction.editReply({ embeds: [errorEmbed(message)] });
+    await interaction.editReply(panelError(message));
   }
 }
 
@@ -72,43 +70,37 @@ export async function handleSellerTicketAction(interaction: ButtonInteraction, a
 
     if (action === "paid") {
       await setSellerTicketStatus(ticketId, SELLER_TICKET_STATUS.PAID);
-      return interaction.editReply({ embeds: [successEmbed("결제 완료로 표시했습니다.")] });
+      return interaction.editReply(panelSuccess("결제 완료로 표시했습니다."));
     }
     if (action === "delivered") {
       await setSellerTicketStatus(ticketId, SELLER_TICKET_STATUS.DELIVERED);
-      return interaction.editReply({ embeds: [successEmbed("상품 전달 완료로 표시했습니다.")] });
+      return interaction.editReply(panelSuccess("상품 전달 완료로 표시했습니다."));
     }
     if (action === "complete") {
       await setSellerTicketStatus(ticketId, SELLER_TICKET_STATUS.COMPLETED);
       if (ticket.channelId) {
-        await sendChannelMessage(ticket.channelId, {
-          embeds: [
-            baseEmbed("🎉 거래가 완료되었습니다")
-              .setDescription("구매자님, 판매자 후기를 남겨주세요!")
-              .toJSON(),
-          ],
-          components: [sellerReviewPromptRow(ticketId).toJSON()],
-        });
+        const payload = sellerReviewPromptPayload(ticketId);
+        await sendChannelMessage(ticket.channelId, { flags: payload.flags, components: payload.components.map((c) => c.toJSON()) });
       }
-      return interaction.editReply({ embeds: [successEmbed("거래 완료로 표시했습니다. 구매자 후기 요청을 채널에 올렸습니다.")] });
+      return interaction.editReply(panelSuccess("거래 완료로 표시했습니다. 구매자 후기 요청을 채널에 올렸습니다."));
     }
     if (action === "cancel") {
       await setSellerTicketStatus(ticketId, SELLER_TICKET_STATUS.CANCELLED);
-      return interaction.editReply({ embeds: [successEmbed("거래를 취소로 표시했습니다.")] });
+      return interaction.editReply(panelSuccess("거래를 취소로 표시했습니다."));
     }
     if (action === "close") {
       await closeSellerTicket(ticketId);
-      return interaction.editReply({ embeds: [successEmbed("티켓을 닫았습니다. 잠시 후 채널이 삭제됩니다.")] });
+      return interaction.editReply(panelSuccess("티켓을 닫았습니다. 잠시 후 채널이 삭제됩니다."));
     }
   } catch (e) {
     const message = e instanceof SellerError ? e.message : "처리 중 오류가 발생했습니다.";
-    await interaction.editReply({ embeds: [errorEmbed(message)] });
+    await interaction.editReply(panelError(message));
   }
 }
 
 export async function showSellerReportModal(interaction: ButtonInteraction, ticketId: string) {
   const ticket = await prisma.sellerTicket.findUnique({ where: { id: ticketId } });
-  if (!ticket) return interaction.reply({ embeds: [errorEmbed("존재하지 않는 티켓입니다.")], ephemeral: true });
+  if (!ticket) return interaction.reply(ephemeral(panelError("존재하지 않는 티켓입니다.")));
 
   const modal = new ModalBuilder().setCustomId(`${SELLER_REPORT_MODAL_PREFIX}${ticket.sellerId}`).setTitle("판매자 신고");
   const reason = new TextInputBuilder()
@@ -135,9 +127,9 @@ export async function handleSellerReportModalSubmit(interaction: ModalSubmitInte
 
   try {
     await fileSellerReport({ sellerId, reporterDiscordId: interaction.user.id, reason, detail });
-    await interaction.editReply({ embeds: [successEmbed("신고가 접수되었습니다. 관리자가 확인 후 조치합니다.")] });
+    await interaction.editReply(panelSuccess("신고가 접수되었습니다. 관리자가 확인 후 조치합니다."));
   } catch (e) {
-    await interaction.editReply({ embeds: [errorEmbed(e instanceof SellerError ? e.message : "처리 중 오류가 발생했습니다.")] });
+    await interaction.editReply(panelError(e instanceof SellerError ? e.message : "처리 중 오류가 발생했습니다."));
   }
 }
 
@@ -146,12 +138,11 @@ export async function handleSellerReviewButton(interaction: ButtonInteraction, r
   await interaction.deferUpdate();
   try {
     const review = await createSellerReview(ticketId, interaction.user.id, Number(rating));
-    await interaction.editReply({
-      embeds: [successEmbed(`⭐ ${review.rating}점 후기가 등록되었습니다. 감사합니다!`)],
-      components: [],
-    });
+    // V2 패널은 버튼도 같은 컨테이너 안에 있어서, 별점 버튼이 없는 새 패널로 통째로
+    // 교체하는 것 자체가 곧 "버튼 제거"다 (기존 embeds+components:[] 패턴과 동일한 효과).
+    await interaction.editReply(panelSuccess(`⭐ ${review.rating}점 후기가 등록되었습니다. 감사합니다!`));
   } catch (e) {
     const message = e instanceof SellerError ? e.message : "처리 중 오류가 발생했습니다.";
-    await interaction.followUp({ embeds: [errorEmbed(message)], ephemeral: true });
+    await interaction.followUp(ephemeral(panelError(message)));
   }
 }

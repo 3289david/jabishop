@@ -9,7 +9,7 @@ import {
   type ModalSubmitInteraction,
 } from "discord.js";
 import { applySeller, SellerError } from "@/lib/sellers";
-import { errorEmbed, successEmbed } from "@/bot/format";
+import { panelError, panelSuccess } from "@/bot/ui";
 import type { BotCommand } from "@/bot/types";
 
 export const SELLER_APPLY_MODAL_ID = "seller_apply_modal";
@@ -61,12 +61,10 @@ export async function handleSellerApplyModalSubmit(interaction: ModalSubmitInter
       saleMethod,
       description,
     });
-    await interaction.editReply({
-      embeds: [successEmbed(`"${storeName}" 입점 신청이 접수되었습니다. 관리자 승인 후 쇼룸 채널이 생성됩니다.`)],
-    });
+    await interaction.editReply(panelSuccess(`"${storeName}" 입점 신청이 접수되었습니다. 관리자 승인 후 쇼룸 채널이 생성됩니다.`));
   } catch (e) {
     const message = e instanceof SellerError ? e.message : "신청 중 오류가 발생했습니다.";
-    await interaction.editReply({ embeds: [errorEmbed(message)] });
+    await interaction.editReply(panelError(message));
   }
 }
 

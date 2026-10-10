@@ -1,16 +1,25 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } from "discord.js";
 import { prisma } from "@/lib/prisma";
-import { baseEmbed, won } from "@/bot/format";
+import { won } from "@/bot/format";
+import { buildPanel } from "@/bot/ui";
 import { SELLER_STATUS } from "@/lib/constants";
 import type { Seller, SellerProduct, SellerTicket } from "@prisma/client";
 
 export const SELLER_APPLY_BUTTON_ID = "seller:apply";
 
-export function sellerGuideEmbed(monthlyPrice: number, freeTrialDays: number) {
-  return baseEmbed("🏪 판매자 시스템")
-    .setDescription("서버 안에서 직접 상품을 판매할 수 있는 입점 시스템입니다. 아래 버튼으로 신청해주세요.")
-    .addFields(
-      { name: "💰 이용료", value: `월 ${won(monthlyPrice)} (포인트에서 자동 결제)\n첫 ${freeTrialDays}일 무료`, inline: true },
+function sellerApplyRow() {
+  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder().setCustomId(SELLER_APPLY_BUTTON_ID).setLabel("📝 판매자 신청").setStyle(ButtonStyle.Primary)
+  );
+}
+
+export function sellerGuidePayload(monthlyPrice: number, freeTrialDays: number) {
+  return buildPanel({
+    title: "🏪 판매자 시스템",
+    description: "서버 안에서 직접 상품을 판매할 수 있는 입점 시스템입니다. 아래 버튼으로 신청해주세요.",
+    banner: true,
+    fields: [
+      { name: "💰 이용료", value: `월 ${won(monthlyPrice)} (포인트에서 자동 결제)\n첫 ${freeTrialDays}일 무료` },
       {
         name: "⚠️ 결제 안내",
         value: "결제일 7/3/1일 전에 DM으로 미리 알려드립니다. 결제일에 포인트가 부족하면 자동으로 활동이 정지되니 미리 충전해주세요.",
@@ -37,14 +46,10 @@ export function sellerGuideEmbed(monthlyPrice: number, freeTrialDays: number) {
       {
         name: "🧾 유의사항",
         value: "판매자는 본인이 판매하는 상품/서비스에 대한 책임을 직접 부담합니다. 거래 분쟁은 운영진이 중재하지만, 실제 거래 책임은 판매자 본인에게 있습니다.",
-      }
-    );
-}
-
-export function sellerApplyRow() {
-  return new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder().setCustomId(SELLER_APPLY_BUTTON_ID).setLabel("📝 판매자 신청").setStyle(ButtonStyle.Primary)
-  );
+      },
+    ],
+    rows: [sellerApplyRow()],
+  });
 }
 
 function sellerRatingLine(seller: { ratingCount: number; ratingSum: number }) {
@@ -53,46 +58,26 @@ function sellerRatingLine(seller: { ratingCount: number; ratingSum: number }) {
   return `⭐ ${avg} (${seller.ratingCount}개 후기)`;
 }
 
-export function sellerProductEmbed(seller: Seller, product: SellerProduct) {
-  return baseEmbed(`🛒 ${product.name}`)
-    .setDescription(product.description || null)
-    .addFields(
-      { name: "💰 가격", value: won(product.price), inline: true },
-      { name: "📦 재고", value: product.stock != null ? `${product.stock}개` : "문의", inline: true },
-      { name: "⭐ 판매자 평점", value: sellerRatingLine(seller), inline: true },
-      ...(product.purchaseMethod ? [{ name: "💳 구매 방법 / 환불 안내", value: product.purchaseMethod }] : [])
-    )
-    .setFooter({ text: `판매자: ${seller.storeName}` });
-}
-
-export function sellerProductRow(productId: string, disabled: boolean) {
-  return new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`seller:buy:${productId}`)
-      .setLabel("🛒 구매 문의")
-      .setStyle(ButtonStyle.Success)
-      .setDisabled(disabled)
+export function sellerProductPayload(seller: Seller, product: SellerProduct, disabled: boolean) {
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
+    new ButtonBuilder().setCustomId(`seller:buy:${product.id}`).setLabel("🛒 구매 문의").setStyle(ButtonStyle.Success).setDisabled(disabled)
   );
+  return buildPanel({
+    title: `🛒 ${product.name}`,
+    description: product.description || undefined,
+    footer: `판매자: ${seller.storeName}`,
+    fields: [
+      { name: "💰 가격", value: won(product.price) },
+      { name: "📦 재고", value: product.stock != null ? `${product.stock}개` : "문의" },
+      { name: "⭐ 판매자 평점", value: sellerRatingLine(seller) },
+      ...(product.purchaseMethod ? [{ name: "💳 구매 방법 / 환불 안내", value: product.purchaseMethod }] : []),
+    ],
+    rows: [row],
+  });
 }
 
-export function sellerTicketOpenEmbed(seller: Seller, product: SellerProduct | null, buyerTag: string) {
-  return baseEmbed("📦 구매 문의")
-    .setDescription(
-      [
-        `상품: ${product?.name ?? "일반 문의"}`,
-        product ? `가격: ${won(product.price)}` : null,
-        `구매자: ${buyerTag}`,
-        `판매자: ${seller.storeName}`,
-        "",
-        "이 채널에서 판매자와 직접 거래 내용을 상담해주세요. 거래가 끝나면 아래 버튼으로 상태를 갱신해주세요.",
-      ]
-        .filter(Boolean)
-        .join("\n")
-    );
-}
-
-export function sellerTicketControlRow(ticketId: string) {
-  return [
+export function sellerTicketOpenPayload(seller: Seller, product: SellerProduct | null, buyerTag: string, ticketId: string) {
+  const rows = [
     new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder().setCustomId(`sellerticket:paid:${ticketId}`).setLabel("💰 결제 완료").setStyle(ButtonStyle.Primary),
       new ButtonBuilder().setCustomId(`sellerticket:delivered:${ticketId}`).setLabel("📦 상품 전달").setStyle(ButtonStyle.Primary),
@@ -104,14 +89,33 @@ export function sellerTicketControlRow(ticketId: string) {
       new ButtonBuilder().setCustomId(`sellerticket:close:${ticketId}`).setLabel("🔒 티켓 닫기").setStyle(ButtonStyle.Secondary)
     ),
   ];
+  return buildPanel({
+    title: "📦 구매 문의",
+    description: [
+      `상품: ${product?.name ?? "일반 문의"}`,
+      product ? `가격: ${won(product.price)}` : null,
+      `구매자: ${buyerTag}`,
+      `판매자: ${seller.storeName}`,
+      "",
+      "이 채널에서 판매자와 직접 거래 내용을 상담해주세요. 거래가 끝나면 아래 버튼으로 상태를 갱신해주세요.",
+    ]
+      .filter(Boolean)
+      .join("\n"),
+    rows,
+  });
 }
 
-export function sellerReviewPromptRow(ticketId: string) {
-  return new ActionRowBuilder<ButtonBuilder>().addComponents(
+export function sellerReviewPromptPayload(ticketId: string) {
+  const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     ...[1, 2, 3, 4, 5].map((n) =>
       new ButtonBuilder().setCustomId(`sellerreview:${n}:${ticketId}`).setLabel("⭐".repeat(n)).setStyle(ButtonStyle.Secondary)
     )
   );
+  return buildPanel({
+    title: "🎉 거래가 완료되었습니다",
+    description: "구매자님, 판매자 후기를 남겨주세요!",
+    rows: [row],
+  });
 }
 
 const STATUS_LABEL: Record<string, string> = {
@@ -127,62 +131,47 @@ export function sellerStatusLabel(status: string): string {
   return STATUS_LABEL[status] ?? status;
 }
 
-export function sellerInfoEmbed(seller: Seller) {
-  return baseEmbed(`🏪 ${seller.storeName}`).addFields(
-    { name: "상태", value: sellerStatusLabel(seller.status), inline: true },
-    { name: "평점", value: sellerRatingLine(seller), inline: true },
-    { name: "거래완료", value: `${seller.dealCount}건`, inline: true },
-    { name: "판매자", value: seller.discordTag, inline: true },
-    { name: "채널", value: seller.channelId ? `<#${seller.channelId}>` : "-", inline: true },
-    {
-      name: "다음 결제일",
-      value: seller.nextBillingAt ? seller.nextBillingAt.toLocaleDateString("ko-KR") : "-",
-      inline: true,
-    },
-    ...(seller.category ? [{ name: "카테고리", value: seller.category, inline: true }] : []),
-    ...(seller.adminNote ? [{ name: "관리자 메모", value: seller.adminNote }] : [])
-  );
+export function sellerInfoPayload(seller: Seller) {
+  return buildPanel({
+    title: `🏪 ${seller.storeName}`,
+    fields: [
+      { name: "상태", value: sellerStatusLabel(seller.status) },
+      { name: "평점", value: sellerRatingLine(seller) },
+      { name: "거래완료", value: `${seller.dealCount}건` },
+      { name: "판매자", value: seller.discordTag },
+      { name: "채널", value: seller.channelId ? `<#${seller.channelId}>` : "-" },
+      { name: "다음 결제일", value: seller.nextBillingAt ? seller.nextBillingAt.toLocaleDateString("ko-KR") : "-" },
+      ...(seller.category ? [{ name: "카테고리", value: seller.category }] : []),
+      ...(seller.adminNote ? [{ name: "관리자 메모", value: seller.adminNote }] : []),
+    ],
+  });
 }
 
 // ── 판매자 자기관리 패널 ("/판매자패널") ──────────────────────────────
 
-export async function sellerStatsEmbed(seller: Seller) {
+async function sellerStatsFields(seller: Seller) {
   const [productCount, openTickets, pendingReports] = await Promise.all([
     prisma.sellerProduct.count({ where: { sellerId: seller.id, active: true } }),
     prisma.sellerTicket.count({ where: { sellerId: seller.id, status: { notIn: ["CLOSED", "CANCELLED"] } } }),
     prisma.sellerReport.count({ where: { sellerId: seller.id, status: "PENDING" } }),
   ]);
   const avg = seller.ratingCount > 0 ? (seller.ratingSum / seller.ratingCount).toFixed(1) : "-";
-  return baseEmbed(`📊 ${seller.storeName}`).addFields(
-    { name: "상태", value: sellerStatusLabel(seller.status), inline: true },
-    { name: "평점", value: `⭐ ${avg} (${seller.ratingCount}개)`, inline: true },
-    { name: "거래완료", value: `${seller.dealCount}건`, inline: true },
-    { name: "등록 상품", value: `${productCount}개`, inline: true },
-    { name: "진행 중 문의", value: `${openTickets}건`, inline: true },
-    { name: "미처리 신고", value: `${pendingReports}건`, inline: true },
-    {
-      name: "다음 결제일",
-      value: seller.nextBillingAt ? seller.nextBillingAt.toLocaleDateString("ko-KR") : "-",
-    }
-  );
+  return [
+    { name: "상태", value: sellerStatusLabel(seller.status) },
+    { name: "평점", value: `⭐ ${avg} (${seller.ratingCount}개)` },
+    { name: "거래완료", value: `${seller.dealCount}건` },
+    { name: "등록 상품", value: `${productCount}개` },
+    { name: "진행 중 문의", value: `${openTickets}건` },
+    { name: "미처리 신고", value: `${pendingReports}건` },
+    { name: "다음 결제일", value: seller.nextBillingAt ? seller.nextBillingAt.toLocaleDateString("ko-KR") : "-" },
+  ];
 }
 
-export function sellerManagePanelEmbed(seller: Seller) {
-  const avg = seller.ratingCount > 0 ? (seller.ratingSum / seller.ratingCount).toFixed(1) : "-";
-  return baseEmbed(`🏪 ${seller.storeName} 관리 패널`).addFields(
-    { name: "상태", value: sellerStatusLabel(seller.status), inline: true },
-    { name: "평점", value: `⭐ ${avg} (${seller.ratingCount}개)`, inline: true },
-    { name: "거래완료", value: `${seller.dealCount}건`, inline: true },
-    {
-      name: "다음 결제일",
-      value: seller.nextBillingAt ? seller.nextBillingAt.toLocaleDateString("ko-KR") : "-",
-      inline: true,
-    },
-    { name: "쇼룸 채널", value: seller.channelId ? `<#${seller.channelId}>` : "-", inline: true }
-  );
+export async function sellerStatsPayload(seller: Seller) {
+  return buildPanel({ title: `📊 ${seller.storeName}`, fields: await sellerStatsFields(seller) });
 }
 
-export function sellerManagePanelRow() {
+function sellerManagePanelRows() {
   return [
     new ActionRowBuilder<ButtonBuilder>().addComponents(
       new ButtonBuilder().setCustomId("sellerpanel:newproduct").setLabel("🛒 상품 등록").setStyle(ButtonStyle.Primary),
@@ -196,23 +185,34 @@ export function sellerManagePanelRow() {
   ];
 }
 
-export function sellerProductListEmbed(products: SellerProduct[]) {
-  const embed = baseEmbed("📦 내 상품 목록");
-  if (products.length === 0) {
-    embed.setDescription("등록된 상품이 없습니다. [🛒 상품 등록] 버튼으로 추가해주세요.");
-    return embed;
-  }
-  for (const p of products) {
-    embed.addFields({
-      name: `${p.active ? "🟢" : "⚪"} ${p.name} - ${won(p.price)}`,
-      value: `재고: ${p.stock != null ? `${p.stock}개` : "문의"} · 상태: ${p.active ? "판매중" : "비활성"}`,
-    });
-  }
-  return embed;
+export function sellerManagePanelPayload(seller: Seller) {
+  const avg = seller.ratingCount > 0 ? (seller.ratingSum / seller.ratingCount).toFixed(1) : "-";
+  return buildPanel({
+    title: `🏪 ${seller.storeName} 관리 패널`,
+    fields: [
+      { name: "상태", value: sellerStatusLabel(seller.status) },
+      { name: "평점", value: `⭐ ${avg} (${seller.ratingCount}개)` },
+      { name: "거래완료", value: `${seller.dealCount}건` },
+      { name: "다음 결제일", value: seller.nextBillingAt ? seller.nextBillingAt.toLocaleDateString("ko-KR") : "-" },
+      { name: "쇼룸 채널", value: seller.channelId ? `<#${seller.channelId}>` : "-" },
+    ],
+    rows: sellerManagePanelRows(),
+  });
 }
 
-export function sellerProductToggleSelectRow(products: SellerProduct[]) {
-  if (products.length === 0) return null;
+/** /판매자통계 - 관리 패널 버튼까지 같이 붙여서 보여준다. */
+export async function sellerStatsWithManagePayload(seller: Seller) {
+  return buildPanel({ title: `📊 ${seller.storeName}`, fields: await sellerStatsFields(seller), rows: sellerManagePanelRows() });
+}
+
+export function sellerProductListPayload(products: SellerProduct[]) {
+  if (products.length === 0) {
+    return buildPanel({ title: "📦 내 상품 목록", description: "등록된 상품이 없습니다. [🛒 상품 등록] 버튼으로 추가해주세요." });
+  }
+  const fields = products.map((p) => ({
+    name: `${p.active ? "🟢" : "⚪"} ${p.name} - ${won(p.price)}`,
+    value: `재고: ${p.stock != null ? `${p.stock}개` : "문의"} · 상태: ${p.active ? "판매중" : "비활성"}`,
+  }));
   const menu = new StringSelectMenuBuilder()
     .setCustomId("sellerpanel:toggleproduct")
     .setPlaceholder("판매중/비활성 전환할 상품을 선택하세요")
@@ -222,36 +222,38 @@ export function sellerProductToggleSelectRow(products: SellerProduct[]) {
         value: p.id,
       }))
     );
-  return new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu);
+  return buildPanel({
+    title: "📦 내 상품 목록",
+    fields,
+    rows: [new ActionRowBuilder<StringSelectMenuBuilder>().addComponents(menu)],
+  });
 }
 
-export function sellerTicketListEmbed(tickets: (SellerTicket & { product: SellerProduct | null })[]) {
-  const embed = baseEmbed("🎫 진행 중인 구매 문의");
+export function sellerTicketListPayload(tickets: (SellerTicket & { product: SellerProduct | null })[]) {
   if (tickets.length === 0) {
-    embed.setDescription("진행 중인 문의가 없습니다.");
-    return embed;
+    return buildPanel({ title: "🎫 진행 중인 구매 문의", description: "진행 중인 문의가 없습니다." });
   }
-  for (const t of tickets) {
-    embed.addFields({
+  return buildPanel({
+    title: "🎫 진행 중인 구매 문의",
+    fields: tickets.map((t) => ({
       name: `${t.product?.name ?? "일반 문의"} · ${t.buyerTag}`,
       value: `상태: ${t.status}${t.channelId ? ` · <#${t.channelId}>` : ""}`,
-    });
-  }
-  return embed;
+    })),
+  });
 }
 
-export function sellerListEmbed(sellers: Seller[]) {
-  const embed = baseEmbed("🏪 입점 판매자 목록");
+export function sellerListPayload(sellers: Seller[]) {
   if (sellers.length === 0) {
-    embed.setDescription("현재 활동 중인 판매자가 없습니다.");
-    return embed;
+    return buildPanel({ title: "🏪 입점 판매자 목록", description: "현재 활동 중인 판매자가 없습니다." });
   }
-  for (const s of sellers) {
-    const avg = s.ratingCount > 0 ? (s.ratingSum / s.ratingCount).toFixed(1) : "-";
-    embed.addFields({
-      name: `🏪 ${s.storeName}${s.category ? ` · ${s.category}` : ""}`,
-      value: `⭐ ${avg} (${s.ratingCount}개) · 거래 ${s.dealCount}건${s.channelId ? ` · <#${s.channelId}>` : ""}`,
-    });
-  }
-  return embed;
+  return buildPanel({
+    title: "🏪 입점 판매자 목록",
+    fields: sellers.map((s) => {
+      const avg = s.ratingCount > 0 ? (s.ratingSum / s.ratingCount).toFixed(1) : "-";
+      return {
+        name: `🏪 ${s.storeName}${s.category ? ` · ${s.category}` : ""}`,
+        value: `⭐ ${avg} (${s.ratingCount}개) · 거래 ${s.dealCount}건${s.channelId ? ` · <#${s.channelId}>` : ""}`,
+      };
+    }),
+  });
 }
