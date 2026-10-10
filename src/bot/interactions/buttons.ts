@@ -15,7 +15,7 @@ import { listUsableCoupons, computeDiscount } from "@/lib/coupon";
 import { confirmTopUp, rejectTopUp, TopUpError } from "@/lib/points";
 import { approveRefund, rejectRefund, RefundError } from "@/lib/refunds";
 import { assertActiveShopUser, requireLinkedAdmin, isDiscordGuildAdmin } from "@/bot/discordAuth";
-import { handleAntiSpamLift } from "@/bot/antiSpam";
+import { handleAntiSpamLift, handleAntiSpamKick } from "@/bot/antiSpam";
 import { readUploadedFile, isUploadKey } from "@/bot/fileStorage";
 import { pt } from "@/bot/format";
 import { buildPanel, panelError, panelSuccess, ephemeral } from "@/bot/ui";
@@ -675,4 +675,5 @@ export async function handleButtonInteraction(interaction: ButtonInteraction) {
   if (ns === "sellerpanel" && a === "stats") return handleSellerPanelStats(interaction);
   if (ns === "sellerpanel" && a === "editinfo") return showSellerEditInfoModal(interaction);
   if (ns === "antispam" && a === "lift") return handleAntiSpamLift(interaction, b);
+  if (ns === "antispam" && a === "kick") return handleAntiSpamKick(interaction, b);
 }

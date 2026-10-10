@@ -552,6 +552,17 @@ model ShopSetting {
   antiSpamEmergencyThreshold   Int     @default(10) // antiSpamEmergencyWindowSec 안에 서버 전체 위반이 이 횟수를 넘으면 긴급모드 발동
   antiSpamEmergencyWindowSec   Int     @default(60)
   antiSpamEmergencyDurationMin Int     @default(10) // 긴급모드 동안 전체 채널에 슬로우모드를 적용할 시간(분)
+
+  // 사진/영상 첨부 자체를 아예 금지 (도배 여부와 무관하게 1개만 올려도 즉시 삭제).
+  antiSpamBlockImages Boolean @default(false)
+  antiSpamBlockVideos Boolean @default(false)
+
+  // 부계정(알트) 의심 감지 - 메시지가 아니라 서버 입장(GuildMemberAdd) 시점에 본다.
+  // 계정 생성일이 이 일수보다 어리면 "너무 새 계정"으로 의심한다 (0=비활성).
+  antiSpamAltAccountMinAgeDays Int     @default(0)
+  // 켜면 새로 들어온 사람의 닉네임/유저명이 기존 멤버와 너무 비슷한지 비교한다
+  // (예: "eme"와 "eme1" - 숫자/특수문자만 다르거나 한두 글자 차이).
+  antiSpamSimilarNameCheck     Boolean @default(false)
 }
 
 // 어드민 웹 패널에서 지정하는 "홍보직원" - 디스코드 서버에 영구 초대 링크를 발급받아

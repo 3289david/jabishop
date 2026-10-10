@@ -204,6 +204,8 @@ export const SPAM_VIOLATION_TYPE = {
   EMOJI_SPAM: "EMOJI_SPAM", // 이모지 도배
   INVITE_LINK: "INVITE_LINK", // 디스코드 초대 링크 반복
   ATTACHMENT_FLOOD: "ATTACHMENT_FLOOD", // 사진/파일/영상 첨부 도배
+  IMAGE_BLOCKED: "IMAGE_BLOCKED", // 사진 업로드 전면 금지 위반
+  VIDEO_BLOCKED: "VIDEO_BLOCKED", // 영상 업로드 전면 금지 위반
 } as const;
 
 export const SPAM_ACTION = {

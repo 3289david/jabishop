@@ -32,7 +32,7 @@ import { handleSelectMenuInteraction } from "@/bot/interactions/selects";
 import { panelError, ephemeral } from "@/bot/ui";
 import { startStatsChannelLoop } from "@/bot/statsChannels";
 import { handleAutoDeleteMessage } from "@/bot/autoDeleteChannel";
-import { handleAntiSpamMessage } from "@/bot/antiSpam";
+import { handleAntiSpamMessage, handleAntiSpamMemberJoin } from "@/bot/antiSpam";
 import { handleStickyMessage } from "@/bot/stickyMessage";
 import { startPartnerBroadcastLoop } from "@/bot/partnerBroadcast";
 import { startDailyStatsBroadcastLoop } from "@/bot/dailyStatsBroadcast";
@@ -98,6 +98,12 @@ client.on(Events.MessageCreate, (message) => {
     await handleAutoDeleteMessage(message).catch(() => {});
     handleStickyMessage(message);
   }).catch((e) => console.error("메시지 처리 중 오류:", e));
+});
+
+client.on(Events.GuildMemberAdd, (member) => {
+  runForGuild(member.guild.id, () => handleAntiSpamMemberJoin(member)).catch((e) =>
+    console.error("안티스팸 부계정 감지 중 오류:", e)
+  );
 });
 
 client.on(Events.PresenceUpdate, async (_oldPresence, newPresence) => {

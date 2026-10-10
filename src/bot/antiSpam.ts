@@ -5,6 +5,7 @@ import {
   PermissionFlagsBits,
   type ButtonInteraction,
   type Guild,
+  type GuildMember,
   type Message,
   type TextChannel,
 } from "discord.js";
@@ -25,6 +26,8 @@ export const VIOLATION_LABEL: Record<string, string> = {
   [SPAM_VIOLATION_TYPE.EMOJI_SPAM]: "이모지 도배",
   [SPAM_VIOLATION_TYPE.INVITE_LINK]: "초대 링크 반복",
   [SPAM_VIOLATION_TYPE.ATTACHMENT_FLOOD]: "파일/사진/영상 도배",
+  [SPAM_VIOLATION_TYPE.IMAGE_BLOCKED]: "사진 업로드 금지 위반",
+  [SPAM_VIOLATION_TYPE.VIDEO_BLOCKED]: "영상 업로드 금지 위반",
 };
 
 // 최근 24시간 내 위반 횟수(이번 건 포함)로 제재 단계를 올린다.
@@ -64,6 +67,20 @@ function normalize(content: string): string {
 const INVITE_REGEX = /(discord\.gg|discord(?:app)?\.com\/invite)\/[a-zA-Z0-9-]+/gi;
 const EMOJI_REGEX = /<a?:\w+:\d+>|[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu;
 const REPEAT_CHAR_REGEX = /(.)\1{9,}/u; // 같은 문자 10회 이상 반복
+
+const IMAGE_EXT = /\.(png|jpe?g|gif|webp|bmp|svg|avif|heic)$/i;
+const VIDEO_EXT = /\.(mp4|mov|webm|mkv|avi|m4v|gifv)$/i;
+
+/** 첨부파일이 사진/영상인지 판별한다 - content-type이 있으면 그걸, 없으면 확장자로 폴백한다. */
+function classifyAttachmentKind(contentType: string | null, fileName: string | null): "image" | "video" | null {
+  if (contentType?.startsWith("image/")) return "image";
+  if (contentType?.startsWith("video/")) return "video";
+  if (fileName) {
+    if (IMAGE_EXT.test(fileName)) return "image";
+    if (VIDEO_EXT.test(fileName)) return "video";
+  }
+  return null;
+}
 
 function trackMessage(key: string, msg: RecentMsg, windowMs: number): RecentMsg[] {
   const cutoff = Date.now() - windowMs;
@@ -108,8 +125,23 @@ export async function handleAntiSpamMessage(message: Message) {
 
   let violation: ViolationType | null = null;
 
+  // 사진/영상 업로드 전면 금지 - 도배 여부와 무관하게 1개만 올려도 즉시 위반 (최우선 체크).
+  if ((settings.antiSpamBlockImages || settings.antiSpamBlockVideos) && message.attachments.size > 0) {
+    for (const attachment of message.attachments.values()) {
+      const kind = classifyAttachmentKind(attachment.contentType, attachment.name);
+      if (kind === "image" && settings.antiSpamBlockImages) {
+        violation = SPAM_VIOLATION_TYPE.IMAGE_BLOCKED;
+        break;
+      }
+      if (kind === "video" && settings.antiSpamBlockVideos) {
+        violation = SPAM_VIOLATION_TYPE.VIDEO_BLOCKED;
+        break;
+      }
+    }
+  }
+
   const mentionCount = message.mentions.users.size + message.mentions.roles.size;
-  if (mentionCount >= settings.antiSpamMentionLimit) {
+  if (!violation && mentionCount >= settings.antiSpamMentionLimit) {
     violation = SPAM_VIOLATION_TYPE.MENTION_BOMB;
   }
 
@@ -301,4 +333,123 @@ export async function handleAntiSpamLift(interaction: ButtonInteraction, violati
   }
 
   await interaction.reply(ephemeral(panelSuccess(`${violation.discordTag}님의 제재를 오탐으로 처리하고 해제했습니다.`)));
+}
+
+// ── 부계정(알트) 의심 감지 - 메시지가 아니라 서버 입장(GuildMemberAdd) 시점에 본다 ──
+
+function normalizeUsername(name: string): string {
+  // 숫자/밑줄/점/하이픈을 떼어내면 "eme1", "eme_02", "eme.official" 같은 변형이
+  // 전부 "eme"로 모여서, 서로 다른 사람이 우연히 겹칠 확률보다 같은 사람이 알트를
+  // 팔 때 흔히 쓰는 패턴(기본 이름 + 숫자/구분자)을 잡아내는 쪽에 가중치를 둔다.
+  return name
+    .toLowerCase()
+    .normalize("NFKC")
+    .replace(/[\s_\-.]/g, "")
+    .replace(/\d+$/, "");
+}
+
+function levenshtein(a: string, b: string): number {
+  const dp: number[][] = Array.from({ length: a.length + 1 }, () => new Array(b.length + 1).fill(0));
+  for (let i = 0; i <= a.length; i++) dp[i][0] = i;
+  for (let j = 0; j <= b.length; j++) dp[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      dp[i][j] =
+        a[i - 1] === b[j - 1] ? dp[i - 1][j - 1] : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+    }
+  }
+  return dp[a.length][b.length];
+}
+
+/** "eme"/"eme1" 같은 패턴을 잡기 위한 유사도 비교 - 정규화 후 완전히 같거나, 짧은 이름 기준 1글자 이내 차이. */
+function isSimilarUsername(a: string, b: string): boolean {
+  const na = normalizeUsername(a);
+  const nb = normalizeUsername(b);
+  if (na.length < 3 || nb.length < 3) return false;
+  if (na === nb) return true;
+  return levenshtein(na, nb) <= 1;
+}
+
+/**
+ * 새 멤버가 서버에 들어왔을 때 부계정(알트) 여부를 의심한다 - (1) 계정 생성일이
+ * 너무 최근이거나 (2) 기존 멤버와 닉네임/유저명이 너무 비슷하면 의심 신호로 본다.
+ * 둘 다 겹치면 바로 추방하고, 하나만 겹치면 관리자 로그에 "추방" 버튼과 함께 올려
+ * 사람이 판단하게 한다 (신규 가입자를 오탐으로 잘못 추방하는 걸 막기 위함).
+ */
+export async function handleAntiSpamMemberJoin(member: GuildMember) {
+  if (member.user.bot) return;
+  const settings = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
+  if (!settings?.antiSpamEnabled) return;
+  if (settings.antiSpamWhitelistRoleId && member.roles.cache.has(settings.antiSpamWhitelistRoleId)) return;
+
+  const ageDays = (Date.now() - member.user.createdTimestamp) / (24 * 60 * 60 * 1000);
+  const tooNew = settings.antiSpamAltAccountMinAgeDays > 0 && ageDays < settings.antiSpamAltAccountMinAgeDays;
+
+  let similarTo: string | null = null;
+  if (settings.antiSpamSimilarNameCheck) {
+    const members = await member.guild.members.fetch().catch(() => null);
+    if (members) {
+      for (const [id, m] of members) {
+        if (id === member.id || m.user.bot) continue;
+        if (isSimilarUsername(member.user.username, m.user.username) || isSimilarUsername(member.displayName, m.displayName)) {
+          similarTo = m.user.tag;
+          break;
+        }
+      }
+    }
+  }
+
+  if (!tooNew && !similarTo) return;
+
+  const reasonParts = [
+    tooNew ? `계정 생성 ${ageDays.toFixed(1)}일 전 (기준 ${settings.antiSpamAltAccountMinAgeDays}일 미만)` : null,
+    similarTo ? `기존 멤버 "${similarTo}"와 유사한 이름` : null,
+  ].filter((v): v is string => !!v);
+  const reason = reasonParts.join(" · ");
+
+  if (tooNew && similarTo) {
+    // 두 신호가 겹치면 부계정일 확률이 높다고 보고 즉시 추방한다.
+    await member.kick(`안티스팸: 부계정 의심 (${reason})`).catch(() => {});
+  }
+
+  if (!settings.antiSpamLogChannelId) return;
+  const logChannel = await member.guild.channels.fetch(settings.antiSpamLogChannelId).catch(() => null);
+  if (!logChannel?.isTextBased()) return;
+
+  const row =
+    tooNew && similarTo
+      ? undefined
+      : new ActionRowBuilder<ButtonBuilder>().addComponents(
+          new ButtonBuilder()
+            .setCustomId(`antispam:kick:${member.id}`)
+            .setLabel("🚫 추방")
+            .setStyle(ButtonStyle.Danger)
+        );
+
+  await (logChannel as TextChannel)
+    .send(
+      buildPanel({
+        title: tooNew && similarTo ? "🚫 부계정 의심 - 자동 추방됨" : "⚠️ 부계정 의심 - 확인 필요",
+        accentColor: ERROR_ACCENT_COLOR,
+        fields: [
+          { name: "대상", value: `<@${member.id}> (${member.user.tag})` },
+          { name: "의심 사유", value: reason },
+        ],
+        rows: row ? [row] : [],
+      })
+    )
+    .catch(() => {});
+}
+
+/** 부계정 의심 로그의 "🚫 추방" 버튼. */
+export async function handleAntiSpamKick(interaction: ButtonInteraction, userId: string) {
+  await requireLinkedAdmin(interaction.user.id);
+  const guild = interaction.guild;
+  if (!guild) return interaction.reply(ephemeral(panelError("서버 안에서만 사용할 수 있습니다.")));
+
+  const member = await guild.members.fetch(userId).catch(() => null);
+  if (!member) return interaction.reply(ephemeral(panelError("이미 서버에 없는 사용자입니다.")));
+
+  await member.kick("안티스팸: 관리자가 부계정 의심으로 추방").catch(() => {});
+  await interaction.reply(ephemeral(panelSuccess(`${member.user.tag}님을 추방했습니다.`)));
 }

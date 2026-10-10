@@ -31,6 +31,18 @@ export const antiSpamCommand: BotCommand = {
         )
         .addIntegerOption((o) =>
           o.setName("긴급모드시간분").setDescription("긴급모드(전체 슬로우모드 10초) 유지 시간/분 (기본 10)").setMinValue(1).setMaxValue(120)
+        )
+        .addBooleanOption((o) => o.setName("사진금지").setDescription("켜면 사진 첨부를 도배 여부와 무관하게 전부 삭제"))
+        .addBooleanOption((o) => o.setName("영상금지").setDescription("켜면 영상 첨부를 도배 여부와 무관하게 전부 삭제"))
+        .addIntegerOption((o) =>
+          o
+            .setName("부계정최소일수")
+            .setDescription("계정 생성일이 이 일수보다 어리면 부계정 의심 (0=비활성)")
+            .setMinValue(0)
+            .setMaxValue(365)
+        )
+        .addBooleanOption((o) =>
+          o.setName("유사이름감지").setDescription("켜면 신규 입장자 닉네임이 기존 멤버와 너무 비슷할 때(예: eme/eme1) 부계정 의심")
         ),
     )
     .addSubcommand((sc) =>
@@ -111,6 +123,10 @@ export const antiSpamCommand: BotCommand = {
     const mentionLimit = interaction.options.getInteger("멘션기준");
     const emergencyThreshold = interaction.options.getInteger("긴급모드기준");
     const emergencyDurationMin = interaction.options.getInteger("긴급모드시간분");
+    const blockImages = interaction.options.getBoolean("사진금지");
+    const blockVideos = interaction.options.getBoolean("영상금지");
+    const altAccountMinAgeDays = interaction.options.getInteger("부계정최소일수");
+    const similarNameCheck = interaction.options.getBoolean("유사이름감지");
 
     const data = {
       ...(enabled != null ? { antiSpamEnabled: enabled } : {}),
@@ -120,6 +136,10 @@ export const antiSpamCommand: BotCommand = {
       ...(mentionLimit != null ? { antiSpamMentionLimit: mentionLimit } : {}),
       ...(emergencyThreshold != null ? { antiSpamEmergencyThreshold: emergencyThreshold } : {}),
       ...(emergencyDurationMin != null ? { antiSpamEmergencyDurationMin: emergencyDurationMin } : {}),
+      ...(blockImages != null ? { antiSpamBlockImages: blockImages } : {}),
+      ...(blockVideos != null ? { antiSpamBlockVideos: blockVideos } : {}),
+      ...(altAccountMinAgeDays != null ? { antiSpamAltAccountMinAgeDays: altAccountMinAgeDays } : {}),
+      ...(similarNameCheck != null ? { antiSpamSimilarNameCheck: similarNameCheck } : {}),
     };
 
     await prisma.shopSetting.upsert({
