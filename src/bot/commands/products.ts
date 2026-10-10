@@ -1,7 +1,8 @@
 import { SlashCommandBuilder } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { ARTWORK_STATUS, TIER_STATUS, SHOP_SUBSCRIPTION_TIER_SLUG } from "@/lib/constants";
-import { baseEmbed, errorEmbed, won } from "@/bot/format";
+import { won } from "@/bot/format";
+import { buildPanel, panelError, ephemeral } from "@/bot/ui";
 import { tierAutocomplete } from "@/bot/autocomplete";
 import { getShopName } from "@/lib/shop";
 import type { BotCommand } from "@/bot/types";
@@ -16,25 +17,25 @@ export const productListCommand: BotCommand = {
     });
 
     const shopName = await getShopName();
-    const embed = baseEmbed(`🎨 ${shopName} 상품 목록`);
-    if (tiers.length === 0) embed.setDescription("등록된 상품이 없습니다.");
-    // 디스코드 임베드는 필드를 25개까지만 허용한다 - 그 이상이면 addFields가 에러를 던져
+    // 디스코드 컴포넌트는 필드를 25개까지만 허용한다 - 그 이상이면 에러를 던져
     // 상품이 하나도 안 보이는 상태가 되므로, 여기서 미리 잘라서 방지한다.
-    const MAX_EMBED_FIELDS = 25;
-    for (const t of tiers.slice(0, MAX_EMBED_FIELDS)) {
+    const MAX_FIELDS = 25;
+    const fields = tiers.slice(0, MAX_FIELDS).map((t) => {
       const isUnlimited = t.slug === SHOP_SUBSCRIPTION_TIER_SLUG;
       const soldOut = !isUnlimited && (t._count.artworks === 0 || t.status === TIER_STATUS.SOLD_OUT);
-      embed.addFields({
+      return {
         name: `${t.name}${soldOut ? " (품절)" : ""}`,
         value: `${won(t.price)} · ${isUnlimited ? "무제한" : `재고 ${t._count.artworks}개`}`,
-      });
-    }
-    if (tiers.length > MAX_EMBED_FIELDS) {
-      embed.setDescription(
-        `${tiers.length - MAX_EMBED_FIELDS}개 상품이 더 있습니다. 패널의 [🛍️ 구매하기]에서 카테고리별로 전체를 볼 수 있습니다.`
-      );
-    }
-    await interaction.reply({ embeds: [embed] });
+      };
+    });
+    const description =
+      tiers.length === 0
+        ? "등록된 상품이 없습니다."
+        : tiers.length > MAX_FIELDS
+          ? `${tiers.length - MAX_FIELDS}개 상품이 더 있습니다. 패널의 [🛍️ 구매하기]에서 카테고리별로 전체를 볼 수 있습니다.`
+          : undefined;
+
+    await interaction.reply(buildPanel({ title: `🎨 ${shopName} 상품 목록`, description, fields, banner: true }));
   },
 };
 
@@ -49,18 +50,21 @@ export const productDetailCommand: BotCommand = {
   async execute(interaction) {
     const slug = interaction.options.getString("등급", true);
     const tier = await prisma.tier.findUnique({ where: { slug } });
-    if (!tier) return interaction.reply({ embeds: [errorEmbed("존재하지 않는 등급입니다.")], ephemeral: true });
+    if (!tier) return interaction.reply(ephemeral(panelError("존재하지 않는 등급입니다.")));
 
     const isUnlimited = tier.slug === SHOP_SUBSCRIPTION_TIER_SLUG;
     const stock = await prisma.artwork.count({ where: { tierId: tier.id, status: ARTWORK_STATUS.AVAILABLE } });
 
-    const embed = baseEmbed(tier.name)
-      .setDescription(tier.description || null)
-      .addFields(
-        { name: "가격", value: won(tier.price), inline: true },
-        { name: "재고", value: isUnlimited ? "무제한" : `${stock}개`, inline: true },
-        { name: "구매 제한", value: tier.purchaseLimitPerUser ? `1인 ${tier.purchaseLimitPerUser}개` : "없음", inline: true }
-      );
-    await interaction.reply({ embeds: [embed] });
+    await interaction.reply(
+      buildPanel({
+        title: tier.name,
+        description: tier.description || undefined,
+        fields: [
+          { name: "가격", value: won(tier.price) },
+          { name: "재고", value: isUnlimited ? "무제한" : `${stock}개` },
+          { name: "구매 제한", value: tier.purchaseLimitPerUser ? `1인 ${tier.purchaseLimitPerUser}개` : "없음" },
+        ],
+      })
+    );
   },
 };

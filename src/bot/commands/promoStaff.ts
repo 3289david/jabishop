@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { computePromoStaffStats, registerPromoStaffBank, PromoStaffError } from "@/lib/promoStaff";
-import { baseEmbed, errorEmbed, successEmbed } from "@/bot/format";
+import { buildPanel, panelError, panelSuccess, ephemeral } from "@/bot/ui";
 import type { BotCommand } from "@/bot/types";
 
 export const promoStaffCommand: BotCommand = {
@@ -21,10 +21,7 @@ export const promoStaffCommand: BotCommand = {
     const sub = interaction.options.getSubcommand();
     const staff = await prisma.promoStaff.findUnique({ where: { discordUserId: interaction.user.id } });
     if (!staff || staff.status !== "ACTIVE") {
-      return interaction.reply({
-        embeds: [errorEmbed("홍보직원으로 등록되지 않았습니다. 관리자에게 문의해주세요.")],
-        ephemeral: true,
-      });
+      return interaction.reply(ephemeral(panelError("홍보직원으로 등록되지 않았습니다. 관리자에게 문의해주세요.")));
     }
 
     if (sub === "보기") {
@@ -32,16 +29,21 @@ export const promoStaffCommand: BotCommand = {
       const bank = staff.bankName
         ? `${staff.bankName} ${staff.bankAccountNumber} (${staff.accountHolder})`
         : "미등록 - `/홍보실적 계좌등록`으로 등록해주세요.";
-      const embed = baseEmbed("📣 내 홍보 실적")
-        .addFields(
-          { name: "영구 초대 링크", value: `discord.gg/${staff.inviteCode}` },
-          { name: "초대 인원 (인증완료)", value: `${stat.inviteCount}명 (${stat.verifiedCount}명)`, inline: true },
-          { name: "500원↑ 구매자", value: `${stat.qualifyingCount}명`, inline: true },
-          { name: "정산 예정액", value: `${stat.amountDue.toLocaleString()}원`, inline: true },
-          { name: "등록된 계좌", value: bank }
+      return interaction.reply(
+        ephemeral(
+          buildPanel({
+            title: "📣 내 홍보 실적",
+            fields: [
+              { name: "영구 초대 링크", value: `discord.gg/${staff.inviteCode}` },
+              { name: "초대 인원 (인증완료)", value: `${stat.inviteCount}명 (${stat.verifiedCount}명)` },
+              { name: "500원↑ 구매자", value: `${stat.qualifyingCount}명` },
+              { name: "정산 예정액", value: `${stat.amountDue.toLocaleString()}원` },
+              { name: "등록된 계좌", value: bank },
+            ],
+            footer: "매주 금요일 관리자에게 정산 금액이 안내되고, 등록한 계좌로 수동 송금됩니다.",
+          })
         )
-        .setFooter({ text: "매주 금요일 관리자에게 정산 금액이 안내되고, 등록한 계좌로 수동 송금됩니다." });
-      return interaction.reply({ embeds: [embed], ephemeral: true });
+      );
     }
 
     // 계좌등록
@@ -50,10 +52,10 @@ export const promoStaffCommand: BotCommand = {
     const accountHolder = interaction.options.getString("예금주", true);
     try {
       await registerPromoStaffBank(interaction.user.id, bankName, bankAccountNumber, accountHolder);
-      return interaction.reply({ embeds: [successEmbed("정산받을 계좌 정보가 등록되었습니다.")], ephemeral: true });
+      return interaction.reply(ephemeral(panelSuccess("정산받을 계좌 정보가 등록되었습니다.")));
     } catch (e) {
       const message = e instanceof PromoStaffError ? e.message : "계좌 등록 중 오류가 발생했습니다.";
-      return interaction.reply({ embeds: [errorEmbed(message)], ephemeral: true });
+      return interaction.reply(ephemeral(panelError(message)));
     }
   },
 };

@@ -2,7 +2,7 @@ import { SlashCommandBuilder } from "discord.js";
 import { prisma, runWithTenant } from "@/lib/prisma";
 import { changeShopSlug, tenantOAuthRedirectUri, tenantAdminOAuthRedirectUri } from "@/lib/provisionShop";
 import { getAppOrigin } from "@/lib/appUrl";
-import { errorEmbed, successEmbed, baseEmbed } from "@/bot/format";
+import { buildPanel, panelError, ephemeral } from "@/bot/ui";
 import type { BotCommand } from "@/bot/types";
 
 // 웹사이트 주소(서브도메인)는 구매 시 자동으로 정해지는데, 원하는 이름으로 직접
@@ -18,17 +18,14 @@ export const shopDomainChangeCommand: BotCommand = {
   async execute(interaction) {
     const guildId = interaction.guildId;
     if (!guildId) {
-      return interaction.reply({ embeds: [errorEmbed("서버 안에서만 사용할 수 있습니다.")], ephemeral: true });
+      return interaction.reply(ephemeral(panelError("서버 안에서만 사용할 수 있습니다.")));
     }
     const shop = await runWithTenant(null, () => prisma.shop.findUnique({ where: { discordGuildId: guildId } }));
     if (!shop) {
-      return interaction.reply({
-        embeds: [errorEmbed("이 서버는 연동된 샵이 없습니다. 먼저 `/샵연동`을 실행해주세요.")],
-        ephemeral: true,
-      });
+      return interaction.reply(ephemeral(panelError("이 서버는 연동된 샵이 없습니다. 먼저 `/샵연동`을 실행해주세요.")));
     }
     if (shop.claimDiscordId !== interaction.user.id) {
-      return interaction.reply({ embeds: [errorEmbed("이 샵을 구매한 본인만 변경할 수 있습니다.")], ephemeral: true });
+      return interaction.reply(ephemeral(panelError("이 샵을 구매한 본인만 변경할 수 있습니다.")));
     }
 
     const newSlug = interaction.options.getString("새주소", true).trim().toLowerCase();
@@ -39,7 +36,7 @@ export const shopDomainChangeCommand: BotCommand = {
       result = await changeShopSlug(shop.slug, newSlug);
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
-      return interaction.editReply({ embeds: [errorEmbed(message)] });
+      return interaction.editReply(panelError(message));
     }
 
     const hadOAuth = !!shop.discordOAuthClientId;
@@ -60,8 +57,12 @@ export const shopDomainChangeCommand: BotCommand = {
       });
     }
 
-    await interaction.editReply({
-      embeds: [successEmbed(`샵 주소가 \`${newSlug}.krl.kr\`로 변경되었습니다.`), baseEmbed("📌 꼭 확인해주세요").addFields(fields)],
-    });
+    await interaction.editReply(
+      buildPanel({
+        title: "✅ 샵 주소 변경 완료",
+        description: `샵 주소가 \`${newSlug}.krl.kr\`로 변경되었습니다. 📌 꼭 확인해주세요:`,
+        fields,
+      })
+    );
   },
 };

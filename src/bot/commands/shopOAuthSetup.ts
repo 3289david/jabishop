@@ -8,7 +8,7 @@ import {
 } from "discord.js";
 import { prisma, runWithTenant } from "@/lib/prisma";
 import { applyShopOAuthCredentials, tenantOAuthRedirectUri, tenantAdminOAuthRedirectUri } from "@/lib/provisionShop";
-import { errorEmbed, successEmbed, baseEmbed } from "@/bot/format";
+import { buildPanel, panelError, ephemeral } from "@/bot/ui";
 import type { BotCommand } from "@/bot/types";
 
 export const SHOP_OAUTH_MODAL_ID = "shop_oauth_modal";
@@ -23,17 +23,14 @@ export const shopOAuthSetupCommand: BotCommand = {
   async execute(interaction) {
     const guildId = interaction.guildId;
     if (!guildId) {
-      return interaction.reply({ embeds: [errorEmbed("서버 안에서만 사용할 수 있습니다.")], ephemeral: true });
+      return interaction.reply(ephemeral(panelError("서버 안에서만 사용할 수 있습니다.")));
     }
     const shop = await runWithTenant(null, () => prisma.shop.findUnique({ where: { discordGuildId: guildId } }));
     if (!shop) {
-      return interaction.reply({
-        embeds: [errorEmbed("이 서버는 연동된 샵이 없습니다. 먼저 `/샵연동`을 실행해주세요.")],
-        ephemeral: true,
-      });
+      return interaction.reply(ephemeral(panelError("이 서버는 연동된 샵이 없습니다. 먼저 `/샵연동`을 실행해주세요.")));
     }
     if (shop.claimDiscordId !== interaction.user.id) {
-      return interaction.reply({ embeds: [errorEmbed("이 샵을 구매한 본인만 설정할 수 있습니다.")], ephemeral: true });
+      return interaction.reply(ephemeral(panelError("이 샵을 구매한 본인만 설정할 수 있습니다.")));
     }
 
     const modal = new ModalBuilder().setCustomId(`${SHOP_OAUTH_MODAL_ID}:${shop.slug}`).setTitle("디스코드 OAuth 앱 등록");
@@ -61,22 +58,23 @@ export async function handleShopOAuthModalSubmit(interaction: ModalSubmitInterac
   const clientId = interaction.fields.getTextInputValue("clientId").trim();
   const clientSecret = interaction.fields.getTextInputValue("clientSecret").trim();
   if (!clientId || !clientSecret) {
-    return interaction.editReply({ embeds: [errorEmbed("Client ID/Secret을 모두 입력해주세요.")] });
+    return interaction.editReply(panelError("Client ID/Secret을 모두 입력해주세요."));
   }
 
   try {
     await applyShopOAuthCredentials(slug, clientId, clientSecret);
   } catch (e) {
     const message = e instanceof Error ? e.message : String(e);
-    return interaction.editReply({ embeds: [errorEmbed(`적용에 실패했습니다: ${message}`)] });
+    return interaction.editReply(panelError(`적용에 실패했습니다: ${message}`));
   }
 
-  await interaction.editReply({
-    embeds: [
-      successEmbed(
-        `OAuth 앱이 등록되었습니다. 웹사이트가 재시작되는 동안(약 10~20초) 잠깐 접속이 끊길 수 있습니다.`
-      ),
-      baseEmbed("📌 디스코드 개발자 포털에 등록해야 할 REDIRECT URI").addFields(
+  await interaction.editReply(
+    buildPanel({
+      title: "✅ OAuth 앱 등록 완료",
+      description:
+        `OAuth 앱이 등록되었습니다. 웹사이트가 재시작되는 동안(약 10~20초) 잠깐 접속이 끊길 수 있습니다.\n\n` +
+        `📌 디스코드 개발자 포털에 등록해야 할 REDIRECT URI`,
+      fields: [
         { name: "일반 로그인용", value: `\`${tenantOAuthRedirectUri(slug)}\`` },
         { name: "관리자 로그인용", value: `\`${tenantAdminOAuthRedirectUri(slug)}\`` },
         {
@@ -86,8 +84,8 @@ export async function handleShopOAuthModalSubmit(interaction: ModalSubmitInterac
             "2. 왼쪽 메뉴 **OAuth2** 클릭\n" +
             "3. **Redirect URIs**에 위 2개 URL을 각각 **Add Redirect** 로 추가 후 **Save Changes**\n\n" +
             "두 URI를 모두 등록해야 일반 로그인과 관리자 로그인이 둘 다 정상 동작합니다.",
-        }
-      ),
-    ],
-  });
+        },
+      ],
+    })
+  );
 }
