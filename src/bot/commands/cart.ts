@@ -2,7 +2,8 @@ import { SlashCommandBuilder } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { purchaseTier, OrderError } from "@/lib/orders";
 import { assertActiveShopUser } from "@/bot/discordAuth";
-import { baseEmbed, errorEmbed, successEmbed, pt } from "@/bot/format";
+import { pt } from "@/bot/format";
+import { buildPanel, panelError, panelSuccess, ephemeral } from "@/bot/ui";
 import { tierAutocomplete } from "@/bot/autocomplete";
 import type { BotCommand } from "@/bot/types";
 
@@ -18,14 +19,16 @@ export const cartAddCommand: BotCommand = {
     const quantity = interaction.options.getInteger("수량") ?? 1;
     const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
     const tier = await prisma.tier.findUnique({ where: { slug } });
-    if (!tier) return interaction.reply({ embeds: [errorEmbed("존재하지 않는 등급입니다.")], ephemeral: true });
+    if (!tier) {
+      return interaction.reply(ephemeral(panelError("존재하지 않는 등급입니다.")));
+    }
 
     await prisma.cartItem.upsert({
       where: { userId_tierId: { userId: user.id, tierId: tier.id } },
       update: { quantity: { increment: quantity } },
       create: { userId: user.id, tierId: tier.id, quantity },
     });
-    await interaction.reply({ embeds: [successEmbed(`${tier.name} ${quantity}개를 장바구니에 담았습니다.`)], ephemeral: true });
+    await interaction.reply(ephemeral(panelSuccess(`${tier.name} ${quantity}개를 장바구니에 담았습니다.`)));
   },
 };
 
@@ -34,16 +37,19 @@ export const cartViewCommand: BotCommand = {
   async execute(interaction) {
     const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
     const items = await prisma.cartItem.findMany({ where: { userId: user.id }, include: { tier: true } });
-    const embed = baseEmbed("🛒 내 장바구니");
-    if (items.length === 0) embed.setDescription("장바구니가 비어 있습니다.");
     let total = 0;
-    for (const item of items) {
+    const fields = items.map((item) => {
       const subtotal = item.tier.price * item.quantity;
       total += subtotal;
-      embed.addFields({ name: item.tier.name, value: `${item.quantity}개 × ${pt(item.tier.price)} = ${pt(subtotal)}` });
-    }
-    if (items.length > 0) embed.addFields({ name: "합계", value: pt(total) });
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+      return { name: item.tier.name, value: `${item.quantity}개 × ${pt(item.tier.price)} = ${pt(subtotal)}` };
+    });
+    if (items.length > 0) fields.push({ name: "합계", value: pt(total) });
+
+    await interaction.reply(ephemeral(buildPanel({
+      title: "🛒 내 장바구니",
+      description: items.length === 0 ? "장바구니가 비어 있습니다." : undefined,
+      fields,
+    })));
   },
 };
 
@@ -57,9 +63,11 @@ export const cartRemoveCommand: BotCommand = {
     const slug = interaction.options.getString("등급", true);
     const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
     const tier = await prisma.tier.findUnique({ where: { slug } });
-    if (!tier) return interaction.reply({ embeds: [errorEmbed("존재하지 않는 등급입니다.")], ephemeral: true });
+    if (!tier) {
+      return interaction.reply(ephemeral(panelError("존재하지 않는 등급입니다.")));
+    }
     await prisma.cartItem.deleteMany({ where: { userId: user.id, tierId: tier.id } });
-    await interaction.reply({ embeds: [successEmbed(`${tier.name}을(를) 장바구니에서 제거했습니다.`)], ephemeral: true });
+    await interaction.reply(ephemeral(panelSuccess(`${tier.name}을(를) 장바구니에서 제거했습니다.`)));
   },
 };
 
@@ -69,7 +77,7 @@ export const cartCheckoutCommand: BotCommand = {
     await interaction.deferReply({ ephemeral: true });
     const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
     const items = await prisma.cartItem.findMany({ where: { userId: user.id }, include: { tier: true } });
-    if (items.length === 0) return interaction.editReply({ embeds: [errorEmbed("장바구니가 비어 있습니다.")] });
+    if (items.length === 0) return interaction.editReply(panelError("장바구니가 비어 있습니다."));
 
     let successCount = 0;
     let firstError: string | null = null;
@@ -90,11 +98,9 @@ export const cartCheckoutCommand: BotCommand = {
     await prisma.cartItem.deleteMany({ where: { userId: user.id, quantity: { lte: 0 } } });
 
     if (firstError) {
-      await interaction.editReply({
-        embeds: [errorEmbed(successCount > 0 ? `${successCount}건 완료 후 중단 - ${firstError}` : firstError)],
-      });
+      await interaction.editReply(panelError(successCount > 0 ? `${successCount}건 완료 후 중단 - ${firstError}` : firstError));
       return;
     }
-    await interaction.editReply({ embeds: [successEmbed(`${successCount}건 결제가 완료되었습니다. /주문내역으로 확인하세요.`)] });
+    await interaction.editReply(panelSuccess(`${successCount}건 결제가 완료되었습니다. /주문내역으로 확인하세요.`));
   },
 };

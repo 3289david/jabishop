@@ -1,7 +1,8 @@
 import { SlashCommandBuilder } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { assertActiveShopUser } from "@/bot/discordAuth";
-import { baseEmbed, errorEmbed, successEmbed, pt } from "@/bot/format";
+import { pt } from "@/bot/format";
+import { buildPanel, ephemeral } from "@/bot/ui";
 import { createTopUpRequest } from "@/lib/points";
 import type { BotCommand } from "@/bot/types";
 
@@ -14,11 +15,15 @@ export const pointsCommand: BotCommand = {
       orderBy: { createdAt: "desc" },
       take: 5,
     });
-    const embed = baseEmbed("💰 내 포인트").setDescription(`보유 포인트: **${pt(user.points)}**`);
-    for (const t of txs) {
-      embed.addFields({ name: t.memo ?? t.type, value: `${t.amount >= 0 ? "+" : ""}${pt(t.amount)}` });
-    }
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply(
+      ephemeral(
+        buildPanel({
+          title: "💰 내 포인트",
+          description: `보유 포인트: **${pt(user.points)}**`,
+          fields: txs.map((t) => ({ name: t.memo ?? t.type, value: `${t.amount >= 0 ? "+" : ""}${pt(t.amount)}` })),
+        })
+      )
+    );
   },
 };
 
@@ -36,13 +41,17 @@ export const topUpCommand: BotCommand = {
     const settings = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
     await createTopUpRequest(user.id, amount, depositorName);
 
-    const embed = successEmbed("충전 신청이 접수되었습니다. 입금 확인 후 포인트가 지급됩니다.");
-    if (settings) {
-      embed.addFields({
-        name: "입금 계좌",
-        value: `${settings.bankName} ${settings.bankAccountNumber} (예금주: ${settings.bankAccountHolder})`,
-      });
-    }
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply(
+      ephemeral(
+        buildPanel({
+          title: "✅ 완료",
+          description: "충전 신청이 접수되었습니다. 입금 확인 후 포인트가 지급됩니다.",
+          fields: settings
+            ? [{ name: "입금 계좌", value: `${settings.bankName} ${settings.bankAccountNumber} (예금주: ${settings.bankAccountHolder})` }]
+            : undefined,
+          accentColor: 0x22c55e,
+        })
+      )
+    );
   },
 };

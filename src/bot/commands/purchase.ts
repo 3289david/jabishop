@@ -2,7 +2,8 @@ import { SlashCommandBuilder, AttachmentBuilder } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { purchaseTier, purchaseTierBulk, OrderError } from "@/lib/orders";
 import { assertActiveShopUser } from "@/bot/discordAuth";
-import { baseEmbed, errorEmbed, successEmbed, pt } from "@/bot/format";
+import { pt } from "@/bot/format";
+import { buildPanel, panelError } from "@/bot/ui";
 import { purchaseAutocomplete } from "@/bot/autocomplete";
 import { readUploadedFile, isUploadKey } from "@/bot/fileStorage";
 import type { BotCommand } from "@/bot/types";
@@ -44,69 +45,70 @@ export const purchaseCommand: BotCommand = {
           result.luckyCouponCount > 0 ? ` 🎉 5% 할인 쿠폰 ${result.luckyCouponCount}장 당첨! 쿠폰함에서 확인하세요.` : "";
 
         if (result.successCount === 0) {
-          await interaction.editReply({ embeds: [errorEmbed(result.lastError ?? "구매 중 오류가 발생했습니다.")] });
+          await interaction.editReply(panelError(result.lastError ?? "구매 중 오류가 발생했습니다."));
           return;
         }
 
-        const embed =
+        const payload =
           result.failedCount > 0
-            ? errorEmbed(
-                `${tier.name} ${result.successCount}개 구매 완료 (총 ${pt(result.totalPaid)}).${luckyNote}\n나머지 ${result.failedCount}개 실패: ${result.lastError}`
-              )
-            : successEmbed(
-                `${tier.name} ${result.successCount}개 구매가 완료되었습니다 (총 ${pt(result.totalPaid)}).${luckyNote}\n계정은 DM 또는 /주문내역에서 확인하세요.`
-              );
-        await interaction.editReply({ embeds: [embed] });
+            ? buildPanel({
+                title: "⚠️ 일부 구매 완료",
+                description: `${tier.name} ${result.successCount}개 구매 완료 (총 ${pt(result.totalPaid)}).${luckyNote}\n나머지 ${result.failedCount}개 실패: ${result.lastError}`,
+                accentColor: 0xf59e0b,
+              })
+            : buildPanel({
+                title: "✅ 구매 완료",
+                description: `${tier.name} ${result.successCount}개 구매가 완료되었습니다 (총 ${pt(result.totalPaid)}).${luckyNote}\n계정은 DM 또는 /주문내역에서 확인하세요.`,
+                accentColor: 0x22c55e,
+              });
+        await interaction.editReply(payload);
         return;
       }
 
       const order = await purchaseTier({ userId: user.id, tierId: tier.id, couponCode, shopSlug, shopName, guildId: interaction.guildId });
       const artwork = order.artwork;
 
-      const embed = successEmbed(`${tier.name} 구매 완료!`)
-        .setTitle(`주문 #${order.orderNo}`)
-        .addFields(
-          { name: "결제 금액", value: pt(order.finalAmount), inline: true },
-          { name: "지급된 계정", value: artwork?.title ?? "-", inline: true }
-        );
+      const fields = [
+        { name: "결제 금액", value: pt(order.finalAmount) },
+        { name: "지급된 계정", value: artwork?.title ?? "-" },
+      ];
       if (order.discountAmount > 0) {
-        embed.addFields({
-          name: couponCode ? "🎟️ 쿠폰 적용" : "💸 할인 적용",
-          value: `-${pt(order.discountAmount)} 할인`,
-          inline: true,
-        });
+        fields.push({ name: couponCode ? "🎟️ 쿠폰 적용" : "💸 할인 적용", value: `-${pt(order.discountAmount)} 할인` });
       }
       if (order.luckyCoupon) {
-        embed.addFields({ name: "🎉 구매 축하 쿠폰 당첨!", value: `5% 할인 쿠폰 \`${order.luckyCoupon.code}\`이 지급되었습니다.` });
+        fields.push({ name: "🎉 구매 축하 쿠폰 당첨!", value: `5% 할인 쿠폰 \`${order.luckyCoupon.code}\`이 지급되었습니다.` });
       }
       if (order.referralReward) {
-        embed.addFields({ name: "🎁 친구 초대 보상", value: `첫 구매 보상 +${pt(order.referralReward.refereeReward)}가 지급되었습니다.` });
+        fields.push({ name: "🎁 친구 초대 보상", value: `첫 구매 보상 +${pt(order.referralReward.refereeReward)}가 지급되었습니다.` });
       }
       if (order.bonusOrder?.artwork) {
-        embed.addFields({ name: "🎁 1+1 이벤트 보너스!", value: `"${order.bonusOrder.artwork.title}" 계정을 하나 더 받았습니다 (DM으로도 전달됨).` });
+        fields.push({ name: "🎁 1+1 이벤트 보너스!", value: `"${order.bonusOrder.artwork.title}" 계정을 하나 더 받았습니다 (DM으로도 전달됨).` });
       }
 
       const files = [];
+      let imageUrl: string | undefined;
       if (artwork) {
         if (!isUploadKey(artwork.fileKey)) {
-          embed.addFields({ name: "지급 내용", value: artwork.fileKey });
+          fields.push({ name: "지급 내용", value: artwork.fileKey });
         } else {
           try {
             const buffer = await readUploadedFile(artwork.fileKey);
             const ext = artwork.fileKey.split(".").pop() || "png";
-            const attachment = new AttachmentBuilder(buffer, { name: `${artwork.code}.${ext}` });
-            files.push(attachment);
-            embed.setImage(`attachment://${artwork.code}.${ext}`);
+            files.push(new AttachmentBuilder(buffer, { name: `${artwork.code}.${ext}` }));
+            imageUrl = `attachment://${artwork.code}.${ext}`;
           } catch {
             // 파일을 찾을 수 없어도 주문 자체는 정상 처리된 것이므로 안내만 생략한다.
           }
         }
       }
 
-      await interaction.editReply({ embeds: [embed], files });
+      await interaction.editReply({
+        ...buildPanel({ title: `✅ ${tier.name} 구매 완료! (주문 #${order.orderNo})`, fields, imageUrl, accentColor: 0x22c55e }),
+        files,
+      });
     } catch (e) {
       const message = e instanceof OrderError || e instanceof Error ? e.message : "구매 중 오류가 발생했습니다.";
-      await interaction.editReply({ embeds: [errorEmbed(message)] });
+      await interaction.editReply(panelError(message));
     }
   },
 };

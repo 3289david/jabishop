@@ -10,7 +10,8 @@ import {
 } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { assertActiveShopUser, requireLinkedAdmin } from "@/bot/discordAuth";
-import { errorEmbed, successEmbed, pt } from "@/bot/format";
+import { pt } from "@/bot/format";
+import { buildPanel, panelError, panelSuccess } from "@/bot/ui";
 import { createTopUpRequest } from "@/lib/points";
 import { createInquiry } from "@/lib/inquiries";
 import { updatePartnerWebhook, updatePartnerPromoMessage, requestPartner, PartnerError } from "@/lib/partners";
@@ -45,19 +46,24 @@ export async function handleTopUpModalSubmit(interaction: ModalSubmitInteraction
   await interaction.deferReply({ ephemeral: true });
 
   if (!Number.isFinite(amount) || amount < 1000) {
-    return interaction.editReply({ embeds: [errorEmbed("1,000원 이상만 충전 신청이 가능합니다.")] });
+    return interaction.editReply(panelError("1,000원 이상만 충전 신청이 가능합니다."));
   }
-  if (!depositorName) return interaction.editReply({ embeds: [errorEmbed("입금자명을 입력해주세요.")] });
+  if (!depositorName) return interaction.editReply(panelError("입금자명을 입력해주세요."));
 
   const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
   const settings = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
   await createTopUpRequest(user.id, amount, depositorName);
 
-  const embed = successEmbed("충전 신청이 접수되었습니다. 입금 확인 후 포인트가 지급됩니다.");
-  if (settings) {
-    embed.addFields({ name: "입금 계좌", value: `${settings.bankName} ${settings.bankAccountNumber} (예금주: ${settings.bankAccountHolder})` });
-  }
-  await interaction.editReply({ embeds: [embed] });
+  await interaction.editReply(
+    buildPanel({
+      title: "✅ 완료",
+      description: "충전 신청이 접수되었습니다. 입금 확인 후 포인트가 지급됩니다.",
+      fields: settings
+        ? [{ name: "입금 계좌", value: `${settings.bankName} ${settings.bankAccountNumber} (예금주: ${settings.bankAccountHolder})` }]
+        : undefined,
+      accentColor: 0x22c55e,
+    })
+  );
 }
 
 export async function showInquiryModal(interaction: ButtonInteraction) {
@@ -78,7 +84,7 @@ export async function handleInquiryModalSubmit(interaction: ModalSubmitInteracti
 
   const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
   const inquiry = await createInquiry(user.id, title, content);
-  await interaction.editReply({ embeds: [successEmbed(`문의가 등록되었습니다. (ID: ${inquiry.id.slice(-8)})`)] });
+  await interaction.editReply(panelSuccess(`문의가 등록되었습니다. (ID: ${inquiry.id.slice(-8)})`));
 }
 
 export async function showAnswerModal(interaction: ButtonInteraction, inquiryId: string) {
@@ -94,7 +100,7 @@ export async function handleAnswerModalSubmit(interaction: ModalSubmitInteractio
 
   const admin = await requireLinkedAdmin(interaction.user.id);
   const inquiry = await prisma.inquiry.findUnique({ where: { id: inquiryId } });
-  if (!inquiry) return interaction.editReply({ embeds: [errorEmbed("존재하지 않는 문의입니다.")] });
+  if (!inquiry) return interaction.editReply(panelError("존재하지 않는 문의입니다."));
 
   await prisma.inquiry.update({
     where: { id: inquiryId },
@@ -104,7 +110,7 @@ export async function handleAnswerModalSubmit(interaction: ModalSubmitInteractio
     data: { userId: inquiry.userId, type: "INQUIRY_ANSWERED", title: "문의 답변 완료", message: `"${inquiry.title}" 문의에 답변이 등록되었습니다.` },
   });
   await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "INQUIRY_ANSWER", target: inquiryId } });
-  await interaction.editReply({ embeds: [successEmbed("답변이 등록되었습니다.")] });
+  await interaction.editReply(panelSuccess("답변이 등록되었습니다."));
 }
 
 // "자판기 통째로 구매"는 다른 등급과 똑같이 상품 목록 → "구매하기" 버튼으로 산다.
@@ -166,35 +172,37 @@ export async function handleShopPurchaseModalSubmit(interaction: ModalSubmitInte
     });
     const artwork = order.artwork;
 
-    const embed = successEmbed(`${tier.name} 구매 완료!`)
-      .setTitle(`주문 #${order.orderNo}`)
-      .addFields(
-        { name: "결제 금액", value: pt(order.finalAmount), inline: true },
-        { name: "지급된 계정", value: artwork?.title ?? "-", inline: true }
-      );
+    const fields = [
+      { name: "결제 금액", value: pt(order.finalAmount) },
+      { name: "지급된 계정", value: artwork?.title ?? "-" },
+    ];
     if (order.discountAmount > 0) {
-      embed.addFields({ name: "🎟️ 쿠폰 적용", value: `-${pt(order.discountAmount)} 할인`, inline: true });
+      fields.push({ name: "🎟️ 쿠폰 적용", value: `-${pt(order.discountAmount)} 할인` });
     }
 
     const files = [];
+    let imageUrl: string | undefined;
     if (artwork) {
       if (!isUploadKey(artwork.fileKey)) {
-        embed.addFields({ name: "지급 내용", value: artwork.fileKey });
+        fields.push({ name: "지급 내용", value: artwork.fileKey });
       } else {
         try {
           const buffer = await readUploadedFile(artwork.fileKey);
           const ext = artwork.fileKey.split(".").pop() || "png";
           files.push(new AttachmentBuilder(buffer, { name: `${artwork.code}.${ext}` }));
-          embed.setImage(`attachment://${artwork.code}.${ext}`);
+          imageUrl = `attachment://${artwork.code}.${ext}`;
         } catch {
           // 파일 누락 시 이미지 없이 결과만 표시
         }
       }
     }
-    await interaction.editReply({ embeds: [embed], files });
+    await interaction.editReply({
+      ...buildPanel({ title: `✅ ${tier.name} 구매 완료! (주문 #${order.orderNo})`, fields, imageUrl, accentColor: 0x22c55e }),
+      files,
+    });
   } catch (e) {
     const message = e instanceof OrderError || e instanceof Error ? e.message : "구매 중 오류가 발생했습니다.";
-    await interaction.editReply({ embeds: [errorEmbed(message)] });
+    await interaction.editReply(panelError(message));
   }
 }
 
@@ -224,7 +232,7 @@ export async function handleQuantityBuyModalSubmit(interaction: ModalSubmitInter
   await interaction.deferReply({ ephemeral: true });
 
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > 50) {
-    return interaction.editReply({ embeds: [errorEmbed("수량은 1~50 사이의 숫자로 입력해주세요.")] });
+    return interaction.editReply(panelError("수량은 1~50 사이의 숫자로 입력해주세요."));
   }
 
   try {
@@ -243,21 +251,25 @@ export async function handleQuantityBuyModalSubmit(interaction: ModalSubmitInter
       result.luckyCouponCount > 0 ? ` 🎉 5% 할인 쿠폰 ${result.luckyCouponCount}장 당첨! 쿠폰함에서 확인하세요.` : "";
 
     if (result.successCount === 0) {
-      return interaction.editReply({ embeds: [errorEmbed(result.lastError ?? "구매 중 오류가 발생했습니다.")] });
+      return interaction.editReply(panelError(result.lastError ?? "구매 중 오류가 발생했습니다."));
     }
 
-    const embed =
+    const payload =
       result.failedCount > 0
-        ? errorEmbed(
-            `${tier.name} ${result.successCount}개 구매 완료 (총 ${pt(result.totalPaid)}).${luckyNote}\n나머지 ${result.failedCount}개 실패: ${result.lastError}`
-          )
-        : successEmbed(
-            `${tier.name} ${result.successCount}개 구매가 완료되었습니다 (총 ${pt(result.totalPaid)}).${luckyNote}\n계정은 DM 또는 /주문내역에서 확인하세요.`
-          );
-    await interaction.editReply({ embeds: [embed] });
+        ? buildPanel({
+            title: "⚠️ 일부 구매 완료",
+            description: `${tier.name} ${result.successCount}개 구매 완료 (총 ${pt(result.totalPaid)}).${luckyNote}\n나머지 ${result.failedCount}개 실패: ${result.lastError}`,
+            accentColor: 0xf59e0b,
+          })
+        : buildPanel({
+            title: "✅ 구매 완료",
+            description: `${tier.name} ${result.successCount}개 구매가 완료되었습니다 (총 ${pt(result.totalPaid)}).${luckyNote}\n계정은 DM 또는 /주문내역에서 확인하세요.`,
+            accentColor: 0x22c55e,
+          });
+    await interaction.editReply(payload);
   } catch (e) {
     const message = e instanceof OrderError || e instanceof Error ? e.message : "구매 중 오류가 발생했습니다.";
-    await interaction.editReply({ embeds: [errorEmbed(message)] });
+    await interaction.editReply(panelError(message));
   }
 }
 
@@ -280,9 +292,9 @@ export async function handlePartnerWebhookModalSubmit(interaction: ModalSubmitIn
     await updatePartnerWebhook(interaction.user.id, webhookUrl);
   } catch (e) {
     const message = e instanceof PartnerError ? e.message : "처리 중 오류가 발생했습니다.";
-    return interaction.editReply({ embeds: [errorEmbed(message)] });
+    return interaction.editReply(panelError(message));
   }
-  await interaction.editReply({ embeds: [successEmbed("웹훅이 등록되었습니다. 다음 일일 발송부터 적용됩니다.")] });
+  await interaction.editReply(panelSuccess("웹훅이 등록되었습니다. 다음 일일 발송부터 적용됩니다."));
 }
 
 export async function showPartnerApplyModal(interaction: ButtonInteraction) {
@@ -320,18 +332,16 @@ export async function handlePartnerApplyModalSubmit(interaction: ModalSubmitInte
   await interaction.deferReply({ ephemeral: true });
 
   if (!webhookUrl.startsWith("https://discord.com/api/webhooks/")) {
-    return interaction.editReply({
-      embeds: [errorEmbed("웹훅 URL 형식이 올바르지 않습니다. https://discord.com/api/webhooks/... 형태여야 합니다.")],
-    });
+    return interaction.editReply(panelError("웹훅 URL 형식이 올바르지 않습니다. https://discord.com/api/webhooks/... 형태여야 합니다."));
   }
 
   try {
     await requestPartner({ discordUserId: interaction.user.id, discordTag: interaction.user.tag, name, emoji, description, webhookUrl });
   } catch (e) {
     const message = e instanceof PartnerError ? e.message : "신청 중 오류가 발생했습니다.";
-    return interaction.editReply({ embeds: [errorEmbed(message)] });
+    return interaction.editReply(panelError(message));
   }
-  await interaction.editReply({ embeds: [successEmbed("파트너 신청이 접수되었습니다. 관리자 승인을 기다려주세요.")] });
+  await interaction.editReply(panelSuccess("파트너 신청이 접수되었습니다. 관리자 승인을 기다려주세요."));
 }
 
 export async function showPartnerPromoModal(interaction: ButtonInteraction) {
@@ -353,9 +363,9 @@ export async function handlePartnerPromoModalSubmit(interaction: ModalSubmitInte
     await updatePartnerPromoMessage(interaction.user.id, message);
   } catch (e) {
     const errMessage = e instanceof PartnerError ? e.message : "처리 중 오류가 발생했습니다.";
-    return interaction.editReply({ embeds: [errorEmbed(errMessage)] });
+    return interaction.editReply(panelError(errMessage));
   }
-  await interaction.editReply({ embeds: [successEmbed("홍보 문구가 등록되었습니다. 다음 일일 발송부터 내 채널에 자동 게시됩니다.")] });
+  await interaction.editReply(panelSuccess("홍보 문구가 등록되었습니다. 다음 일일 발송부터 내 채널에 자동 게시됩니다."));
 }
 
 export async function showReferralRegisterModal(interaction: ButtonInteraction) {
@@ -376,15 +386,13 @@ export async function handleReferralRegisterModalSubmit(interaction: ModalSubmit
   try {
     const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
     const referrer = await linkReferral(user.id, code);
-    await interaction.editReply({
-      embeds: [
-        successEmbed(
-          `초대코드가 등록되었습니다! ${referrer.name}님에게 등록 보상 200P가 지급됐어요.\n첫 구매를 완료하면 나에게 500P, ${referrer.name}님에게 800P가 추가로 지급됩니다.`
-        ),
-      ],
-    });
+    await interaction.editReply(
+      panelSuccess(
+        `초대코드가 등록되었습니다! ${referrer.name}님에게 등록 보상 200P가 지급됐어요.\n첫 구매를 완료하면 나에게 500P, ${referrer.name}님에게 800P가 추가로 지급됩니다.`
+      )
+    );
   } catch (e) {
     const message = e instanceof ReferralError ? e.message : "처리 중 오류가 발생했습니다.";
-    await interaction.editReply({ embeds: [errorEmbed(message)] });
+    await interaction.editReply(panelError(message));
   }
 }

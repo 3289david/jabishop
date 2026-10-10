@@ -47,6 +47,8 @@ export interface PanelOptions {
   banner?: boolean;
   /** 제목 옆에 작은 썸네일 이미지를 붙일지 (배너와 동시 사용 안 함). */
   thumbnailUrl?: string;
+  /** 상단에 띄울 동적 이미지(구매 지급 이미지 등) - banner와 동시 사용 안 함. attachment://파일명도 가능. */
+  imageUrl?: string;
   accentColor?: number;
   /** 버튼/셀렉트메뉴 행 (ActionRowBuilder). */
   rows?: ActionRowBuilder<MessageActionRowComponentBuilder>[];
@@ -62,6 +64,10 @@ export function buildPanel(opts: PanelOptions) {
   if (opts.banner) {
     container.addMediaGalleryComponents(
       new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(bannerImageUrl()).setDescription(opts.title))
+    );
+  } else if (opts.imageUrl) {
+    container.addMediaGalleryComponents(
+      new MediaGalleryBuilder().addItems(new MediaGalleryItemBuilder().setURL(opts.imageUrl).setDescription(opts.title))
     );
   }
 
@@ -101,6 +107,13 @@ export function panelError(message: string) {
 export function panelSuccess(message: string) {
   return buildPanel({ title: "✅ 완료", description: message, accentColor: SUCCESS_ACCENT_COLOR });
 }
+
+/** ephemeral(본인만 보임) 응답에 Components V2 플래그를 같이 얹어줄 때 쓰는 반복 보일러플레이트 축약. */
+export function ephemeral<T extends { flags: number }>(payload: T): T & { flags: number } {
+  return { ...payload, flags: payload.flags | MessageFlags.Ephemeral };
+}
+
+export { MessageFlags };
 
 // ── 목록형 패널(항목마다 설명+버튼이 번갈아 나오는 경우) 전용 저수준 도구 ──
 // 관리자 승인 대기 목록처럼 "항목 설명 → 그 항목 전용 버튼 → 다음 항목 설명 → ..."

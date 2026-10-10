@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { assertActiveShopUser } from "@/bot/discordAuth";
-import { baseEmbed } from "@/bot/format";
+import { buildPanel, ephemeral } from "@/bot/ui";
 import type { BotCommand } from "@/bot/types";
 
 export const couponListCommand: BotCommand = {
@@ -14,14 +14,17 @@ export const couponListCommand: BotCommand = {
       orderBy: { issuedAt: "desc" },
     });
 
-    const embed = baseEmbed("🎟️ 내 쿠폰함");
-    if (userCoupons.length === 0) embed.setDescription("보유한 쿠폰이 없습니다.");
-    for (const uc of userCoupons) {
-      embed.addFields({
-        name: `${uc.coupon.name} (${uc.coupon.code})`,
-        value: `${uc.usedAt ? "사용완료" : "사용가능"} · ~${uc.coupon.validTo.toLocaleDateString("ko-KR")}`,
-      });
-    }
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply(
+      ephemeral(
+        buildPanel({
+          title: "🎟️ 내 쿠폰함",
+          description: userCoupons.length === 0 ? "보유한 쿠폰이 없습니다." : undefined,
+          fields: userCoupons.map((uc) => ({
+            name: `${uc.coupon.name} (${uc.coupon.code})`,
+            value: `${uc.usedAt ? "사용완료" : "사용가능"} · ~${uc.coupon.validTo.toLocaleDateString("ko-KR")}`,
+          })),
+        })
+      )
+    );
   },
 };
