@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { requireLinkedAdmin } from "@/bot/discordAuth";
-import { baseEmbed, errorEmbed, successEmbed } from "@/bot/format";
+import { buildPanel, panelError, panelSuccess, ephemeral } from "@/bot/ui";
 import { confirmTopUp, rejectTopUp, TopUpError } from "@/lib/points";
 import type { BotCommand } from "@/bot/types";
 
@@ -15,15 +15,18 @@ export const topUpListCommand: BotCommand = {
       orderBy: { createdAt: "asc" },
       take: 25,
     });
-    const embed = baseEmbed("💳 대기 중인 충전 신청");
-    if (requests.length === 0) embed.setDescription("대기 중인 신청이 없습니다.");
-    for (const r of requests) {
-      embed.addFields({
-        name: `${r.amount.toLocaleString()}원 · 입금자: ${r.depositorName}`,
-        value: `회원: ${r.user.name} · ID: \`${r.id}\``,
-      });
-    }
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply(
+      ephemeral(
+        buildPanel({
+          title: "💳 대기 중인 충전 신청",
+          description: requests.length === 0 ? "대기 중인 신청이 없습니다." : undefined,
+          fields: requests.map((r) => ({
+            name: `${r.amount.toLocaleString()}원 · 입금자: ${r.depositorName}`,
+            value: `회원: ${r.user.name} · ID: \`${r.id}\``,
+          })),
+        })
+      )
+    );
   },
 };
 
@@ -38,13 +41,10 @@ export const topUpConfirmCommand: BotCommand = {
     try {
       await confirmTopUp(id, admin.id);
     } catch (e) {
-      return interaction.reply({
-        embeds: [errorEmbed(e instanceof TopUpError ? e.message : "처리 중 오류가 발생했습니다.")],
-        ephemeral: true,
-      });
+      return interaction.reply(ephemeral(panelError(e instanceof TopUpError ? e.message : "처리 중 오류가 발생했습니다.")));
     }
     await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "TOPUP_CONFIRM", target: id } });
-    await interaction.reply({ embeds: [successEmbed("충전을 승인하고 포인트를 지급했습니다.")], ephemeral: true });
+    await interaction.reply(ephemeral(panelSuccess("충전을 승인하고 포인트를 지급했습니다.")));
   },
 };
 
@@ -61,12 +61,9 @@ export const topUpRejectCommand: BotCommand = {
     try {
       await rejectTopUp(id, admin.id, note);
     } catch (e) {
-      return interaction.reply({
-        embeds: [errorEmbed(e instanceof TopUpError ? e.message : "처리 중 오류가 발생했습니다.")],
-        ephemeral: true,
-      });
+      return interaction.reply(ephemeral(panelError(e instanceof TopUpError ? e.message : "처리 중 오류가 발생했습니다.")));
     }
     await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "TOPUP_REJECT", target: id, detail: note } });
-    await interaction.reply({ embeds: [successEmbed("충전 신청을 거절했습니다.")], ephemeral: true });
+    await interaction.reply(ephemeral(panelSuccess("충전 신청을 거절했습니다.")));
   },
 };

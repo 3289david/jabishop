@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { requireLinkedAdmin } from "@/bot/discordAuth";
-import { errorEmbed, successEmbed } from "@/bot/format";
+import { panelError, panelSuccess } from "@/bot/ui";
 import { exchangeOrderArtwork, OrderError } from "@/lib/orders";
 import type { BotCommand } from "@/bot/types";
 
@@ -16,7 +16,7 @@ export const orderExchangeCommand: BotCommand = {
     const orderNo = interaction.options.getString("주문번호", true).replace(/^#/, "");
 
     const order = await prisma.order.findUnique({ where: { orderNo } });
-    if (!order) return interaction.editReply({ embeds: [errorEmbed("존재하지 않는 주문번호입니다.")] });
+    if (!order) return interaction.editReply(panelError("존재하지 않는 주문번호입니다."));
 
     try {
       const result = await exchangeOrderArtwork(order.id);
@@ -31,12 +31,10 @@ export const orderExchangeCommand: BotCommand = {
       const dmWarning = result.dmSent
         ? ""
         : "\n⚠️ DM 발송에 실패했습니다 (서버 멤버 DM 허용을 꺼뒀거나 봇을 차단한 것 같습니다). 마이페이지 주문내역에서 직접 확인하도록 안내해주세요.";
-      await interaction.editReply({
-        embeds: [successEmbed(`주문 #${orderNo}을(를) "${result.newArtwork.code}"로 교환해 재발송했습니다.${dmWarning}`)],
-      });
+      await interaction.editReply(panelSuccess(`주문 #${orderNo}을(를) "${result.newArtwork.code}"로 교환해 재발송했습니다.${dmWarning}`));
     } catch (e) {
       const message = e instanceof OrderError ? e.message : "교환 중 오류가 발생했습니다.";
-      await interaction.editReply({ embeds: [errorEmbed(message)] });
+      await interaction.editReply(panelError(message));
     }
   },
 };

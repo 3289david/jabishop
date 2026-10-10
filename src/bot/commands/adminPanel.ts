@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { requireLinkedAdmin } from "@/bot/discordAuth";
-import { errorEmbed, successEmbed } from "@/bot/format";
+import { panelError, panelSuccess } from "@/bot/ui";
 import { STICKY_KIND } from "@/lib/constants";
 import { repostSticky } from "@/bot/stickyMessage";
 import type { BotCommand } from "@/bot/types";
@@ -16,7 +16,7 @@ export const adminPanelCommand: BotCommand = {
 
     const channel = interaction.channel;
     if (!channel || !channel.isTextBased()) {
-      return interaction.editReply({ embeds: [errorEmbed("텍스트 채널에서만 사용할 수 있습니다.")] });
+      return interaction.editReply(panelError("텍스트 채널에서만 사용할 수 있습니다."));
     }
 
     await prisma.stickyMessage.upsert({
@@ -27,9 +27,9 @@ export const adminPanelCommand: BotCommand = {
 
     const sent = await repostSticky(channel.id, channel);
     if (!sent) {
-      return interaction.editReply({ embeds: [errorEmbed("관리자 패널을 게시하지 못했습니다. 봇 권한을 확인해주세요.")] });
+      return interaction.editReply(panelError("관리자 패널을 게시하지 못했습니다. 봇 권한을 확인해주세요."));
     }
 
-    await interaction.editReply({ embeds: [successEmbed("관리자 패널을 이 채널 맨 아래에 고정했습니다. (모두에게 보임)")] });
+    await interaction.editReply(panelSuccess("관리자 패널을 이 채널 맨 아래에 고정했습니다. (모두에게 보임)"));
   },
 };

@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { requireLinkedAdmin } from "@/bot/discordAuth";
-import { baseEmbed } from "@/bot/format";
+import { buildPanel, ephemeral } from "@/bot/ui";
 import type { BotCommand } from "@/bot/types";
 
 export const loginLogsCommand: BotCommand = {
@@ -9,14 +9,17 @@ export const loginLogsCommand: BotCommand = {
   async execute(interaction) {
     await requireLinkedAdmin(interaction.user.id);
     const logs = await prisma.adminLoginLog.findMany({ orderBy: { createdAt: "desc" }, take: 15 });
-    const embed = baseEmbed("🔐 최근 로그인 기록");
-    for (const l of logs) {
-      embed.addFields({
-        name: `${l.loginId} · ${l.success ? "성공" : "실패"}`,
-        value: `${l.ip ?? "-"} · ${l.createdAt.toLocaleString("ko-KR")}${l.reason ? ` · ${l.reason}` : ""}`,
-      });
-    }
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply(
+      ephemeral(
+        buildPanel({
+          title: "🔐 최근 로그인 기록",
+          fields: logs.map((l) => ({
+            name: `${l.loginId} · ${l.success ? "성공" : "실패"}`,
+            value: `${l.ip ?? "-"} · ${l.createdAt.toLocaleString("ko-KR")}${l.reason ? ` · ${l.reason}` : ""}`,
+          })),
+        })
+      )
+    );
   },
 };
 
@@ -29,13 +32,16 @@ export const activityLogsCommand: BotCommand = {
       orderBy: { createdAt: "desc" },
       take: 15,
     });
-    const embed = baseEmbed("📝 최근 활동 로그");
-    for (const l of logs) {
-      embed.addFields({
-        name: `${l.admin.loginId} · ${l.action}`,
-        value: `${l.detail ?? "-"} · ${l.createdAt.toLocaleString("ko-KR")}`,
-      });
-    }
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply(
+      ephemeral(
+        buildPanel({
+          title: "📝 최근 활동 로그",
+          fields: logs.map((l) => ({
+            name: `${l.admin.loginId} · ${l.action}`,
+            value: `${l.detail ?? "-"} · ${l.createdAt.toLocaleString("ko-KR")}`,
+          })),
+        })
+      )
+    );
   },
 };

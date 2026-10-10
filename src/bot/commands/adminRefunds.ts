@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { requireLinkedAdmin } from "@/bot/discordAuth";
-import { baseEmbed, errorEmbed, successEmbed } from "@/bot/format";
+import { buildPanel, panelError, panelSuccess, ephemeral } from "@/bot/ui";
 import { approveRefund, rejectRefund, RefundError } from "@/lib/refunds";
 import type { BotCommand } from "@/bot/types";
 
@@ -15,15 +15,18 @@ export const refundListCommand: BotCommand = {
       orderBy: { createdAt: "asc" },
       take: 25,
     });
-    const embed = baseEmbed("💰 대기 중인 환불 요청");
-    if (refunds.length === 0) embed.setDescription("대기 중인 요청이 없습니다.");
-    for (const r of refunds) {
-      embed.addFields({
-        name: `#${r.order.orderNo} · ${r.order.tier.name} · ${r.order.finalAmount.toLocaleString()}P`,
-        value: `회원: ${r.user.name} · 사유: ${r.reason} · ID: \`${r.id}\``,
-      });
-    }
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply(
+      ephemeral(
+        buildPanel({
+          title: "💰 대기 중인 환불 요청",
+          description: refunds.length === 0 ? "대기 중인 요청이 없습니다." : undefined,
+          fields: refunds.map((r) => ({
+            name: `#${r.order.orderNo} · ${r.order.tier.name} · ${r.order.finalAmount.toLocaleString()}P`,
+            value: `회원: ${r.user.name} · 사유: ${r.reason} · ID: \`${r.id}\``,
+          })),
+        })
+      )
+    );
   },
 };
 
@@ -38,13 +41,10 @@ export const refundApproveCommand: BotCommand = {
     try {
       await approveRefund(id, admin.id);
     } catch (e) {
-      return interaction.reply({
-        embeds: [errorEmbed(e instanceof RefundError ? e.message : "처리 중 오류가 발생했습니다.")],
-        ephemeral: true,
-      });
+      return interaction.reply(ephemeral(panelError(e instanceof RefundError ? e.message : "처리 중 오류가 발생했습니다.")));
     }
     await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "REFUND_APPROVE", target: id } });
-    await interaction.reply({ embeds: [successEmbed("환불을 승인했습니다.")], ephemeral: true });
+    await interaction.reply(ephemeral(panelSuccess("환불을 승인했습니다.")));
   },
 };
 
@@ -61,12 +61,9 @@ export const refundRejectCommand: BotCommand = {
     try {
       await rejectRefund(id, admin.id, note);
     } catch (e) {
-      return interaction.reply({
-        embeds: [errorEmbed(e instanceof RefundError ? e.message : "처리 중 오류가 발생했습니다.")],
-        ephemeral: true,
-      });
+      return interaction.reply(ephemeral(panelError(e instanceof RefundError ? e.message : "처리 중 오류가 발생했습니다.")));
     }
     await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "REFUND_REJECT", target: id, detail: note } });
-    await interaction.reply({ embeds: [successEmbed("환불 요청을 거절했습니다.")], ephemeral: true });
+    await interaction.reply(ephemeral(panelSuccess("환불 요청을 거절했습니다.")));
   },
 };

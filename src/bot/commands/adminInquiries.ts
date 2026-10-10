@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { requireLinkedAdmin } from "@/bot/discordAuth";
-import { baseEmbed, errorEmbed, successEmbed } from "@/bot/format";
+import { buildPanel, panelError, panelSuccess, ephemeral } from "@/bot/ui";
 import type { BotCommand } from "@/bot/types";
 
 export const inquiryListAdminCommand: BotCommand = {
@@ -14,12 +14,15 @@ export const inquiryListAdminCommand: BotCommand = {
       orderBy: { createdAt: "asc" },
       take: 25,
     });
-    const embed = baseEmbed("💬 답변 대기 문의");
-    if (inquiries.length === 0) embed.setDescription("대기 중인 문의가 없습니다.");
-    for (const i of inquiries) {
-      embed.addFields({ name: `${i.title} (${i.user.name})`, value: `ID: \`${i.id}\`\n${i.content.slice(0, 150)}` });
-    }
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply(
+      ephemeral(
+        buildPanel({
+          title: "💬 답변 대기 문의",
+          description: inquiries.length === 0 ? "대기 중인 문의가 없습니다." : undefined,
+          fields: inquiries.map((i) => ({ name: `${i.title} (${i.user.name})`, value: `ID: \`${i.id}\`\n${i.content.slice(0, 150)}` })),
+        })
+      )
+    );
   },
 };
 
@@ -35,7 +38,7 @@ export const inquiryAnswerCommand: BotCommand = {
     const answer = interaction.options.getString("답변", true);
 
     const inquiry = await prisma.inquiry.findUnique({ where: { id } });
-    if (!inquiry) return interaction.reply({ embeds: [errorEmbed("존재하지 않는 문의입니다.")], ephemeral: true });
+    if (!inquiry) return interaction.reply(ephemeral(panelError("존재하지 않는 문의입니다.")));
 
     await prisma.inquiry.update({
       where: { id },
@@ -45,6 +48,6 @@ export const inquiryAnswerCommand: BotCommand = {
       data: { userId: inquiry.userId, type: "INQUIRY_ANSWERED", title: "문의 답변 완료", message: `"${inquiry.title}" 문의에 답변이 등록되었습니다.` },
     });
     await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "INQUIRY_ANSWER", target: id } });
-    await interaction.reply({ embeds: [successEmbed("답변이 등록되었습니다.")], ephemeral: true });
+    await interaction.reply(ephemeral(panelSuccess("답변이 등록되었습니다.")));
   },
 };

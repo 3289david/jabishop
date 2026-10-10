@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { requireLinkedAdmin } from "@/bot/discordAuth";
-import { errorEmbed, successEmbed } from "@/bot/format";
+import { panelError, panelSuccess } from "@/bot/ui";
 import { tierAutocomplete } from "@/bot/autocomplete";
 import { createFlashSale, cancelFlashSale, EventError } from "@/lib/events/flashSale";
 import type { BotCommand } from "@/bot/types";
@@ -22,23 +22,21 @@ export const flashSaleCreateCommand: BotCommand = {
     await interaction.deferReply({ ephemeral: true });
 
     const tier = await prisma.tier.findUnique({ where: { slug } });
-    if (!tier) return interaction.editReply({ embeds: [errorEmbed("존재하지 않는 등급입니다.")] });
+    if (!tier) return interaction.editReply(panelError("존재하지 않는 등급입니다."));
 
     try {
       const sale = await createFlashSale({ tierId: tier.id, discountPercent, durationMinutes, adminId: admin.id });
       await prisma.adminActivityLog.create({
         data: { adminId: admin.id, action: "FLASH_SALE_CREATE", target: sale.id, detail: `${tier.name} ${discountPercent}% ${durationMinutes}분` },
       });
-      await interaction.editReply({
-        embeds: [
-          successEmbed(
-            `"${tier.name}" 등급에 ${discountPercent}% 타임세일을 시작했습니다. <t:${Math.floor(sale.endsAt.getTime() / 1000)}:R>까지 진행됩니다.\n(전체 타임세일 기능이 꺼져 있으면 /설정수정에서 "타임세일이벤트" 옵션을 켜야 실제로 적용됩니다.)`
-          ),
-        ],
-      });
+      await interaction.editReply(
+        panelSuccess(
+          `"${tier.name}" 등급에 ${discountPercent}% 타임세일을 시작했습니다. <t:${Math.floor(sale.endsAt.getTime() / 1000)}:R>까지 진행됩니다.\n(전체 타임세일 기능이 꺼져 있으면 /설정수정에서 "타임세일이벤트" 옵션을 켜야 실제로 적용됩니다.)`
+        )
+      );
     } catch (e) {
       const message = e instanceof EventError ? e.message : "타임세일 생성 중 오류가 발생했습니다.";
-      await interaction.editReply({ embeds: [errorEmbed(message)] });
+      await interaction.editReply(panelError(message));
     }
   },
 };
@@ -55,14 +53,14 @@ export const flashSaleCancelCommand: BotCommand = {
     await interaction.deferReply({ ephemeral: true });
 
     const tier = await prisma.tier.findUnique({ where: { slug } });
-    if (!tier) return interaction.editReply({ embeds: [errorEmbed("존재하지 않는 등급입니다.")] });
+    if (!tier) return interaction.editReply(panelError("존재하지 않는 등급입니다."));
 
     const count = await cancelFlashSale(tier.id);
     if (count === 0) {
-      return interaction.editReply({ embeds: [errorEmbed(`"${tier.name}" 등급에 진행 중인 타임세일이 없습니다.`)] });
+      return interaction.editReply(panelError(`"${tier.name}" 등급에 진행 중인 타임세일이 없습니다.`));
     }
 
     await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "FLASH_SALE_CANCEL", target: tier.id } });
-    await interaction.editReply({ embeds: [successEmbed(`"${tier.name}" 등급의 타임세일을 종료했습니다.`)] });
+    await interaction.editReply(panelSuccess(`"${tier.name}" 등급의 타임세일을 종료했습니다.`));
   },
 };
