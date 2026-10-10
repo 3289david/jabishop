@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, ChannelType, type TextChannel } from "discord.js";
 import { assertActiveShopUser, requireLinkedAdmin } from "@/bot/discordAuth";
-import { errorEmbed, successEmbed, baseEmbed, pt } from "@/bot/format";
+import { pt } from "@/bot/format";
+import { buildPanel, panelError, panelSuccess, ephemeral } from "@/bot/ui";
 import { performCheckIn, EventError as CheckInError } from "@/lib/events/checkin";
 import { getOrCreateReferralCode, linkReferral, EventError as ReferralError } from "@/lib/events/referral";
 import { spinGacha, EventError as GachaError } from "@/lib/events/gacha";
@@ -31,11 +32,11 @@ export const eventPromoCommand: BotCommand = {
 
     const channel = await interaction.guild?.channels.fetch(channelOption.id).catch(() => null);
     if (!channel || !channel.isTextBased() || !channel.isSendable()) {
-      return interaction.editReply({ embeds: [errorEmbed("텍스트 채널만 선택할 수 있습니다.")] });
+      return interaction.editReply(panelError("텍스트 채널만 선택할 수 있습니다."));
     }
 
     await (channel as TextChannel).send(eventPromoPayload());
-    await interaction.editReply({ embeds: [successEmbed(`<#${channel.id}> 채널에 이벤트 홍보 공지를 올렸습니다.`)] });
+    await interaction.editReply(panelSuccess(`<#${channel.id}> 채널에 이벤트 홍보 공지를 올렸습니다.`));
   },
 };
 
@@ -45,18 +46,21 @@ export const checkInCommand: BotCommand = {
     const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
     try {
       const result = await performCheckIn(user.id);
-      await interaction.reply({
-        embeds: [
-          successEmbed(`출석체크 완료! +${pt(result.reward)}`).addFields(
-            { name: "연속 출석", value: `${result.streak}일차`, inline: true },
-            { name: "보유 포인트", value: pt(result.balance), inline: true }
-          ),
-        ],
-        ephemeral: true,
-      });
+      await interaction.reply(
+        ephemeral(
+          buildPanel({
+            title: `✅ 출석체크 완료! +${pt(result.reward)}`,
+            fields: [
+              { name: "연속 출석", value: `${result.streak}일차` },
+              { name: "보유 포인트", value: pt(result.balance) },
+            ],
+            accentColor: 0x22c55e,
+          })
+        )
+      );
     } catch (e) {
       const message = e instanceof CheckInError ? e.message : "출석체크 중 오류가 발생했습니다.";
-      await interaction.reply({ embeds: [errorEmbed(message)], ephemeral: true });
+      await interaction.reply(ephemeral(panelError(message)));
     }
   },
 };
@@ -67,17 +71,17 @@ export const referralCodeCommand: BotCommand = {
     const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
     try {
       const code = await getOrCreateReferralCode(user.id);
-      await interaction.reply({
-        embeds: [
-          baseEmbed("🎁 내 초대코드").setDescription(
-            `\`${code}\`\n\n친구가 이 코드를 \`/초대코드등록\`으로 입력하면 **나는 즉시 200P**,\n친구가 첫 구매를 완료하면 **나는 800P 추가**(총 1,000P) + **친구는 500P**를 받아요!`
-          ),
-        ],
-        ephemeral: true,
-      });
+      await interaction.reply(
+        ephemeral(
+          buildPanel({
+            title: "🎁 내 초대코드",
+            description: `\`${code}\`\n\n친구가 이 코드를 \`/초대코드등록\`으로 입력하면 **나는 즉시 200P**,\n친구가 첫 구매를 완료하면 **나는 800P 추가**(총 1,000P) + **친구는 500P**를 받아요!`,
+          })
+        )
+      );
     } catch (e) {
       const message = e instanceof ReferralError ? e.message : "처리 중 오류가 발생했습니다.";
-      await interaction.reply({ embeds: [errorEmbed(message)], ephemeral: true });
+      await interaction.reply(ephemeral(panelError(message)));
     }
   },
 };
@@ -92,17 +96,16 @@ export const referralRegisterCommand: BotCommand = {
     const code = interaction.options.getString("코드", true);
     try {
       const referrer = await linkReferral(user.id, code);
-      await interaction.reply({
-        embeds: [
-          successEmbed(
+      await interaction.reply(
+        ephemeral(
+          panelSuccess(
             `초대코드가 등록되었습니다! ${referrer.name}님에게 등록 보상 200P가 지급됐어요.\n첫 구매를 완료하면 나에게 500P, ${referrer.name}님에게 800P가 추가로 지급됩니다.`
-          ),
-        ],
-        ephemeral: true,
-      });
+          )
+        )
+      );
     } catch (e) {
       const message = e instanceof ReferralError ? e.message : "처리 중 오류가 발생했습니다.";
-      await interaction.reply({ embeds: [errorEmbed(message)], ephemeral: true });
+      await interaction.reply(ephemeral(panelError(message)));
     }
   },
 };
@@ -113,18 +116,18 @@ export const gachaSpinCommand: BotCommand = {
     const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
     try {
       const result = await spinGacha(user.id);
-      const embed =
-        result.prize.kind === "NONE"
-          ? errorEmbed(`꽝! ${pt(result.cost)}를 소모했습니다. 다음 기회에 도전해보세요.`)
-          : successEmbed(`🎉 ${result.prize.label} 당첨!`);
-      embed.addFields({ name: "보유 포인트", value: pt(result.balance), inline: true });
+      const fields = [{ name: "보유 포인트", value: pt(result.balance) }];
       if (result.couponCode) {
-        embed.addFields({ name: "쿠폰 코드", value: `\`${result.couponCode}\` (쿠폰함에서 확인 가능)` });
+        fields.push({ name: "쿠폰 코드", value: `\`${result.couponCode}\` (쿠폰함에서 확인 가능)` });
       }
-      await interaction.reply({ embeds: [embed], ephemeral: true });
+      const payload =
+        result.prize.kind === "NONE"
+          ? buildPanel({ title: "😢 꽝!", description: `${pt(result.cost)}를 소모했습니다. 다음 기회에 도전해보세요.`, fields, accentColor: 0xef4444 })
+          : buildPanel({ title: `🎉 ${result.prize.label} 당첨!`, fields, accentColor: 0x22c55e });
+      await interaction.reply(ephemeral(payload));
     } catch (e) {
       const message = e instanceof GachaError ? e.message : "룰렛 진행 중 오류가 발생했습니다.";
-      await interaction.reply({ embeds: [errorEmbed(message)], ephemeral: true });
+      await interaction.reply(ephemeral(panelError(message)));
     }
   },
 };

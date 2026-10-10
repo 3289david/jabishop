@@ -1,6 +1,6 @@
 import { SlashCommandBuilder } from "discord.js";
 import { assertActiveShopUser } from "@/bot/discordAuth";
-import { errorEmbed, successEmbed } from "@/bot/format";
+import { panelError, panelSuccess } from "@/bot/ui";
 import { requestExchange, ExchangeError } from "@/lib/exchanges";
 import { saveBufferToUploads } from "@/bot/fileStorage";
 import { prisma } from "@/lib/prisma";
@@ -22,7 +22,7 @@ export const exchangeRequestCommand: BotCommand = {
 
     const order = await prisma.order.findUnique({ where: { orderNo } });
     if (!order || order.userId !== user.id) {
-      return interaction.editReply({ embeds: [errorEmbed("해당 주문을 찾을 수 없습니다.")] });
+      return interaction.editReply(panelError("해당 주문을 찾을 수 없습니다."));
     }
 
     const res = await fetch(attachment.url);
@@ -33,10 +33,8 @@ export const exchangeRequestCommand: BotCommand = {
       await requestExchange(order.id, user.id, reason, proofFileKey);
     } catch (e) {
       const message = e instanceof ExchangeError ? e.message : "교환 신청 중 오류가 발생했습니다.";
-      return interaction.editReply({ embeds: [errorEmbed(message)] });
+      return interaction.editReply(panelError(message));
     }
-    await interaction.editReply({
-      embeds: [successEmbed("교환 신청이 접수되었습니다. 관리자 승인 후 새 계정이 지급됩니다.")],
-    });
+    await interaction.editReply(panelSuccess("교환 신청이 접수되었습니다. 관리자 승인 후 새 계정이 지급됩니다."));
   },
 };

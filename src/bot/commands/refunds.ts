@@ -1,6 +1,6 @@
 import { SlashCommandBuilder } from "discord.js";
 import { assertActiveShopUser } from "@/bot/discordAuth";
-import { errorEmbed, successEmbed } from "@/bot/format";
+import { panelError, panelSuccess, ephemeral } from "@/bot/ui";
 import { requestRefund, RefundError } from "@/lib/refunds";
 import { prisma } from "@/lib/prisma";
 import type { BotCommand } from "@/bot/types";
@@ -18,15 +18,15 @@ export const refundRequestCommand: BotCommand = {
 
     const order = await prisma.order.findUnique({ where: { orderNo } });
     if (!order || order.userId !== user.id) {
-      return interaction.reply({ embeds: [errorEmbed("해당 주문을 찾을 수 없습니다.")], ephemeral: true });
+      return interaction.reply(ephemeral(panelError("해당 주문을 찾을 수 없습니다.")));
     }
 
     try {
       await requestRefund(order.id, user.id, reason);
     } catch (e) {
       const message = e instanceof RefundError ? e.message : "환불 신청 중 오류가 발생했습니다.";
-      return interaction.reply({ embeds: [errorEmbed(message)], ephemeral: true });
+      return interaction.reply(ephemeral(panelError(message)));
     }
-    await interaction.reply({ embeds: [successEmbed("환불 신청이 접수되었습니다.")], ephemeral: true });
+    await interaction.reply(ephemeral(panelSuccess("환불 신청이 접수되었습니다.")));
   },
 };

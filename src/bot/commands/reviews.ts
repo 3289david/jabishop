@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { assertActiveShopUser } from "@/bot/discordAuth";
-import { errorEmbed, successEmbed } from "@/bot/format";
+import { panelError, panelSuccess, ephemeral } from "@/bot/ui";
 import { ORDER_STATUS } from "@/lib/constants";
 import type { BotCommand } from "@/bot/types";
 
@@ -20,17 +20,17 @@ export const reviewCreateCommand: BotCommand = {
 
     const order = await prisma.order.findUnique({ where: { orderNo } });
     if (!order || order.userId !== user.id) {
-      return interaction.reply({ embeds: [errorEmbed("해당 주문을 찾을 수 없습니다.")], ephemeral: true });
+      return interaction.reply(ephemeral(panelError("해당 주문을 찾을 수 없습니다.")));
     }
     if (order.status !== ORDER_STATUS.COMPLETED) {
-      return interaction.reply({ embeds: [errorEmbed("구매가 완료된 주문만 리뷰를 작성할 수 있습니다.")], ephemeral: true });
+      return interaction.reply(ephemeral(panelError("구매가 완료된 주문만 리뷰를 작성할 수 있습니다.")));
     }
     const existing = await prisma.review.findUnique({ where: { orderId: order.id } });
     if (existing) {
-      return interaction.reply({ embeds: [errorEmbed("이미 리뷰를 작성한 주문입니다.")], ephemeral: true });
+      return interaction.reply(ephemeral(panelError("이미 리뷰를 작성한 주문입니다.")));
     }
 
     await prisma.review.create({ data: { userId: user.id, orderId: order.id, rating, content, purchaseVerified: true } });
-    await interaction.reply({ embeds: [successEmbed("리뷰가 등록되었습니다.")], ephemeral: true });
+    await interaction.reply(ephemeral(panelSuccess("리뷰가 등록되었습니다.")));
   },
 };

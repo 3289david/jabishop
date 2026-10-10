@@ -1,6 +1,6 @@
 import { SlashCommandBuilder } from "discord.js";
 import { assertActiveShopUser } from "@/bot/discordAuth";
-import { successEmbed } from "@/bot/format";
+import { panelSuccess, ephemeral } from "@/bot/ui";
 import { createReport } from "@/lib/reports";
 import type { BotCommand } from "@/bot/types";
 
@@ -31,6 +31,6 @@ export const reportCreateCommand: BotCommand = {
     const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
 
     await createReport(user.id, targetType, targetId, reason, detail);
-    await interaction.reply({ embeds: [successEmbed("신고가 접수되었습니다.")], ephemeral: true });
+    await interaction.reply(ephemeral(panelSuccess("신고가 접수되었습니다.")));
   },
 };

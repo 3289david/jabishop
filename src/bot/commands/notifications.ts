@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { assertActiveShopUser } from "@/bot/discordAuth";
-import { baseEmbed } from "@/bot/format";
+import { buildPanel, ephemeral } from "@/bot/ui";
 import type { BotCommand } from "@/bot/types";
 
 export const notificationsCommand: BotCommand = {
@@ -14,13 +14,13 @@ export const notificationsCommand: BotCommand = {
       take: 10,
     });
 
-    const embed = baseEmbed("🔔 최근 알림");
-    if (notifications.length === 0) embed.setDescription("알림이 없습니다.");
-    for (const n of notifications) {
-      embed.addFields({ name: `${n.isRead ? "" : "🆕 "}${n.title}`, value: n.message });
-    }
+    const payload = buildPanel({
+      title: "🔔 최근 알림",
+      description: notifications.length === 0 ? "알림이 없습니다." : undefined,
+      fields: notifications.map((n) => ({ name: `${n.isRead ? "" : "🆕 "}${n.title}`, value: n.message })),
+    });
 
     await prisma.notification.updateMany({ where: { userId: user.id, isRead: false }, data: { isRead: true } });
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    await interaction.reply(ephemeral(payload));
   },
 };

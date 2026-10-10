@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { assertActiveShopUser } from "@/bot/discordAuth";
-import { baseEmbed, successEmbed } from "@/bot/format";
+import { buildPanel, panelSuccess, ephemeral } from "@/bot/ui";
 import { saveBufferToUploads } from "@/bot/fileStorage";
 import { createInquiry } from "@/lib/inquiries";
 import type { BotCommand } from "@/bot/types";
@@ -29,7 +29,7 @@ export const inquiryCreateCommand: BotCommand = {
     }
 
     const inquiry = await createInquiry(user.id, title, content, images);
-    await interaction.editReply({ embeds: [successEmbed(`문의가 등록되었습니다. (ID: ${inquiry.id.slice(-8)})`)] });
+    await interaction.editReply(panelSuccess(`문의가 등록되었습니다. (ID: ${inquiry.id.slice(-8)})`));
   },
 };
 
@@ -42,14 +42,18 @@ export const inquiryListCommand: BotCommand = {
       orderBy: { createdAt: "desc" },
       take: 10,
     });
-    const embed = baseEmbed("💬 내 문의 내역");
-    if (inquiries.length === 0) embed.setDescription("문의 내역이 없습니다.");
-    for (const i of inquiries) {
-      embed.addFields({
-        name: `${i.title} (${i.status})`,
-        value: i.answer ? `답변: ${i.answer.slice(0, 200)}` : "답변 대기중",
-      });
-    }
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+
+    await interaction.reply(
+      ephemeral(
+        buildPanel({
+          title: "💬 내 문의 내역",
+          description: inquiries.length === 0 ? "문의 내역이 없습니다." : undefined,
+          fields: inquiries.map((i) => ({
+            name: `${i.title} (${i.status})`,
+            value: i.answer ? `답변: ${i.answer.slice(0, 200)}` : "답변 대기중",
+          })),
+        })
+      )
+    );
   },
 };
