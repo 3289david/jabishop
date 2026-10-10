@@ -158,7 +158,7 @@ export async function sendChannelMessage(
   channelId: string,
   // components는 Discord Message Components 원본 스키마를 그대로 받는다 (discord.js 빌더가 필요 없는
   // 공용 lib 코드라 discord.js 타입에 의존하지 않기 위해 unknown[]로 느슨하게 받는다).
-  payload: { content?: string; embeds?: SimpleEmbed[]; components?: unknown[] }
+  payload: { content?: string; embeds?: SimpleEmbed[]; components?: unknown[]; flags?: number }
 ) {
   const token = process.env.DISCORD_BOT_TOKEN;
   if (!token) return;

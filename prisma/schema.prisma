@@ -541,6 +541,17 @@ model ShopSetting {
   promoReportLastSentAt DateTime?
   // 홍보직원으로 등록되면 자동으로 지급하고, 그만두면 회수하는 역할.
   promoStaffRoleId      String?
+
+  // 안티스팸(메시지 도배/멘션 폭탄/초대 링크/파일 도배 등) 자동 감지 - src/bot/antiSpam.ts.
+  antiSpamEnabled              Boolean @default(false)
+  antiSpamLogChannelId         String? // 제재 로그 + "오탐 해제" 버튼이 올라오는 채널
+  antiSpamWhitelistRoleId      String? // 이 역할을 가진 멤버는 감지 대상에서 제외 (관리자는 항상 자동 제외)
+  antiSpamFloodCount           Int     @default(6) // antiSpamFloodWindowSec 안에 이 개수 이상 메시지를 보내면 도배로 간주
+  antiSpamFloodWindowSec       Int     @default(5)
+  antiSpamMentionLimit         Int     @default(5) // 메시지 1개에 이 개수 이상 멘션(유저+역할)이 있으면 멘션 폭탄으로 간주
+  antiSpamEmergencyThreshold   Int     @default(10) // antiSpamEmergencyWindowSec 안에 서버 전체 위반이 이 횟수를 넘으면 긴급모드 발동
+  antiSpamEmergencyWindowSec   Int     @default(60)
+  antiSpamEmergencyDurationMin Int     @default(10) // 긴급모드 동안 전체 채널에 슬로우모드를 적용할 시간(분)
 }
 
 // 어드민 웹 패널에서 지정하는 "홍보직원" - 디스코드 서버에 영구 초대 링크를 발급받아
@@ -952,4 +963,25 @@ model SellerReport {
   processedByAdminId String?
   processedAt       DateTime?
   createdAt         DateTime  @default(now())
+}
+
+// 안티스팸이 적발한 위반 1건 = 1행. 실시간 판단(도배 횟수 등)은 메모리에서 하고, 여기엔
+// 통계/이력/제재 해제용으로 결과만 남긴다. 같은 유저의 최근 24시간 내 건수로 제재 단계를
+// 올린다 (src/bot/antiSpam.ts의 ESCALATION_TIERS).
+model SpamViolation {
+  id              String    @id @default(cuid())
+  guildId         String
+  discordUserId   String
+  discordTag      String
+  channelId       String
+  violationType   String // FLOOD | DUPLICATE | REPEAT_CHAR | CROSS_CHANNEL | MENTION_BOMB | EMOJI_SPAM | INVITE_LINK | ATTACHMENT_FLOOD
+  messageExcerpt  String // 신고/감사용으로 남기는 메시지 내용 일부(최대 300자)
+  actionTaken     String // DELETE_ONLY | TIMEOUT
+  timeoutSeconds  Int?
+  lifted          Boolean   @default(false) // 관리자가 오탐으로 판단해 제재를 해제했는지
+  liftedByAdminId String?
+  liftedAt        DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@index([guildId, discordUserId, createdAt])
 }

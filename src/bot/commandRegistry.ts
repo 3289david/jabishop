@@ -24,7 +24,8 @@ import {
   artworkBulkDeleteCommand,
 } from "@/bot/commands/adminInventory";
 import { topUpListCommand, topUpConfirmCommand, topUpRejectCommand } from "@/bot/commands/adminPayments";
-import { refundListCommand, refundApproveCommand, refundRejectCommand } from "@/bot/commands/adminRefunds";
+import { refundManageCommand } from "@/bot/commands/adminRefunds";
+import { antiSpamCommand } from "@/bot/commands/adminAntiSpam";
 import { exchangeListCommand, exchangeApproveCommand, exchangeRejectCommand } from "@/bot/commands/adminExchanges";
 import { orderExchangeCommand } from "@/bot/commands/adminOrders";
 import { partnerListCommand, partnerApproveCommand, partnerRejectCommand, partnerCreateCommand } from "@/bot/commands/adminPartners";
@@ -130,9 +131,8 @@ export const commands: BotCommand[] = [
   topUpListCommand,
   topUpConfirmCommand,
   topUpRejectCommand,
-  refundListCommand,
-  refundApproveCommand,
-  refundRejectCommand,
+  refundManageCommand,
+  antiSpamCommand,
   exchangeListCommand,
   exchangeApproveCommand,
   exchangeRejectCommand,

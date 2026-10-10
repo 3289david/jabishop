@@ -194,3 +194,19 @@ export const SHOP_SUBSCRIPTION_PRICE = 4000;
 // 자판기 구매 완료 시 사용법 채널(자비샵 본인 서버 전용, 비공개 채널이라 구매자에게
 // 1명씩 "채널 보기" 권한을 열어줘야 보인다)을 보라고 DM으로 안내한다.
 export const SHOP_SUBSCRIPTION_GUIDE_CHANNEL_ID = "1557048601547505684";
+
+export const SPAM_VIOLATION_TYPE = {
+  FLOOD: "FLOOD", // 짧은 시간에 메시지 N개 이상
+  DUPLICATE: "DUPLICATE", // 동일/복붙(공백·일부 문자만 다른) 메시지 반복
+  REPEAT_CHAR: "REPEAT_CHAR", // 같은 문자를 길게 반복
+  CROSS_CHANNEL: "CROSS_CHANNEL", // 여러 채널에 동일 내용 연속 전송
+  MENTION_BOMB: "MENTION_BOMB", // 멘션 폭탄
+  EMOJI_SPAM: "EMOJI_SPAM", // 이모지 도배
+  INVITE_LINK: "INVITE_LINK", // 디스코드 초대 링크 반복
+  ATTACHMENT_FLOOD: "ATTACHMENT_FLOOD", // 사진/파일/영상 첨부 도배
+} as const;
+
+export const SPAM_ACTION = {
+  DELETE_ONLY: "DELETE_ONLY",
+  TIMEOUT: "TIMEOUT",
+} as const;

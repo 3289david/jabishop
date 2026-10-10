@@ -32,6 +32,7 @@ import { handleSelectMenuInteraction } from "@/bot/interactions/selects";
 import { errorEmbed } from "@/bot/format";
 import { startStatsChannelLoop } from "@/bot/statsChannels";
 import { handleAutoDeleteMessage } from "@/bot/autoDeleteChannel";
+import { handleAntiSpamMessage } from "@/bot/antiSpam";
 import { handleStickyMessage } from "@/bot/stickyMessage";
 import { startPartnerBroadcastLoop } from "@/bot/partnerBroadcast";
 import { startDailyStatsBroadcastLoop } from "@/bot/dailyStatsBroadcast";
@@ -88,6 +89,7 @@ client.once(Events.ClientReady, (c) => {
 
 client.on(Events.MessageCreate, (message) => {
   runForGuild(message.guildId, async () => {
+    await handleAntiSpamMessage(message).catch((e) => console.error("안티스팸 처리 중 오류:", e));
     await handleAutoDeleteMessage(message).catch(() => {});
     handleStickyMessage(message);
   }).catch((e) => console.error("메시지 처리 중 오류:", e));
