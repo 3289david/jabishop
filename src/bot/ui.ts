@@ -30,9 +30,9 @@ export const ACCENT_COLOR = 0xa78bfa; // 보라 #A78BFA - 모든 패널 공통 �
 export const ERROR_ACCENT_COLOR = 0xef4444;
 export const SUCCESS_ACCENT_COLOR = 0x22c55e;
 
-/** 보라/파랑 빛이 번지는 그라데이션 배너 (public/discord-banner-purple.png, 웹사이트 자판기 쇼케이스와 동일 팔레트). */
+/** 패널 상단 배너 (public/discord-banner-purple.jpg, 자비샵 로고). */
 export function bannerImageUrl(): string {
-  return `${getAppOrigin()}/discord-banner-purple.png`;
+  return `${getAppOrigin()}/discord-banner-purple.jpg`;
 }
 
 export type PanelField = { name: string; value: string };
