@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { baseEmbed, won, pt } from "@/bot/format";
 import { ARTWORK_STATUS, TIER_STATUS, SHOP_SUBSCRIPTION_TIER_SLUG } from "@/lib/constants";
 import { getShopName } from "@/lib/shop";
+import { getAppOrigin } from "@/lib/appUrl";
 import type { User as ShopUser } from "@prisma/client";
 
 // ── 메인(사용자) 패널 ────────────────────────────────────────
@@ -126,17 +127,12 @@ export function eventPromoEmbed() {
 }
 
 // ── 인증 패널 ────────────────────────────────────────────────
-// 자비샵 본인 서버는 외부 인증 사이트(사람인지 확인하는 용도로 추정)를 계속 그대로
-// 쓴다 - 테넌트 샵은 그 사이트를 쓸 수 없으니(자비샵 전용 서비스), ShopSetting.verifyRoleId를
-// 설정하면(/설정수정 인증역할:) 그 역할을 버튼 클릭 즉시 봇이 직접 부여하는 방식으로 동작한다.
-const JABISHOP_VERIFY_URL = "https://restore.salv.me/1545755740658995261";
-const JABISHOP_VERIFY_ROLE_ID = "1545759847784382464";
+// "인증하기"를 누르면 자체 호스팅한 /auth 페이지로 이동해 디스코드 OAuth 연결 +
+// ALTCHA(자체 호스팅 캡챠)를 통과해야 역할이 지급된다 (예전엔 외부 서비스
+// restore.salv.me로 보내거나, 테넌트는 클릭 즉시 아무 확인 없이 역할만 줬음).
 
-export async function verifyPanelEmbed(isOwnGuild: boolean) {
+export async function verifyPanelEmbed() {
   const embed = baseEmbed("💕 인증 채널 💕").setColor(0xff6fa5).setDescription("인증을 하시려면 아래 버튼을 클릭해 주세요");
-  if (isOwnGuild) {
-    return embed.addFields({ name: "역할", value: `인증을 하시면 <@&${JABISHOP_VERIFY_ROLE_ID}> 역할이 부여돼요` });
-  }
   const settings = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
   if (settings?.verifyRoleId) {
     embed.addFields({ name: "역할", value: `인증을 하시면 <@&${settings.verifyRoleId}> 역할이 부여돼요` });
@@ -144,14 +140,9 @@ export async function verifyPanelEmbed(isOwnGuild: boolean) {
   return embed;
 }
 
-export function verifyPanelRow(isOwnGuild: boolean) {
-  if (isOwnGuild) {
-    return new ActionRowBuilder<ButtonBuilder>().addComponents(
-      new ButtonBuilder().setLabel("인증하기").setStyle(ButtonStyle.Link).setURL(JABISHOP_VERIFY_URL)
-    );
-  }
+export function verifyPanelRow() {
   return new ActionRowBuilder<ButtonBuilder>().addComponents(
-    new ButtonBuilder().setCustomId("verify:claim").setLabel("인증하기").setStyle(ButtonStyle.Success)
+    new ButtonBuilder().setLabel("인증하기").setStyle(ButtonStyle.Link).setURL(`${getAppOrigin()}/api/auth/discord/verify-start`)
   );
 }
 

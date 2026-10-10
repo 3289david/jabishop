@@ -98,6 +98,50 @@ export async function destroyUserSession() {
   }
 }
 
+// ── "인증하기" OAuth 임시 세션 ──────────────────────────────────
+// 디스코드 OAuth 콜백이 성공한 직후 ~ ALTCHA를 풀어 인증을 완료하기까지의 짧은
+// 사이를 이어주는 용도라, DB 세션 테이블 없이 서명된 쿠키 하나로만 처리한다.
+
+const VERIFY_PENDING_COOKIE = "jbs_verify_pending";
+const VERIFY_PENDING_MINUTES = 10;
+
+export async function createVerifyPendingSession(discordUserId: string, discordUsername: string) {
+  const token = await new SignJWT({ discordUserId, discordUsername })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime(`${VERIFY_PENDING_MINUTES}m`)
+    .sign(secretKey("SESSION_SECRET"));
+
+  const c = await cookies();
+  c.set(VERIFY_PENDING_COOKIE, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: VERIFY_PENDING_MINUTES * 60,
+  });
+}
+
+export async function getVerifyPendingSession(): Promise<{ discordUserId: string; discordUsername: string } | null> {
+  const c = await cookies();
+  const token = c.get(VERIFY_PENDING_COOKIE)?.value;
+  if (!token) return null;
+  try {
+    const { payload } = await jwtVerify(token, secretKey("SESSION_SECRET"));
+    const discordUserId = payload.discordUserId as string | undefined;
+    const discordUsername = payload.discordUsername as string | undefined;
+    if (!discordUserId || !discordUsername) return null;
+    return { discordUserId, discordUsername };
+  } catch {
+    return null;
+  }
+}
+
+export async function clearVerifyPendingSession() {
+  const c = await cookies();
+  c.delete(VERIFY_PENDING_COOKIE);
+}
+
 // ── 관리자 세션 ──────────────────────────────────────────────
 
 export async function createAdminSession(adminId: string) {
