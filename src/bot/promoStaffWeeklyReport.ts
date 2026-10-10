@@ -40,9 +40,7 @@ async function maybeSendPromoReport() {
   await notifyAllAdmins({
     title: "📣 이번 주 홍보직원 정산 안내",
     description: "아래 계좌로 수동 송금해주세요. 이 안내는 자동 집계이며, 실제 지급은 자동으로 이뤄지지 않습니다.",
-    color: 0x6366f1,
     fields,
-    timestamp: now.toISOString(),
   });
 
   await prisma.shopSetting.update({ where: { id: "singleton" }, data: { promoReportLastSentAt: now } });

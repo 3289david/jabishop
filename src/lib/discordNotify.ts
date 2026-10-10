@@ -7,19 +7,12 @@ import { prisma } from "@/lib/prisma";
 import { readUploadedFile, isUploadKey } from "@/lib/storage";
 import { PURCHASE_TIER_ROLES, ORDER_STATUS } from "@/lib/constants";
 import { getAppOrigin } from "@/lib/appUrl";
+import { buildV2Panel, V2_ERROR_COLOR, V2_SUCCESS_COLOR, V2_WARNING_COLOR, type V2PanelOptions } from "@/lib/panelV2";
 
 const API_BASE = "https://discord.com/api/v10";
 
-type EmbedField = { name: string; value: string; inline?: boolean };
-type SimpleEmbed = {
-  title?: string;
-  description?: string;
-  url?: string;
-  color?: number;
-  fields?: EmbedField[];
-  image?: { url: string };
-  timestamp?: string;
-};
+/** sendDiscordDM/sendChannelMessage가 받는 Components V2 페이로드 (buildV2Panel의 반환 타입). */
+type V2Payload = { flags: number; components: unknown[] };
 
 // 같은 사용자에게 짧은 시간에 여러 번 DM을 보낼 때(대량 구매 등) 매번 채널을 새로 열
 // 필요가 없다 - 봇과 특정 유저 사이의 DM 채널 id는 사실상 고정이다. 캐싱해두면 대량
@@ -65,7 +58,7 @@ async function readRetryAfterMs(res: Response): Promise<number> {
  */
 async function sendDiscordDMImmediate(
   discordId: string,
-  payload: { content?: string; embeds?: SimpleEmbed[] },
+  payload: V2Payload,
   attachment?: { buffer: Buffer; fileName: string }
 ): Promise<boolean> {
   const token = process.env.DISCORD_BOT_TOKEN;
@@ -83,11 +76,10 @@ async function sendDiscordDMImmediate(
       let headers: Record<string, string>;
 
       if (attachment) {
-        const embeds = (payload.embeds ?? []).map((e, i) =>
-          i === 0 ? { ...e, image: { url: `attachment://${attachment.fileName}` } } : e
-        );
+        // 첨부파일을 쓸 때는 호출하는 쪽이 buildV2Panel({ imageUrl: `attachment://${fileName}` })로
+        // 미리 이미지 URL을 맞춰서 넘겨야 한다 - 여기서 payload를 사후에 고쳐 끼워넣지 않는다.
         const form = new FormData();
-        form.append("payload_json", JSON.stringify({ ...payload, embeds }));
+        form.append("payload_json", JSON.stringify(payload));
         form.append("files[0]", new Blob([new Uint8Array(attachment.buffer)]), attachment.fileName);
         body = form;
         headers = { Authorization: `Bot ${token}` };
@@ -141,7 +133,7 @@ async function processDmQueue() {
 
 export function sendDiscordDM(
   discordId: string,
-  payload: { content?: string; embeds?: SimpleEmbed[] },
+  payload: V2Payload,
   attachment?: { buffer: Buffer; fileName: string }
 ): Promise<boolean> {
   return new Promise((resolve) => {
@@ -153,12 +145,12 @@ export function sendDiscordDM(
   });
 }
 
-/** 특정 채널에 임베드(+버튼 등 컴포넌트)를 직접 게시한다 (DM이 아니라 서버 채널용). */
+/** 특정 채널에 Components V2 패널(+버튼 등)을 직접 게시한다 (DM이 아니라 서버 채널용). */
 export async function sendChannelMessage(
   channelId: string,
   // components는 Discord Message Components 원본 스키마를 그대로 받는다 (discord.js 빌더가 필요 없는
   // 공용 lib 코드라 discord.js 타입에 의존하지 않기 위해 unknown[]로 느슨하게 받는다).
-  payload: { content?: string; embeds?: SimpleEmbed[]; components?: unknown[]; flags?: number }
+  payload: { content?: string; components?: unknown[]; flags?: number }
 ) {
   const token = process.env.DISCORD_BOT_TOKEN;
   if (!token) return;
@@ -173,8 +165,6 @@ export async function sendChannelMessage(
   }
 }
 
-const BRAND_COLOR = 0x6366f1;
-
 /** 구매 완료 시 관리자가 설정한 "구매 로그" 채널에 공개적으로 알린다. */
 export async function announcePurchaseInChannel(userId: string, orderId: string) {
   const settings = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
@@ -187,15 +177,10 @@ export async function announcePurchaseInChannel(userId: string, orderId: string)
   if (!order) return;
 
   const name = user?.name ?? "익명";
-  await sendChannelMessage(settings.discordPurchaseLogChannelId, {
-    embeds: [
-      {
-        description: `🎉 **${name}**님이 **${order.tier.name}**을(를) 구매했습니다!`,
-        color: BRAND_COLOR,
-        timestamp: new Date().toISOString(),
-      },
-    ],
-  });
+  await sendChannelMessage(
+    settings.discordPurchaseLogChannelId,
+    buildV2Panel({ title: "🎉 구매 알림", description: `**${name}**님이 **${order.tier.name}**을(를) 구매했습니다!` })
+  );
 }
 
 /** 구매 축하 쿠폰(5% 확률 당첨)에 당첨됐을 때 "구매 로그" 채널에도 함께 알린다. */
@@ -205,15 +190,14 @@ export async function announceLuckyCouponInChannel(userId: string, couponCode: s
 
   const user = await prisma.user.findUnique({ where: { id: userId } });
   const name = user?.name ?? "익명";
-  await sendChannelMessage(settings.discordPurchaseLogChannelId, {
-    embeds: [
-      {
-        description: `🎉 **${name}**님이 구매 축하 쿠폰 이벤트에 당첨되어 5% 할인 쿠폰(\`${couponCode}\`)을 받았습니다!`,
-        color: 0xf59e0b,
-        timestamp: new Date().toISOString(),
-      },
-    ],
-  });
+  await sendChannelMessage(
+    settings.discordPurchaseLogChannelId,
+    buildV2Panel({
+      title: "🎉 쿠폰 당첨 알림",
+      description: `**${name}**님이 구매 축하 쿠폰 이벤트에 당첨되어 5% 할인 쿠폰(\`${couponCode}\`)을 받았습니다!`,
+      accentColor: V2_WARNING_COLOR,
+    })
+  );
 }
 
 /** 해당 사용자의 누적 구매금액(환불 제외, 포인트 결제 완료 기준)을 계산한다. */
@@ -285,43 +269,47 @@ export async function notifyPurchaseByDM(
 
   const mypageUrl = `${getAppOrigin()}/mypage/orders/${order.id}`;
 
-  const embed: SimpleEmbed = {
+  const fields = [
+    { name: "결제 금액", value: `${order.finalAmount.toLocaleString()}P` },
+    { name: "지급된 계정", value: order.artwork.title },
+    { name: "마이페이지에서 보기", value: mypageUrl },
+  ];
+
+  const panelOpts: V2PanelOptions = {
     title: override?.title ?? `🎉 주문 #${order.orderNo} 완료`,
     description: override?.description ?? `**${order.tier.name}** 구매가 완료되어 계정이 지급되었습니다.`,
-    url: mypageUrl,
-    color: BRAND_COLOR,
-    fields: [
-      { name: "결제 금액", value: `${order.finalAmount.toLocaleString()}P`, inline: true },
-      { name: "지급된 계정", value: order.artwork.title, inline: true },
-      { name: "마이페이지에서 보기", value: mypageUrl },
-    ],
-    timestamp: new Date().toISOString(),
+    accentColor: V2_SUCCESS_COLOR,
+    fields,
   };
 
   if (!isUploadKey(order.artwork.fileKey)) {
     // 파일 업로드가 아니라 텍스트/링크로 등록된 재고 - 그 내용 자체가 지급물이다.
-    embed.fields!.push({ name: "지급 내용", value: order.artwork.fileKey });
-    return sendDiscordDM(user.discordId, { embeds: [embed] });
+    fields.push({ name: "지급 내용", value: order.artwork.fileKey });
+    return sendDiscordDM(user.discordId, buildV2Panel(panelOpts));
   }
 
   try {
     const buffer = await readUploadedFile(order.artwork.fileKey);
     const ext = order.artwork.fileKey.split(".").pop() || "png";
-    return await sendDiscordDM(user.discordId, { embeds: [embed] }, { buffer, fileName: `${order.artwork.code}.${ext}` });
+    const fileName = `${order.artwork.code}.${ext}`;
+    return await sendDiscordDM(
+      user.discordId,
+      buildV2Panel({ ...panelOpts, imageUrl: `attachment://${fileName}` }),
+      { buffer, fileName }
+    );
   } catch {
-    return sendDiscordDM(user.discordId, { embeds: [embed] });
+    return sendDiscordDM(user.discordId, buildV2Panel(panelOpts));
   }
 }
 
 /** 디스코드 계정이 연동된 모든 활성 관리자에게 DM을 보낸다 (승인 대기 항목 발생 등). */
-export async function notifyAllAdmins(embed: SimpleEmbed): Promise<void> {
+export async function notifyAllAdmins(opts: V2PanelOptions): Promise<void> {
   const admins = await prisma.adminUser.findMany({
     where: { discordId: { not: null }, status: "ACTIVE" },
     select: { discordId: true },
   });
-  await Promise.all(
-    admins.map((a) => (a.discordId ? sendDiscordDM(a.discordId, { embeds: [embed] }) : Promise.resolve()))
-  );
+  const payload = buildV2Panel(opts);
+  await Promise.all(admins.map((a) => (a.discordId ? sendDiscordDM(a.discordId, payload) : Promise.resolve())));
 }
 
 const LOW_STOCK_THRESHOLD = 3;
@@ -337,32 +325,25 @@ export async function notifyLowStockIfNeeded(tierId: string, remainingStock: num
   const tier = await prisma.tier.findUnique({ where: { id: tierId } });
   if (!tier) return;
 
-  const embed: SimpleEmbed =
+  const opts: V2PanelOptions =
     remainingStock === 0
       ? {
           title: "🚨 재고 품절",
           description: `**${tier.name}** 등급의 계정 재고가 모두 소진되었습니다. 새 재고를 등록하거나 등급을 숨김 처리해주세요.`,
-          color: 0xef4444,
-          timestamp: new Date().toISOString(),
+          accentColor: V2_ERROR_COLOR,
         }
       : {
           title: "⚠️ 재고 부족 임박",
           description: `**${tier.name}** 등급의 남은 재고가 ${LOW_STOCK_THRESHOLD}개입니다. 미리 계정을 추가 등록해주세요.`,
-          color: 0xf59e0b,
-          timestamp: new Date().toISOString(),
+          accentColor: V2_WARNING_COLOR,
         };
 
-  await notifyAllAdmins(embed);
+  await notifyAllAdmins(opts);
 }
 
 /** 관리자 처리가 필요한 새 항목(충전신청/환불신청/문의/신고)이 생겼을 때 알린다. */
 export async function notifyAdminsNewPendingItem(kind: string, summary: string) {
-  await notifyAllAdmins({
-    title: `📥 새 ${kind} 접수`,
-    description: summary,
-    color: BRAND_COLOR,
-    timestamp: new Date().toISOString(),
-  });
+  await notifyAllAdmins({ title: `📥 새 ${kind} 접수`, description: summary });
 }
 
 /** 특정 카테고리 밑에 텍스트 채널을 만들고, 지정한 사용자에게 그 채널을 볼 수 있는 권한을 명시적으로 준다. */

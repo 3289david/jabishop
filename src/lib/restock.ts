@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { ARTWORK_STATUS } from "@/lib/constants";
 import { sendDiscordDM } from "@/lib/discordNotify";
+import { buildV2Panel } from "@/lib/panelV2";
 
 export class RestockError extends Error {}
 
@@ -40,16 +41,10 @@ export async function checkRestockSubscriptions() {
         },
       });
       if (sub.user.discordId) {
-        sendDiscordDM(sub.user.discordId, {
-          embeds: [
-            {
-              title: "🔔 재입고 알림",
-              description: `"${tier.name}" 상품이 재입고됐어요! 지금 구매 가능합니다.`,
-              color: 0x6366f1,
-              timestamp: new Date().toISOString(),
-            },
-          ],
-        }).catch(() => {});
+        sendDiscordDM(
+          sub.user.discordId,
+          buildV2Panel({ title: "🔔 재입고 알림", description: `"${tier.name}" 상품이 재입고됐어요! 지금 구매 가능합니다.` })
+        ).catch(() => {});
       }
     }
 

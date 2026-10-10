@@ -1,6 +1,7 @@
 import { ChannelType, PermissionsBitField, type Client, type Guild, type TextChannel } from "discord.js";
 import { prisma } from "@/lib/prisma";
 import { sendDiscordDM } from "@/lib/discordNotify";
+import { buildV2Panel } from "@/lib/panelV2";
 
 const POLL_INTERVAL_MS = 15_000;
 let running = false;
@@ -198,16 +199,13 @@ async function restoreOrClone(client: Client, jobId: string) {
       : null;
     if (invite) {
       for (const m of members) {
-        await sendDiscordDM(m.discordUserId, {
-          embeds: [
-            {
-              title: "📦 서버 복제 안내",
-              description: `서버가 새 디스코드 서버로 복제되었습니다. 아래 링크로 들어와주세요.\n\n${invite.url}\n\n(역할은 자동으로 복원되지 않으니, 들어온 뒤 관리자에게 문의해주세요.)`,
-              color: 0x6366f1,
-              timestamp: new Date().toISOString(),
-            },
-          ],
-        }).catch(() => {});
+        await sendDiscordDM(
+          m.discordUserId,
+          buildV2Panel({
+            title: "📦 서버 복제 안내",
+            description: `서버가 새 디스코드 서버로 복제되었습니다. 아래 링크로 들어와주세요.\n\n${invite.url}\n\n(역할은 자동으로 복원되지 않으니, 들어온 뒤 관리자에게 문의해주세요.)`,
+          })
+        ).catch(() => {});
       }
     }
   }

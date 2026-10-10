@@ -8,6 +8,7 @@ import {
   removeGuildMemberRole,
   guildMemberHasRole,
 } from "@/lib/discordNotify";
+import { buildV2Panel } from "@/lib/panelV2";
 
 export class PromoStaffError extends Error {}
 
@@ -41,22 +42,19 @@ export async function addPromoStaff(params: { discordUserId: string; name: strin
     await addGuildMemberRole(guildId, discordUserId, settings.promoStaffRoleId).catch(() => {});
   }
 
-  await sendDiscordDM(discordUserId, {
-    embeds: [
-      {
-        title: "🎉 홍보직원으로 등록되었습니다",
-        description:
-          `아래 영구 링크로 서버에 들어온 사람 수만큼 보상이 계산됩니다.\n` +
-          `- 인증까지 완료한 1명당 ${PROMO_PER_INVITE_REWARD}원 (서버 입장만 하고 인증 안 하면 집계되지 않음)\n` +
-          `- 그중 ${PROMO_SPENDER_THRESHOLD}원 이상 구매한 사람마다 ${PROMO_PER_SPENDER_BONUS}원 추가\n\n` +
-          `**영구 초대 링크:** https://discord.gg/${invite.code}\n\n` +
-          `디스코드에서 \`/홍보실적 계좌등록\` 명령어로 정산받을 계좌를 등록해주세요. ` +
-          `매주 금요일 관리자에게 실적과 지급액이 안내되고, 계좌로 수동 송금됩니다.`,
-        color: 0x6366f1,
-        timestamp: new Date().toISOString(),
-      },
-    ],
-  });
+  await sendDiscordDM(
+    discordUserId,
+    buildV2Panel({
+      title: "🎉 홍보직원으로 등록되었습니다",
+      description:
+        `아래 영구 링크로 서버에 들어온 사람 수만큼 보상이 계산됩니다.\n` +
+        `- 인증까지 완료한 1명당 ${PROMO_PER_INVITE_REWARD}원 (서버 입장만 하고 인증 안 하면 집계되지 않음)\n` +
+        `- 그중 ${PROMO_SPENDER_THRESHOLD}원 이상 구매한 사람마다 ${PROMO_PER_SPENDER_BONUS}원 추가\n\n` +
+        `**영구 초대 링크:** https://discord.gg/${invite.code}\n\n` +
+        `디스코드에서 \`/홍보실적 계좌등록\` 명령어로 정산받을 계좌를 등록해주세요. ` +
+        `매주 금요일 관리자에게 실적과 지급액이 안내되고, 계좌로 수동 송금됩니다.`,
+    })
+  );
 
   return staff;
 }

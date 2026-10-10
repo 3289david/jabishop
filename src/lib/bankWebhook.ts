@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { confirmTopUp, TopUpError } from "@/lib/points";
 import { depositorNamesMatch } from "@/lib/bankNotifier";
 import { notifyAllAdmins } from "@/lib/discordNotify";
+import { V2_WARNING_COLOR } from "@/lib/panelV2";
 import { TOPUP_STATUS } from "@/lib/constants";
 
 // 안드로이드 알림 리스너 앱이 은행 입금 알림을 감지하면 이 엔드포인트로 보낸다.
@@ -77,8 +78,6 @@ export async function handleBankTopupWebhook(req: NextRequest): Promise<NextResp
     await notifyAllAdmins({
       title: "✅ 자동 충전 승인",
       description: `**${match.user.name}**: ${match.amount.toLocaleString()}원 (입금자: ${depositorName})\n은행 알림을 감지해 자동으로 승인되었습니다.`,
-      color: 0x22c55e,
-      timestamp: new Date().toISOString(),
     }).catch(() => {});
     return NextResponse.json({ ok: true, matched: match.id });
   }
@@ -97,8 +96,7 @@ export async function handleBankTopupWebhook(req: NextRequest): Promise<NextResp
     ]
       .filter(Boolean)
       .join("\n"),
-    color: 0xf59e0b,
-    timestamp: new Date().toISOString(),
+    accentColor: V2_WARNING_COLOR,
   }).catch(() => {});
 
   return NextResponse.json({ ok: true, matched: null, candidateCount: matches.length });

@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { REFUND_STATUS, EXCHANGE_STATUS } from "@/lib/constants";
 import { notifyAllAdmins } from "@/lib/discordNotify";
+import { V2_ERROR_COLOR } from "@/lib/panelV2";
 
 const STALE_THRESHOLD_MS = 12 * 60 * 60 * 1000; // 12시간 넘게 대기 중이면 "방치됨"으로 간주
 const REMIND_INTERVAL_MS = 12 * 60 * 60 * 1000; // 해결될 때까지 12시간마다 재알림
@@ -24,8 +25,7 @@ export async function checkStaleRequests() {
     await notifyAllAdmins({
       title: "⏰ 방치된 환불 요청",
       description: `**${r.user.name}**님의 "${r.order.tier.name}" 환불 요청이 **${hours}시간째** 처리 대기 중입니다.\n사유: ${r.reason}`,
-      color: 0xef4444,
-      timestamp: now.toISOString(),
+      accentColor: V2_ERROR_COLOR,
     });
     await prisma.refundRequest.update({ where: { id: r.id }, data: { remindedAt: now } });
   }
@@ -43,8 +43,7 @@ export async function checkStaleRequests() {
     await notifyAllAdmins({
       title: "⏰ 방치된 교환 요청",
       description: `**${r.user.name}**님의 "${r.order.tier.name}" 교환 요청이 **${hours}시간째** 처리 대기 중입니다.\n사유: ${r.reason}`,
-      color: 0xef4444,
-      timestamp: now.toISOString(),
+      accentColor: V2_ERROR_COLOR,
     });
     await prisma.exchangeRequest.update({ where: { id: r.id }, data: { remindedAt: now } });
   }

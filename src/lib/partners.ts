@@ -6,6 +6,7 @@ import {
   addGuildMemberRole,
   sendDiscordDM,
 } from "@/lib/discordNotify";
+import { buildV2Panel, V2_ERROR_COLOR, V2_SUCCESS_COLOR } from "@/lib/panelV2";
 
 export class PartnerError extends Error {}
 
@@ -114,22 +115,20 @@ export async function approvePartner(partnerId: string, adminId: string, guildId
     },
   });
 
-  sendDiscordDM(partner.discordUserId, {
-    embeds: [
-      {
-        title: "🤝 파트너 승인 완료",
-        description: [
-          `**${partner.name}** 파트너 신청이 승인되었습니다.`,
-          channelId ? `<#${channelId}> 채널이 생성되었습니다.` : null,
-          "파트너 안내 패널의 [⚙️ 내 파트너 정보 관리] 버튼에서 웹훅 등록 등 정보를 직접 관리할 수 있습니다.",
-        ]
-          .filter(Boolean)
-          .join("\n"),
-        color: 0x22c55e,
-        timestamp: new Date().toISOString(),
-      },
-    ],
-  }).catch(() => {});
+  sendDiscordDM(
+    partner.discordUserId,
+    buildV2Panel({
+      title: "🤝 파트너 승인 완료",
+      description: [
+        `**${partner.name}** 파트너 신청이 승인되었습니다.`,
+        channelId ? `<#${channelId}> 채널이 생성되었습니다.` : null,
+        "파트너 안내 패널의 [⚙️ 내 파트너 정보 관리] 버튼에서 웹훅 등록 등 정보를 직접 관리할 수 있습니다.",
+      ]
+        .filter(Boolean)
+        .join("\n"),
+      accentColor: V2_SUCCESS_COLOR,
+    })
+  ).catch(() => {});
 
   return { channelId, roleGranted };
 }
@@ -193,22 +192,20 @@ export async function adminCreatePartner(params: {
         },
       });
 
-  sendDiscordDM(discordUserId, {
-    embeds: [
-      {
-        title: "🤝 파트너 등록 완료",
-        description: [
-          `관리자에 의해 **${name}** 파트너로 등록되었습니다.`,
-          channelId ? `<#${channelId}> 채널이 생성되었습니다.` : null,
-          "파트너 안내 패널의 [⚙️ 내 파트너 정보 관리] 버튼에서 웹훅/홍보 문구 등록 등 정보를 직접 관리할 수 있습니다.",
-        ]
-          .filter(Boolean)
-          .join("\n"),
-        color: 0x22c55e,
-        timestamp: new Date().toISOString(),
-      },
-    ],
-  }).catch(() => {});
+  sendDiscordDM(
+    discordUserId,
+    buildV2Panel({
+      title: "🤝 파트너 등록 완료",
+      description: [
+        `관리자에 의해 **${name}** 파트너로 등록되었습니다.`,
+        channelId ? `<#${channelId}> 채널이 생성되었습니다.` : null,
+        "파트너 안내 패널의 [⚙️ 내 파트너 정보 관리] 버튼에서 웹훅/홍보 문구 등록 등 정보를 직접 관리할 수 있습니다.",
+      ]
+        .filter(Boolean)
+        .join("\n"),
+      accentColor: V2_SUCCESS_COLOR,
+    })
+  ).catch(() => {});
 
   return { partner, channelId, roleGranted };
 }
@@ -223,16 +220,14 @@ export async function rejectPartner(partnerId: string, adminId: string, note?: s
     data: { status: PARTNER_STATUS.REJECTED, adminNote: note, processedByAdminId: adminId, processedAt: new Date() },
   });
 
-  sendDiscordDM(partner.discordUserId, {
-    embeds: [
-      {
-        title: "파트너 신청 반려",
-        description: note ? `파트너 신청이 반려되었습니다: ${note}` : "파트너 신청이 반려되었습니다.",
-        color: 0xef4444,
-        timestamp: new Date().toISOString(),
-      },
-    ],
-  }).catch(() => {});
+  sendDiscordDM(
+    partner.discordUserId,
+    buildV2Panel({
+      title: "파트너 신청 반려",
+      description: note ? `파트너 신청이 반려되었습니다: ${note}` : "파트너 신청이 반려되었습니다.",
+      accentColor: V2_ERROR_COLOR,
+    })
+  ).catch(() => {});
 }
 
 /** 승인된 파트너 본인이 파트너 패널의 "웹훅 등록/수정" 버튼으로 자기 웹훅 URL을 직접 바꾼다. */

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { forEachShop } from "@/lib/shop";
 import { expireSeller } from "@/lib/sellers";
 import { sendDiscordDM } from "@/lib/discordNotify";
+import { buildV2Panel, V2_ERROR_COLOR, V2_SUCCESS_COLOR, V2_WARNING_COLOR } from "@/lib/panelV2";
 import { SELLER_STATUS, POINT_TX_TYPE } from "@/lib/constants";
 
 // 하루에 한 번이면 충분하지만, 재시작 시점에 따라 알림/결제가 밀릴 수 있으니 조금 더
@@ -21,16 +22,14 @@ async function chargeOrExpireSeller(sellerId: string, discordUserId: string, pri
   const user = await prisma.user.findUnique({ where: { discordId: discordUserId } });
   if (!user || user.points < price) {
     await expireSeller(sellerId, guildId).catch((e) => console.error("판매자 만료 처리 실패:", e));
-    sendDiscordDM(discordUserId, {
-      embeds: [
-        {
-          title: "❌ 판매자 이용료 결제 실패",
-          description: `포인트가 부족해 이용료(${price.toLocaleString()}P)가 자동 결제되지 않아 판매 활동이 중단되었습니다. 포인트를 충전한 뒤 관리자에게 \`/판매자관리 연장\`을 요청해주세요.`,
-          color: 0xef4444,
-          timestamp: new Date().toISOString(),
-        },
-      ],
-    }).catch(() => {});
+    sendDiscordDM(
+      discordUserId,
+      buildV2Panel({
+        title: "❌ 판매자 이용료 결제 실패",
+        description: `포인트가 부족해 이용료(${price.toLocaleString()}P)가 자동 결제되지 않아 판매 활동이 중단되었습니다. 포인트를 충전한 뒤 관리자에게 \`/판매자관리 연장\`을 요청해주세요.`,
+        accentColor: V2_ERROR_COLOR,
+      })
+    ).catch(() => {});
     return;
   }
 
@@ -52,16 +51,14 @@ async function chargeOrExpireSeller(sellerId: string, discordUserId: string, pri
     });
   });
 
-  sendDiscordDM(discordUserId, {
-    embeds: [
-      {
-        title: "💳 판매자 이용료 자동 결제 완료",
-        description: `이용료 ${price.toLocaleString()}P가 자동 결제되었습니다. 다음 결제일: ${new Date(Date.now() + BILLING_PERIOD_MS).toLocaleDateString("ko-KR")}`,
-        color: 0x22c55e,
-        timestamp: new Date().toISOString(),
-      },
-    ],
-  }).catch(() => {});
+  sendDiscordDM(
+    discordUserId,
+    buildV2Panel({
+      title: "💳 판매자 이용료 자동 결제 완료",
+      description: `이용료 ${price.toLocaleString()}P가 자동 결제되었습니다. 다음 결제일: ${new Date(Date.now() + BILLING_PERIOD_MS).toLocaleDateString("ko-KR")}`,
+      accentColor: V2_SUCCESS_COLOR,
+    })
+  ).catch(() => {});
 }
 
 async function runSellerBillingCycleForGuild(guildId: string | null) {
@@ -83,16 +80,14 @@ async function runSellerBillingCycleForGuild(guildId: string | null) {
 
     const dueReminder = REMINDER_DAYS.find((d) => daysLeft <= d);
     if (dueReminder && seller.lastReminderDays !== dueReminder) {
-      await sendDiscordDM(seller.discordUserId, {
-        embeds: [
-          {
-            title: dueReminder === 1 ? "⚠️ 내일 판매자 이용료가 자동 결제됩니다" : `⏰ 판매자 이용료가 ${dueReminder}일 후 자동 결제됩니다`,
-            description: `"${seller.storeName}" 이용료 ${price.toLocaleString()}P가 ${seller.nextBillingAt.toLocaleDateString("ko-KR")}에 포인트에서 자동 결제됩니다. 포인트가 부족하면 판매 활동이 중단되니 미리 충전해주세요.`,
-            color: 0xf59e0b,
-            timestamp: new Date().toISOString(),
-          },
-        ],
-      }).catch(() => {});
+      await sendDiscordDM(
+        seller.discordUserId,
+        buildV2Panel({
+          title: dueReminder === 1 ? "⚠️ 내일 판매자 이용료가 자동 결제됩니다" : `⏰ 판매자 이용료가 ${dueReminder}일 후 자동 결제됩니다`,
+          description: `"${seller.storeName}" 이용료 ${price.toLocaleString()}P가 ${seller.nextBillingAt.toLocaleDateString("ko-KR")}에 포인트에서 자동 결제됩니다. 포인트가 부족하면 판매 활동이 중단되니 미리 충전해주세요.`,
+          accentColor: V2_WARNING_COLOR,
+        })
+      ).catch(() => {});
       await prisma.seller.update({ where: { id: seller.id }, data: { lastReminderDays: dueReminder } });
     }
   }

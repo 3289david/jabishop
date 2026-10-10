@@ -11,6 +11,7 @@ import {
   removeGuildMemberRole,
   setChannelMemberOverwrite,
 } from "@/lib/discordNotify";
+import { buildV2Panel, V2_ACCENT_COLOR, V2_ERROR_COLOR, V2_SUCCESS_COLOR } from "@/lib/panelV2";
 
 export class SellerError extends Error {}
 
@@ -37,43 +38,37 @@ function buildManageChannelName(storeName: string): string {
 // 봇 프로세스 안에서만 돌기 때문에 거기서는 discord.js 빌더를 그대로 써도 안전하다.
 function buildSellerManagePanelPayload(seller: Seller) {
   const avg = seller.ratingCount > 0 ? (seller.ratingSum / seller.ratingCount).toFixed(1) : "-";
-  return {
-    embeds: [
-      {
-        title: `🏪 ${seller.storeName} 관리 패널`,
-        color: 0x6366f1,
-        timestamp: new Date().toISOString(),
-        fields: [
-          { name: "상태", value: seller.status, inline: true },
-          { name: "평점", value: `⭐ ${avg} (${seller.ratingCount}개)`, inline: true },
-          { name: "거래완료", value: `${seller.dealCount}건`, inline: true },
-          {
-            name: "다음 결제일",
-            value: seller.nextBillingAt ? seller.nextBillingAt.toLocaleDateString("ko-KR") : "-",
-            inline: true,
-          },
-          { name: "쇼룸 채널", value: seller.channelId ? `<#${seller.channelId}>` : "-", inline: true },
-        ],
-      },
+  const panel = buildV2Panel({
+    title: `🏪 ${seller.storeName} 관리 패널`,
+    accentColor: V2_ACCENT_COLOR,
+    fields: [
+      { name: "상태", value: seller.status },
+      { name: "평점", value: `⭐ ${avg} (${seller.ratingCount}개)` },
+      { name: "거래완료", value: `${seller.dealCount}건` },
+      { name: "다음 결제일", value: seller.nextBillingAt ? seller.nextBillingAt.toLocaleDateString("ko-KR") : "-" },
+      { name: "쇼룸 채널", value: seller.channelId ? `<#${seller.channelId}>` : "-" },
     ],
-    components: [
-      {
-        type: 1,
-        components: [
-          { type: 2, custom_id: "sellerpanel:newproduct", label: "🛒 상품 등록", style: 1 },
-          { type: 2, custom_id: "sellerpanel:products", label: "📦 내 상품 관리", style: 2 },
-          { type: 2, custom_id: "sellerpanel:tickets", label: "🎫 진행 중인 문의", style: 2 },
-        ],
-      },
-      {
-        type: 1,
-        components: [
-          { type: 2, custom_id: "sellerpanel:stats", label: "📊 통계 보기", style: 2 },
-          { type: 2, custom_id: "sellerpanel:editinfo", label: "⚙️ 상점 정보 수정", style: 2 },
-        ],
-      },
-    ],
-  };
+  });
+  // buildV2Panel은 버튼 행을 안 받으니, 컨테이너(components[0])에 액션로우 2개를 직접 추가한다.
+  const container = panel.components[0] as { components: unknown[] };
+  container.components.push(
+    {
+      type: 1,
+      components: [
+        { type: 2, custom_id: "sellerpanel:newproduct", label: "🛒 상품 등록", style: 1 },
+        { type: 2, custom_id: "sellerpanel:products", label: "📦 내 상품 관리", style: 2 },
+        { type: 2, custom_id: "sellerpanel:tickets", label: "🎫 진행 중인 문의", style: 2 },
+      ],
+    },
+    {
+      type: 1,
+      components: [
+        { type: 2, custom_id: "sellerpanel:stats", label: "📊 통계 보기", style: 2 },
+        { type: 2, custom_id: "sellerpanel:editinfo", label: "⚙️ 상점 정보 수정", style: 2 },
+      ],
+    }
+  );
+  return panel;
 }
 
 /** 판매자 입점 신청. 관리자 승인 전까지는 아무 권한도 생기지 않는다. */
@@ -195,23 +190,21 @@ export async function approveSeller(sellerId: string, adminId: string, guildId: 
     }
   }
 
-  sendDiscordDM(seller.discordUserId, {
-    embeds: [
-      {
-        title: "🏪 판매자 입점 승인 완료",
-        description: [
-          `**${seller.storeName}** 입점이 승인되었습니다!`,
-          channelId ? `<#${channelId}> 쇼룸 채널이 생성되었습니다 (구매자에게 공개).` : null,
-          manageChannelId ? `<#${manageChannelId}> 관리 채널이 생성되었습니다 (본인만 보임) - 여기서 상품 등록/통계/문의 확인을 할 수 있습니다.` : null,
-          `첫 ${freeTrialDays}일은 무료입니다 (다음 결제일: ${nextBillingAt.toLocaleDateString("ko-KR")}).`,
-        ]
-          .filter(Boolean)
-          .join("\n"),
-        color: 0x22c55e,
-        timestamp: now.toISOString(),
-      },
-    ],
-  }).catch(() => {});
+  sendDiscordDM(
+    seller.discordUserId,
+    buildV2Panel({
+      title: "🏪 판매자 입점 승인 완료",
+      description: [
+        `**${seller.storeName}** 입점이 승인되었습니다!`,
+        channelId ? `<#${channelId}> 쇼룸 채널이 생성되었습니다 (구매자에게 공개).` : null,
+        manageChannelId ? `<#${manageChannelId}> 관리 채널이 생성되었습니다 (본인만 보임) - 여기서 상품 등록/통계/문의 확인을 할 수 있습니다.` : null,
+        `첫 ${freeTrialDays}일은 무료입니다 (다음 결제일: ${nextBillingAt.toLocaleDateString("ko-KR")}).`,
+      ]
+        .filter(Boolean)
+        .join("\n"),
+      accentColor: V2_SUCCESS_COLOR,
+    })
+  ).catch(() => {});
 
   return updated;
 }
@@ -226,16 +219,14 @@ export async function rejectSeller(sellerId: string, adminId: string, note?: str
     data: { status: SELLER_STATUS.REJECTED, adminNote: note, processedByAdminId: adminId, processedAt: new Date() },
   });
 
-  sendDiscordDM(seller.discordUserId, {
-    embeds: [
-      {
-        title: "판매자 입점 신청 거절",
-        description: note ? `입점 신청이 거절되었습니다: ${note}` : "입점 신청이 거절되었습니다.",
-        color: 0xef4444,
-        timestamp: new Date().toISOString(),
-      },
-    ],
-  }).catch(() => {});
+  sendDiscordDM(
+    seller.discordUserId,
+    buildV2Panel({
+      title: "판매자 입점 신청 거절",
+      description: note ? `입점 신청이 거절되었습니다: ${note}` : "입점 신청이 거절되었습니다.",
+      accentColor: V2_ERROR_COLOR,
+    })
+  ).catch(() => {});
 }
 
 /** 쇼룸 채널을 읽기 전용으로 바꾼다 (정지/만료 공용). 채널/상품/거래 내역은 그대로 보존. */
@@ -263,16 +254,14 @@ export async function suspendSeller(sellerId: string, adminId: string, guildId: 
     data: { status: SELLER_STATUS.SUSPENDED, adminNote: note, processedByAdminId: adminId, processedAt: new Date() },
   });
 
-  sendDiscordDM(seller.discordUserId, {
-    embeds: [
-      {
-        title: "🚨 판매자 활동 정지",
-        description: note ? `판매 활동이 정지되었습니다: ${note}` : "판매 활동이 정지되었습니다.",
-        color: 0xef4444,
-        timestamp: new Date().toISOString(),
-      },
-    ],
-  }).catch(() => {});
+  sendDiscordDM(
+    seller.discordUserId,
+    buildV2Panel({
+      title: "🚨 판매자 활동 정지",
+      description: note ? `판매 활동이 정지되었습니다: ${note}` : "판매 활동이 정지되었습니다.",
+      accentColor: V2_ERROR_COLOR,
+    })
+  ).catch(() => {});
 }
 
 export async function restoreSeller(sellerId: string, adminId: string, guildId: string) {
@@ -302,9 +291,10 @@ export async function restoreSeller(sellerId: string, adminId: string, guildId: 
     },
   });
 
-  sendDiscordDM(seller.discordUserId, {
-    embeds: [{ title: "✅ 판매자 활동 복구", description: "판매 활동이 다시 활성화되었습니다.", color: 0x22c55e, timestamp: now.toISOString() }],
-  }).catch(() => {});
+  sendDiscordDM(
+    seller.discordUserId,
+    buildV2Panel({ title: "✅ 판매자 활동 복구", description: "판매 활동이 다시 활성화되었습니다.", accentColor: V2_SUCCESS_COLOR })
+  ).catch(() => {});
 }
 
 /** 완전 퇴출: 역할 회수 + 쇼룸 채널 삭제 (상품/티켓/후기/신고 기록은 DB에 그대로 남는다). */
@@ -336,16 +326,14 @@ export async function expelSeller(sellerId: string, adminId: string, guildId: st
     },
   });
 
-  sendDiscordDM(seller.discordUserId, {
-    embeds: [
-      {
-        title: "❌ 판매자 퇴출",
-        description: note ? `판매자 자격이 회수되었습니다: ${note}` : "판매자 자격이 회수되었습니다.",
-        color: 0xef4444,
-        timestamp: new Date().toISOString(),
-      },
-    ],
-  }).catch(() => {});
+  sendDiscordDM(
+    seller.discordUserId,
+    buildV2Panel({
+      title: "❌ 판매자 퇴출",
+      description: note ? `판매자 자격이 회수되었습니다: ${note}` : "판매자 자격이 회수되었습니다.",
+      accentColor: V2_ERROR_COLOR,
+    })
+  ).catch(() => {});
 }
 
 /**
@@ -381,16 +369,14 @@ export async function extendSeller(sellerId: string, adminId: string, guildId: s
     },
   });
 
-  sendDiscordDM(seller.discordUserId, {
-    embeds: [
-      {
-        title: "💳 판매자 이용기간 연장",
-        description: `이용기간이 ${nextBillingAt.toLocaleDateString("ko-KR")}까지 연장되었습니다.`,
-        color: 0x22c55e,
-        timestamp: new Date().toISOString(),
-      },
-    ],
-  }).catch(() => {});
+  sendDiscordDM(
+    seller.discordUserId,
+    buildV2Panel({
+      title: "💳 판매자 이용기간 연장",
+      description: `이용기간이 ${nextBillingAt.toLocaleDateString("ko-KR")}까지 연장되었습니다.`,
+      accentColor: V2_SUCCESS_COLOR,
+    })
+  ).catch(() => {});
 
   return updated;
 }
@@ -409,16 +395,14 @@ export async function expireSeller(sellerId: string, guildId: string) {
     data: { status: SELLER_STATUS.EXPIRED, expiredAt: new Date() },
   });
 
-  sendDiscordDM(seller.discordUserId, {
-    embeds: [
-      {
-        title: "❌ 판매자 이용기간 종료",
-        description: "이용기간이 종료되어 판매 활동이 중단되었습니다. 입금 후 관리자에게 연장을 요청해주세요.",
-        color: 0xef4444,
-        timestamp: new Date().toISOString(),
-      },
-    ],
-  }).catch(() => {});
+  sendDiscordDM(
+    seller.discordUserId,
+    buildV2Panel({
+      title: "❌ 판매자 이용기간 종료",
+      description: "이용기간이 종료되어 판매 활동이 중단되었습니다. 입금 후 관리자에게 연장을 요청해주세요.",
+      accentColor: V2_ERROR_COLOR,
+    })
+  ).catch(() => {});
 }
 
 /** 구매 문의 티켓을 연다 - 구매자+판매자+(선택) 관리자만 볼 수 있는 비공개 채널. */

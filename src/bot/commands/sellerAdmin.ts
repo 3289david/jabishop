@@ -14,6 +14,7 @@ import {
   SellerError,
 } from "@/lib/sellers";
 import { sendDiscordDM } from "@/lib/discordNotify";
+import { buildV2Panel, V2_WARNING_COLOR } from "@/lib/panelV2";
 import { SELLER_STATUS } from "@/lib/constants";
 import type { BotCommand } from "@/bot/types";
 
@@ -159,9 +160,7 @@ export const sellerManageCommand: BotCommand = {
       await interaction.deferReply({ ephemeral: true });
       const sellers = await prisma.seller.findMany({ where: { status: SELLER_STATUS.ACTIVE } });
       for (const s of sellers) {
-        await sendDiscordDM(s.discordUserId, {
-          embeds: [{ title: "📢 판매자 공지", description: content, color: 0x6366f1, timestamp: new Date().toISOString() }],
-        }).catch(() => {});
+        await sendDiscordDM(s.discordUserId, buildV2Panel({ title: "📢 판매자 공지", description: content })).catch(() => {});
       }
       await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "SELLER_NOTICE", detail: `${sellers.length}명` } });
       return interaction.editReply(panelSuccess(`활성 판매자 ${sellers.length}명에게 공지를 발송했습니다.`));
@@ -183,9 +182,9 @@ export const sellerManageCommand: BotCommand = {
       const seller = await prisma.seller.findUnique({ where: { id: sellerId } });
       if (!seller) return interaction.editReply(panelError("존재하지 않는 판매자입니다."));
       await prisma.seller.update({ where: { id: sellerId }, data: { adminNote: `[경고] ${reason}` } });
-      sendDiscordDM(seller.discordUserId, {
-        embeds: [{ title: "⚠️ 판매자 경고", description: reason, color: 0xf59e0b, timestamp: new Date().toISOString() }],
-      }).catch(() => {});
+      sendDiscordDM(seller.discordUserId, buildV2Panel({ title: "⚠️ 판매자 경고", description: reason, accentColor: V2_WARNING_COLOR })).catch(
+        () => {}
+      );
       await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "SELLER_WARN", target: sellerId, detail: reason } });
       return interaction.editReply(panelSuccess(`"${seller.storeName}"에게 경고를 보냈습니다.`));
     }
