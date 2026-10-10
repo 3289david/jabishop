@@ -47,17 +47,21 @@ import { startSellerBillingLoop } from "@/bot/sellerBillingLoop";
 import { ensureShopSubscriptionTier } from "@/lib/orders";
 import { startPromoInviteTracking } from "@/bot/promoInviteTracking";
 import { startPromoStaffWeeklyReportLoop } from "@/bot/promoStaffWeeklyReport";
+import { startServerBackupLoop } from "@/bot/serverBackup";
+import { startServerRestoreLoop } from "@/bot/serverRestore";
 
 // 관리자 근무 현황 자동 감지(온라인=출근/오프라인=일시중지)에는 Presence Intent가 필요하다.
-// 디스코드 개발자 포털 > Bot > Privileged Gateway Intents에서 "PRESENCE INTENT"를 켜지
-// 않으면 이 봇은 presenceUpdate 이벤트 자체를 받지 못한다 (자동 감지만 동작 안 함,
-// 수동 출근/퇴근/일시중지 버튼 패널은 이 설정과 무관하게 항상 동작한다).
+// 서버 백업(메시지 내용까지)에는 Message Content Intent가 필요하다. 디스코드 개발자
+// 포털 > Bot > Privileged Gateway Intents에서 "PRESENCE INTENT"와 "MESSAGE CONTENT
+// INTENT"를 켜지 않으면 각각 presenceUpdate 이벤트를 못 받거나(자동 근무감지만 동작
+// 안 함) 메시지 내용이 빈 문자열로만 보인다(백업 시 메시지 본문이 비어서 저장됨).
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.GuildPresences,
     GatewayIntentBits.GuildMembers,
+    GatewayIntentBits.MessageContent,
   ],
 });
 
@@ -78,6 +82,8 @@ client.once(Events.ClientReady, (c) => {
   startSellerBillingLoop();
   startPromoInviteTracking(client).catch((e) => console.error("홍보직원 초대 추적 초기화 실패:", e));
   startPromoStaffWeeklyReportLoop();
+  startServerBackupLoop(client);
+  startServerRestoreLoop(client);
 });
 
 client.on(Events.MessageCreate, (message) => {

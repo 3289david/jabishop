@@ -582,6 +582,112 @@ model VerificationLog {
   verifiedAt      DateTime @default(now())
 }
 
+// ── 서버 백업/복원/다른 서버로 복제 ──────────────────────────────
+// 어드민 웹 패널에서 "백업 생성"을 누르면 이 행이 PENDING으로 생성되고, 봇 프로세스가
+// 주기적으로 폴링하며 실제 디스코드 API 작업(채널/역할/메시지/멤버 수집)을 수행한다.
+// 웹 요청-응답 1회로 끝내기엔 너무 오래 걸리는 작업이라(레이트리밋 때문에 큰 서버는
+// 수십 분~그 이상) 큐 방식으로 처리한다.
+model ServerBackup {
+  id           String    @id @default(cuid())
+  guildId      String
+  label        String
+  status       String    @default("PENDING") // PENDING | RUNNING | DONE | FAILED
+  progress     String?
+  error        String?
+  channelCount Int       @default(0)
+  roleCount    Int       @default(0)
+  messageCount Int       @default(0)
+  memberCount  Int       @default(0)
+  createdAt    DateTime  @default(now())
+  completedAt  DateTime?
+
+  roles       BackupRole[]
+  categories  BackupCategory[]
+  channels    BackupChannel[]
+  members     BackupMember[]
+  restoreJobs RestoreJob[]
+}
+
+model BackupRole {
+  id          String       @id @default(cuid())
+  backupId    String
+  backup      ServerBackup @relation(fields: [backupId], references: [id], onDelete: Cascade)
+  originalId  String
+  name        String
+  color       Int
+  permissions String
+  position    Int
+  hoist       Boolean
+  mentionable Boolean
+}
+
+model BackupCategory {
+  id         String       @id @default(cuid())
+  backupId   String
+  backup     ServerBackup @relation(fields: [backupId], references: [id], onDelete: Cascade)
+  originalId String
+  name       String
+  position   Int
+  overwrites String // JSON
+  channels   BackupChannel[]
+}
+
+model BackupChannel {
+  id         String          @id @default(cuid())
+  backupId   String
+  backup     ServerBackup    @relation(fields: [backupId], references: [id], onDelete: Cascade)
+  categoryId String?
+  category   BackupCategory? @relation(fields: [categoryId], references: [id])
+  originalId String
+  name       String
+  type       Int
+  topic      String?
+  position   Int
+  nsfw       Boolean @default(false)
+  overwrites String // JSON
+
+  messages BackupMessage[]
+}
+
+model BackupMessage {
+  id              String        @id @default(cuid())
+  channelId       String
+  channel         BackupChannel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  originalId      String
+  authorId        String
+  authorName      String
+  authorAvatarUrl String?
+  content         String
+  attachmentUrls  String? // JSON 배열
+  reactions       String? // JSON [{emoji,count}] - 누가 눌렀는지는 디스코드가 안 알려줘서 개수만
+  postedAt        DateTime
+}
+
+model BackupMember {
+  id            String       @id @default(cuid())
+  backupId      String
+  backup        ServerBackup @relation(fields: [backupId], references: [id], onDelete: Cascade)
+  discordUserId String
+  username      String
+  nickname      String?
+  roleIds       String // JSON 배열 - 원본 역할 id들
+  joinedAt      DateTime?
+}
+
+// 특정 백업을 (같은 서버에) 복원하거나 (새 서버에) 복제하는 작업 1건.
+model RestoreJob {
+  id            String       @id @default(cuid())
+  backupId      String
+  backup        ServerBackup @relation(fields: [backupId], references: [id], onDelete: Cascade)
+  targetGuildId String
+  mode          String // RESTORE_SAME | CLONE_NEW
+  status        String    @default("PENDING") // PENDING | RUNNING | DONE | FAILED
+  progress      String?
+  error         String?
+  createdAt     DateTime  @default(now())
+  completedAt   DateTime?
+}
+
 // 등급별 한시적 할인(타임세일). 켜져 있는 동안(startsAt~endsAt) 구매하면 discountPercent만큼
 // 자동 할인되고, 쿠폰 자동적용과 비교해 더 큰 쪽 하나만 적용된다 (중복 적용 안 됨).
 model FlashSale {

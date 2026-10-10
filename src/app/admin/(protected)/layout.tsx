@@ -24,6 +24,7 @@ const NAV: { href: string; label: string }[] = [
   { href: "/admin/sellers", label: "판매자 관리" },
   { href: "/admin/promo-staff", label: "홍보직원 관리" },
   { href: "/admin/verifications", label: "인증 기록" },
+  { href: "/admin/server-backup", label: "서버 백업/복원" },
   { href: "/admin/coupons", label: "쿠폰 관리" },
   { href: "/admin/points", label: "포인트 관리" },
   { href: "/admin/reviews", label: "리뷰 관리" },
