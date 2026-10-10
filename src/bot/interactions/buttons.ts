@@ -17,7 +17,8 @@ import { approveRefund, rejectRefund, RefundError } from "@/lib/refunds";
 import { assertActiveShopUser, requireLinkedAdmin, isDiscordGuildAdmin } from "@/bot/discordAuth";
 import { handleAntiSpamLift } from "@/bot/antiSpam";
 import { readUploadedFile, isUploadKey } from "@/bot/fileStorage";
-import { baseEmbed, errorEmbed, successEmbed, pt } from "@/bot/format";
+import { pt } from "@/bot/format";
+import { buildPanel, panelError, panelSuccess, ephemeral } from "@/bot/ui";
 import {
   showTopUpModal,
   showInquiryModal,
@@ -106,20 +107,17 @@ async function handlePanelCoupons(interaction: ButtonInteraction) {
 async function handlePartnerManage(interaction: ButtonInteraction) {
   const partner = await prisma.partner.findUnique({ where: { discordUserId: interaction.user.id } });
   if (!partner) {
-    return interaction.reply({
-      embeds: [errorEmbed("아직 파트너 신청 내역이 없습니다. [🤝 파트너 신청하기] 버튼으로 먼저 신청해주세요.")],
-      ephemeral: true,
-    });
+    return interaction.reply(ephemeral(panelError("아직 파트너 신청 내역이 없습니다. [🤝 파트너 신청하기] 버튼으로 먼저 신청해주세요.")));
   }
 
-  const embed = baseEmbed(`${partner.emoji || "🤝"} ${partner.name}`).addFields(
-    { name: "상태", value: partner.status, inline: true },
-    { name: "웹훅 등록 여부", value: partner.webhookUrl ? "등록됨" : "미등록", inline: true },
-    { name: "채널", value: partner.channelId ? `<#${partner.channelId}>` : "-", inline: true },
-    { name: "홍보 문구 등록 여부", value: partner.promoMessage ? "등록됨" : "미등록", inline: true }
-  );
-  if (partner.description) embed.addFields({ name: "소개", value: partner.description });
-  if (partner.status === "REJECTED" && partner.adminNote) embed.addFields({ name: "반려 사유", value: partner.adminNote });
+  const fields = [
+    { name: "상태", value: partner.status },
+    { name: "웹훅 등록 여부", value: partner.webhookUrl ? "등록됨" : "미등록" },
+    { name: "채널", value: partner.channelId ? `<#${partner.channelId}>` : "-" },
+    { name: "홍보 문구 등록 여부", value: partner.promoMessage ? "등록됨" : "미등록" },
+  ];
+  if (partner.description) fields.push({ name: "소개", value: partner.description });
+  if (partner.status === "REJECTED" && partner.adminNote) fields.push({ name: "반려 사유", value: partner.adminNote });
 
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder()
@@ -133,7 +131,7 @@ async function handlePartnerManage(interaction: ButtonInteraction) {
       .setStyle(ButtonStyle.Primary)
       .setDisabled(partner.status !== "APPROVED")
   );
-  await interaction.reply({ embeds: [embed], components: [row], ephemeral: true });
+  await interaction.reply(ephemeral(buildPanel({ title: `${partner.emoji || "🤝"} ${partner.name}`, fields, rows: [row] })));
 }
 
 /**
@@ -198,7 +196,7 @@ async function startQuantityBuyFlow(interaction: ButtonInteraction, slug: string
     });
   } catch (e) {
     const message = e instanceof OrderError || e instanceof Error ? e.message : "처리 중 오류가 발생했습니다.";
-    await interaction.reply({ embeds: [errorEmbed(message)], ephemeral: true });
+    await interaction.reply(ephemeral(panelError(message)));
   }
 }
 
@@ -209,7 +207,7 @@ export async function handleQtyCouponSelect(interaction: StringSelectMenuInterac
   return showQuantityBuyModal(interaction, slug, couponCode);
 }
 
-/** 실제 구매를 실행하고, 결과를 보여줄 임베드/첨부파일을 만든다 (buy 버튼/쿠폰선택 공용). */
+/** 실제 구매를 실행하고, 결과를 보여줄 패널/첨부파일을 만든다 (buy 버튼/쿠폰선택 공용). */
 async function buildPurchaseResultPayload(
   userId: string,
   tier: { id: string; name: string },
@@ -219,38 +217,41 @@ async function buildPurchaseResultPayload(
   const order = await purchaseTier({ userId, tierId: tier.id, couponCode, guildId });
   const artwork = order.artwork;
 
-  const embed = successEmbed(`${tier.name} 구매 완료!`)
-    .setTitle(`주문 #${order.orderNo}`)
-    .addFields({ name: "결제 금액", value: pt(order.finalAmount), inline: true }, { name: "지급된 계정", value: artwork?.title ?? "-", inline: true });
+  const fields = [
+    { name: "결제 금액", value: pt(order.finalAmount) },
+    { name: "지급된 계정", value: artwork?.title ?? "-" },
+  ];
   if (order.discountAmount > 0) {
-    embed.addFields({ name: couponCode ? "🎟️ 쿠폰 적용" : "💸 할인 적용", value: `-${pt(order.discountAmount)} 할인`, inline: true });
+    fields.push({ name: couponCode ? "🎟️ 쿠폰 적용" : "💸 할인 적용", value: `-${pt(order.discountAmount)} 할인` });
   }
   if (order.luckyCoupon) {
-    embed.addFields({ name: "🎉 구매 축하 쿠폰 당첨!", value: `5% 할인 쿠폰 \`${order.luckyCoupon.code}\`이 지급되었습니다.` });
+    fields.push({ name: "🎉 구매 축하 쿠폰 당첨!", value: `5% 할인 쿠폰 \`${order.luckyCoupon.code}\`이 지급되었습니다.` });
   }
   if (order.referralReward) {
-    embed.addFields({ name: "🎁 친구 초대 보상", value: `첫 구매 보상 +${pt(order.referralReward.refereeReward)}가 지급되었습니다.` });
+    fields.push({ name: "🎁 친구 초대 보상", value: `첫 구매 보상 +${pt(order.referralReward.refereeReward)}가 지급되었습니다.` });
   }
   if (order.bonusOrder?.artwork) {
-    embed.addFields({ name: "🎁 1+1 이벤트 보너스!", value: `"${order.bonusOrder.artwork.title}" 계정을 하나 더 받았습니다 (DM으로도 전달됨).` });
+    fields.push({ name: "🎁 1+1 이벤트 보너스!", value: `"${order.bonusOrder.artwork.title}" 계정을 하나 더 받았습니다 (DM으로도 전달됨).` });
   }
 
   const files: AttachmentBuilder[] = [];
+  let imageUrl: string | undefined;
   if (artwork) {
     if (!isUploadKey(artwork.fileKey)) {
-      embed.addFields({ name: "지급 내용", value: artwork.fileKey });
+      fields.push({ name: "지급 내용", value: artwork.fileKey });
     } else {
       try {
         const buffer = await readUploadedFile(artwork.fileKey);
         const ext = artwork.fileKey.split(".").pop() || "png";
         files.push(new AttachmentBuilder(buffer, { name: `${artwork.code}.${ext}` }));
-        embed.setImage(`attachment://${artwork.code}.${ext}`);
+        imageUrl = `attachment://${artwork.code}.${ext}`;
       } catch {
         // 파일 누락 시 이미지 없이 결과만 표시
       }
     }
   }
-  return { embed, files };
+  const payload = buildPanel({ title: `✅ ${tier.name} 구매 완료! (주문 #${order.orderNo})`, fields, imageUrl, accentColor: 0x22c55e });
+  return { payload, files };
 }
 
 async function handleBuy(interaction: ButtonInteraction, slug: string) {
@@ -259,7 +260,7 @@ async function handleBuy(interaction: ButtonInteraction, slug: string) {
       return await startShopPurchaseFlow(interaction, slug);
     } catch (e) {
       const message = e instanceof OrderError || e instanceof Error ? e.message : "처리 중 오류가 발생했습니다.";
-      return interaction.reply({ embeds: [errorEmbed(message)], ephemeral: true });
+      return interaction.reply(ephemeral(panelError(message)));
     }
   }
 
@@ -290,14 +291,14 @@ async function handleBuy(interaction: ButtonInteraction, slug: string) {
     }
 
     await interaction.deferUpdate();
-    const { embed, files } = await buildPurchaseResultPayload(user.id, tier, interaction.guildId);
-    await interaction.editReply({ embeds: [embed], components: [], files });
+    const { payload, files } = await buildPurchaseResultPayload(user.id, tier, interaction.guildId);
+    await interaction.editReply({ ...payload, files });
   } catch (e) {
     const message = e instanceof OrderError || e instanceof Error ? e.message : "구매 중 오류가 발생했습니다.";
     if (interaction.deferred || interaction.replied) {
-      await interaction.editReply({ embeds: [errorEmbed(message)], components: [] });
+      await interaction.editReply(panelError(message));
     } else {
-      await interaction.reply({ embeds: [errorEmbed(message)], ephemeral: true });
+      await interaction.reply(ephemeral(panelError(message)));
     }
   }
 }
@@ -312,25 +313,29 @@ export async function handleBuyCouponSelect(interaction: StringSelectMenuInterac
     const tier = await prisma.tier.findUnique({ where: { slug } });
     if (!tier) throw new OrderError("TIER_NOT_FOUND", "존재하지 않는 등급입니다.");
 
-    const { embed, files } = await buildPurchaseResultPayload(user.id, tier, interaction.guildId, couponCode);
-    await interaction.editReply({ content: null, embeds: [embed], components: [], files });
+    const { payload, files } = await buildPurchaseResultPayload(user.id, tier, interaction.guildId, couponCode);
+    // V2(IsComponentsV2) 메시지는 content 필드와 함께 쓸 수 없는데, 이 메시지는 원래
+    // content가 있는(쿠폰 선택 안내 문구) 메시지를 편집하는 거라 content: "" 로 명시적으로
+    // 비워줘야 한다 - null/생략은 기존 content가 남아있는 걸로 간주돼서 똑같이 거부된다
+    // (라이브 테스트로 직접 확인함: MESSAGE_CANNOT_USE_LEGACY_FIELDS_WITH_COMPONENTS_V2).
+    await interaction.editReply({ ...payload, content: "", files });
   } catch (e) {
     const message = e instanceof OrderError || e instanceof Error ? e.message : "구매 중 오류가 발생했습니다.";
-    await interaction.editReply({ content: null, embeds: [errorEmbed(message)], components: [] });
+    await interaction.editReply({ ...panelError(message), content: "" });
   }
 }
 
 async function handleCartAdd(interaction: ButtonInteraction, slug: string) {
   const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
   const tier = await prisma.tier.findUnique({ where: { slug } });
-  if (!tier) return interaction.reply({ embeds: [errorEmbed("존재하지 않는 등급입니다.")], ephemeral: true });
+  if (!tier) return interaction.reply(ephemeral(panelError("존재하지 않는 등급입니다.")));
 
   await prisma.cartItem.upsert({
     where: { userId_tierId: { userId: user.id, tierId: tier.id } },
     update: { quantity: { increment: 1 } },
     create: { userId: user.id, tierId: tier.id, quantity: 1 },
   });
-  await interaction.reply({ embeds: [successEmbed(`${tier.name}을(를) 장바구니에 담았습니다.`)], ephemeral: true });
+  await interaction.reply(ephemeral(panelSuccess(`${tier.name}을(를) 장바구니에 담았습니다.`)));
 }
 
 type CartItemWithTier = { id: string; tierId: string; quantity: number; tier: { name: string; price: number } };
@@ -340,7 +345,7 @@ async function handleCartCheckout(interaction: ButtonInteraction) {
   const items = await prisma.cartItem.findMany({ where: { userId: user.id }, include: { tier: true } });
   if (items.length === 0) {
     await interaction.deferUpdate();
-    return interaction.editReply({ embeds: [errorEmbed("장바구니가 비어 있습니다.")], components: [] });
+    return interaction.editReply(panelError("장바구니가 비어 있습니다."));
   }
 
   // 장바구니에 담긴 상품 중 하나라도 쓸 수 있는 쿠폰이 있으면 먼저 쿠폰함에서 고르게 한다.
@@ -386,7 +391,7 @@ export async function handleCartCouponSelect(interaction: StringSelectMenuIntera
   const couponCode = chosen === "__none__" ? undefined : chosen;
   const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
   const items = await prisma.cartItem.findMany({ where: { userId: user.id }, include: { tier: true } });
-  if (items.length === 0) return interaction.editReply({ content: null, embeds: [errorEmbed("장바구니가 비어 있습니다.")], components: [] });
+  if (items.length === 0) return interaction.editReply({ ...panelError("장바구니가 비어 있습니다."), content: "" });
   await runCartCheckout(interaction, user.id, items, couponCode);
 }
 
@@ -431,11 +436,14 @@ async function runCartCheckout(
 
   const luckyNote = luckyCouponCount > 0 ? ` 🎉 5% 할인 쿠폰 ${luckyCouponCount}장 당첨! 쿠폰함에서 확인하세요.` : "";
   const couponNote = couponApplied ? " 🎟️ 쿠폰이 적용되었습니다." : "";
-  const embed =
+  const payload =
     errors.length > 0
-      ? errorEmbed(`${successCount}건 결제 완료.${luckyNote}${couponNote}\n실패: ${errors.join(" / ")}`)
-      : successEmbed(`${successCount}건 결제가 완료되었습니다. 계정은 DM 또는 /주문내역에서 확인하세요.${luckyNote}${couponNote}`);
-  await interaction.editReply({ content: null, embeds: [embed], components: [] });
+      ? panelError(`${successCount}건 결제 완료.${luckyNote}${couponNote}\n실패: ${errors.join(" / ")}`)
+      : panelSuccess(`${successCount}건 결제가 완료되었습니다. 계정은 DM 또는 /주문내역에서 확인하세요.${luckyNote}${couponNote}`);
+  // handleCartCheckout(패널 버튼, content 없음)과 handleCartCouponSelect(쿠폰 선택
+  // content 메시지) 양쪽에서 공용으로 쓰여서, content가 있던 경우까지 안전하게
+  // 지우기 위해 항상 명시적으로 빈 문자열을 넣는다.
+  await interaction.editReply({ ...payload, content: "" });
 }
 
 async function handleAdminSection(interaction: ButtonInteraction, section: string) {
@@ -469,10 +477,10 @@ async function handleTopUpAction(interaction: ButtonInteraction, action: "approv
     if (action === "approve") await confirmTopUp(id, admin.id);
     else await rejectTopUp(id, admin.id);
   } catch (e) {
-    return interaction.reply({ embeds: [errorEmbed(e instanceof TopUpError ? e.message : "처리 중 오류")], ephemeral: true });
+    return interaction.reply(ephemeral(panelError(e instanceof TopUpError ? e.message : "처리 중 오류")));
   }
   await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: `TOPUP_${action.toUpperCase()}`, target: id } });
-  await interaction.reply({ embeds: [successEmbed(action === "approve" ? "충전을 승인했습니다." : "충전 신청을 거절했습니다.")], ephemeral: true });
+  await interaction.reply(ephemeral(panelSuccess(action === "approve" ? "충전을 승인했습니다." : "충전 신청을 거절했습니다.")));
 }
 
 async function handleRefundAction(interaction: ButtonInteraction, action: "approve" | "reject", id: string) {
@@ -481,10 +489,10 @@ async function handleRefundAction(interaction: ButtonInteraction, action: "appro
     if (action === "approve") await approveRefund(id, admin.id);
     else await rejectRefund(id, admin.id);
   } catch (e) {
-    return interaction.reply({ embeds: [errorEmbed(e instanceof RefundError ? e.message : "처리 중 오류")], ephemeral: true });
+    return interaction.reply(ephemeral(panelError(e instanceof RefundError ? e.message : "처리 중 오류")));
   }
   await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: `REFUND_${action.toUpperCase()}`, target: id } });
-  await interaction.reply({ embeds: [successEmbed(action === "approve" ? "환불을 승인했습니다." : "환불 요청을 거절했습니다.")], ephemeral: true });
+  await interaction.reply(ephemeral(panelSuccess(action === "approve" ? "환불을 승인했습니다." : "환불 요청을 거절했습니다.")));
 }
 
 async function handleRaffleEnter(interaction: ButtonInteraction, raffleId: string) {
@@ -492,10 +500,9 @@ async function handleRaffleEnter(interaction: ButtonInteraction, raffleId: strin
   const primaryGuild = interaction.user.primaryGuild;
   const wearingTag = !!primaryGuild?.identityEnabled && primaryGuild.identityGuildId === guildId;
   if (!wearingTag) {
-    return interaction.reply({
-      embeds: [errorEmbed("이 서버의 서버 태그를 착용해야 참가할 수 있습니다. 디스코드 프로필에서 서버 태그를 켜주세요.")],
-      ephemeral: true,
-    });
+    return interaction.reply(
+      ephemeral(panelError("이 서버의 서버 태그를 착용해야 참가할 수 있습니다. 디스코드 프로필에서 서버 태그를 켜주세요."))
+    );
   }
 
   let entryCount: number;
@@ -503,10 +510,10 @@ async function handleRaffleEnter(interaction: ButtonInteraction, raffleId: strin
     entryCount = await enterRaffle(raffleId, interaction.user.id, interaction.user.tag);
   } catch (e) {
     const message = e instanceof RaffleError ? e.message : "참가 중 오류가 발생했습니다.";
-    return interaction.reply({ embeds: [errorEmbed(message)], ephemeral: true });
+    return interaction.reply(ephemeral(panelError(message)));
   }
 
-  await interaction.reply({ embeds: [successEmbed(`참가 완료! 현재 참가자 ${entryCount}명`)], ephemeral: true });
+  await interaction.reply(ephemeral(panelSuccess(`참가 완료! 현재 참가자 ${entryCount}명`)));
 
   const raffle = await prisma.raffleEvent.findUnique({ where: { id: raffleId }, include: { tier: true } });
   if (raffle?.messageId && interaction.channel && "messages" in interaction.channel) {
@@ -519,18 +526,22 @@ async function handleEventCheckIn(interaction: ButtonInteraction) {
   const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
   try {
     const result = await performCheckIn(user.id);
-    await interaction.reply({
-      embeds: [
-        successEmbed(`출석체크 완료! +${pt(result.reward)}`).addFields(
-          { name: "연속 출석", value: `${result.streak}일차`, inline: true },
-          { name: "보유 포인트", value: pt(result.balance), inline: true }
-        ),
-      ],
-      ephemeral: true,
-    });
+    await interaction.reply(
+      ephemeral(
+        buildPanel({
+          title: "✅ 완료",
+          description: `출석체크 완료! +${pt(result.reward)}`,
+          accentColor: 0x22c55e,
+          fields: [
+            { name: "연속 출석", value: `${result.streak}일차` },
+            { name: "보유 포인트", value: pt(result.balance) },
+          ],
+        })
+      )
+    );
   } catch (e) {
     const message = e instanceof CheckInError ? e.message : "출석체크 중 오류가 발생했습니다.";
-    await interaction.reply({ embeds: [errorEmbed(message)], ephemeral: true });
+    await interaction.reply(ephemeral(panelError(message)));
   }
 }
 
@@ -538,17 +549,17 @@ async function handleEventReferralCode(interaction: ButtonInteraction) {
   const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
   try {
     const code = await getOrCreateReferralCode(user.id);
-    await interaction.reply({
-      embeds: [
-        baseEmbed("🎁 내 초대코드").setDescription(
-          `\`${code}\`\n\n친구가 이 코드를 [✏️ 친구 초대코드 등록] 버튼으로 입력하면 **나는 즉시 200P**,\n친구가 첫 구매를 완료하면 **나는 800P 추가**(총 1,000P) + **친구는 500P**를 받아요!`
-        ),
-      ],
-      ephemeral: true,
-    });
+    await interaction.reply(
+      ephemeral(
+        buildPanel({
+          title: "🎁 내 초대코드",
+          description: `\`${code}\`\n\n친구가 이 코드를 [✏️ 친구 초대코드 등록] 버튼으로 입력하면 **나는 즉시 200P**,\n친구가 첫 구매를 완료하면 **나는 800P 추가**(총 1,000P) + **친구는 500P**를 받아요!`,
+        })
+      )
+    );
   } catch (e) {
     const message = e instanceof ReferralError ? e.message : "처리 중 오류가 발생했습니다.";
-    await interaction.reply({ embeds: [errorEmbed(message)], ephemeral: true });
+    await interaction.reply(ephemeral(panelError(message)));
   }
 }
 
@@ -556,35 +567,32 @@ async function handleEventGacha(interaction: ButtonInteraction) {
   const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
   try {
     const result = await spinGacha(user.id);
-    const embed =
-      result.prize.kind === "NONE"
-        ? errorEmbed(`꽝! ${pt(result.cost)}를 소모했습니다. 다음 기회에 도전해보세요.`)
-        : successEmbed(`🎉 ${result.prize.label} 당첨!`);
-    embed.addFields({ name: "보유 포인트", value: pt(result.balance), inline: true });
+    const fields = [{ name: "보유 포인트", value: pt(result.balance) }];
     if (result.couponCode) {
-      embed.addFields({ name: "쿠폰 코드", value: `\`${result.couponCode}\` (쿠폰함에서 확인 가능)` });
+      fields.push({ name: "쿠폰 코드", value: `\`${result.couponCode}\` (쿠폰함에서 확인 가능)` });
     }
-    await interaction.reply({ embeds: [embed], ephemeral: true });
+    const payload =
+      result.prize.kind === "NONE"
+        ? buildPanel({ title: "❌ 오류", description: `꽝! ${pt(result.cost)}를 소모했습니다. 다음 기회에 도전해보세요.`, accentColor: 0xef4444, fields })
+        : buildPanel({ title: "✅ 완료", description: `🎉 ${result.prize.label} 당첨!`, accentColor: 0x22c55e, fields });
+    await interaction.reply(ephemeral(payload));
   } catch (e) {
     const message = e instanceof GachaError ? e.message : "룰렛 진행 중 오류가 발생했습니다.";
-    await interaction.reply({ embeds: [errorEmbed(message)], ephemeral: true });
+    await interaction.reply(ephemeral(panelError(message)));
   }
 }
 
 async function handleRestockSubscribe(interaction: ButtonInteraction, slug: string) {
   const user = await assertActiveShopUser(interaction.user.id, interaction.user.tag);
   const tier = await prisma.tier.findUnique({ where: { slug } });
-  if (!tier) return interaction.reply({ embeds: [errorEmbed("존재하지 않는 등급입니다.")], ephemeral: true });
+  if (!tier) return interaction.reply(ephemeral(panelError("존재하지 않는 등급입니다.")));
 
   try {
     await subscribeRestock(user.id, tier.id);
-    await interaction.reply({
-      embeds: [successEmbed(`"${tier.name}" 재입고 시 알려드릴게요! 재고가 다시 생기면 DM/알림으로 바로 알려드립니다.`)],
-      ephemeral: true,
-    });
+    await interaction.reply(ephemeral(panelSuccess(`"${tier.name}" 재입고 시 알려드릴게요! 재고가 다시 생기면 DM/알림으로 바로 알려드립니다.`)));
   } catch (e) {
     const message = e instanceof RestockError ? e.message : "신청 중 오류가 발생했습니다.";
-    await interaction.reply({ embeds: [errorEmbed(message)], ephemeral: true });
+    await interaction.reply(ephemeral(panelError(message)));
   }
 }
 
@@ -595,10 +603,7 @@ async function handleDutyStatusChange(interaction: ButtonInteraction, status: st
   const displayName = interaction.member && "displayName" in interaction.member ? interaction.member.displayName : interaction.user.tag;
   await setAdminDutyStatus(interaction.user.id, displayName, status);
   await updateAdminDutyPanel(interaction.client);
-  await interaction.reply({
-    embeds: [successEmbed(`상태가 "${DUTY_STATUS_LABEL[status] ?? status}"(으)로 변경되었습니다.`)],
-    ephemeral: true,
-  });
+  await interaction.reply(ephemeral(panelSuccess(`상태가 "${DUTY_STATUS_LABEL[status] ?? status}"(으)로 변경되었습니다.`)));
 }
 
 /** "인증하기" 버튼 - ShopSetting.verifyRoleId를 바로 지급한다 (외부 사이트 없이 샵마다 동작). */
@@ -606,30 +611,24 @@ async function handleVerifyClaim(interaction: ButtonInteraction) {
   const settings = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
   const roleId = settings?.verifyRoleId;
   if (!roleId) {
-    return interaction.reply({
-      embeds: [errorEmbed("인증 역할이 아직 설정되지 않았습니다. 관리자에게 문의해주세요.")],
-      ephemeral: true,
-    });
+    return interaction.reply(ephemeral(panelError("인증 역할이 아직 설정되지 않았습니다. 관리자에게 문의해주세요.")));
   }
   if (!interaction.guild) {
-    return interaction.reply({ embeds: [errorEmbed("서버 안에서만 사용할 수 있습니다.")], ephemeral: true });
+    return interaction.reply(ephemeral(panelError("서버 안에서만 사용할 수 있습니다.")));
   }
   const member = await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
   if (!member) {
-    return interaction.reply({ embeds: [errorEmbed("회원 정보를 확인하지 못했습니다. 다시 시도해주세요.")], ephemeral: true });
+    return interaction.reply(ephemeral(panelError("회원 정보를 확인하지 못했습니다. 다시 시도해주세요.")));
   }
   if (member.roles.cache.has(roleId)) {
-    return interaction.reply({ embeds: [successEmbed("이미 인증된 상태입니다.")], ephemeral: true });
+    return interaction.reply(ephemeral(panelSuccess("이미 인증된 상태입니다.")));
   }
   try {
     await member.roles.add(roleId);
   } catch {
-    return interaction.reply({
-      embeds: [errorEmbed("역할 지급에 실패했습니다 - 봇의 역할이 지급할 역할보다 위에 있는지 확인해주세요.")],
-      ephemeral: true,
-    });
+    return interaction.reply(ephemeral(panelError("역할 지급에 실패했습니다 - 봇의 역할이 지급할 역할보다 위에 있는지 확인해주세요.")));
   }
-  await interaction.reply({ embeds: [successEmbed(`인증 완료! <@&${roleId}> 역할이 지급되었습니다.`)], ephemeral: true });
+  await interaction.reply(ephemeral(panelSuccess(`인증 완료! <@&${roleId}> 역할이 지급되었습니다.`)));
 }
 
 export async function handleButtonInteraction(interaction: ButtonInteraction) {

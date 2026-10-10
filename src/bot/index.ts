@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, Events, MessageFlags, PermissionFlagsBits, type Interaction } from "discord.js";
+import { Client, GatewayIntentBits, Events, PermissionFlagsBits, type Interaction } from "discord.js";
 import { BOT_TOKEN } from "@/bot/env";
 import { commandsByName } from "@/bot/commandRegistry";
 import { ADMIN_LINK_MODAL_ID, handleAdminLinkModalSubmit } from "@/bot/commands/adminLink";
@@ -29,7 +29,7 @@ import { SELLER_REPORT_MODAL_PREFIX, handleSellerReportModalSubmit } from "@/bot
 import { SELLER_EDIT_INFO_MODAL_ID, handleSellerEditInfoModalSubmit } from "@/bot/sellerPanelHandlers";
 import { handleButtonInteraction } from "@/bot/interactions/buttons";
 import { handleSelectMenuInteraction } from "@/bot/interactions/selects";
-import { errorEmbed } from "@/bot/format";
+import { panelError, ephemeral } from "@/bot/ui";
 import { startStatsChannelLoop } from "@/bot/statsChannels";
 import { handleAutoDeleteMessage } from "@/bot/autoDeleteChannel";
 import { handleAntiSpamMessage } from "@/bot/antiSpam";
@@ -143,10 +143,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (!shop || shop.status !== "ACTIVE") {
         if (interaction.isRepliable()) {
           await interaction
-            .reply({
-              embeds: [errorEmbed("이 서버는 아직 샵과 연동되지 않았습니다. 구매 시 받은 샵 코드로 `/샵연동`을 먼저 실행해주세요.")],
-              flags: MessageFlags.Ephemeral,
-            })
+            .reply(ephemeral(panelError("이 서버는 아직 샵과 연동되지 않았습니다. 구매 시 받은 샵 코드로 `/샵연동`을 먼저 실행해주세요.")))
             .catch(() => {});
         }
         return;
@@ -215,11 +212,10 @@ async function handleInteraction(interaction: Interaction) {
     const message = err instanceof Error ? err.message : "처리 중 오류가 발생했습니다.";
 
     if (interaction.isRepliable()) {
-      const payload = { embeds: [errorEmbed(message)], flags: MessageFlags.Ephemeral } as const;
       if (interaction.deferred || interaction.replied) {
-        await interaction.editReply({ embeds: [errorEmbed(message)] }).catch(() => {});
+        await interaction.editReply(panelError(message)).catch(() => {});
       } else {
-        await interaction.reply(payload).catch(() => {});
+        await interaction.reply(ephemeral(panelError(message))).catch(() => {});
       }
     }
   }
