@@ -4,7 +4,7 @@ import type { Seller } from "@prisma/client";
 import {
   notifyAdminsNewPendingItem,
   sendDiscordDM,
-  createPlainGuildChannel,
+  createGuildTextChannel,
   createPrivateGuildChannel,
   deleteGuildChannel,
   addGuildMemberRole,
@@ -131,9 +131,12 @@ export async function approveSeller(sellerId: string, adminId: string, guildId: 
     throw new SellerError("판매자 시스템이 아직 설치되지 않았습니다. 먼저 /판매자시스템설치를 실행해주세요.");
   }
 
-  const channelId = await createPlainGuildChannel(guildId, buildStoreChannelName(seller.storeName), settings.sellerCategoryId);
+  // 쇼룸 채널 자체에는 @everyone 관련 overwrite를 넣지 않고 카테고리(sellerCategoryId)
+  // 설정을 그대로 상속한다 - 관리자가 그 카테고리에서 "인증된 서버멤버만 보이게" 설정해둔
+  // 경우 쇼룸도 자동으로 그 기준을 따르게 하기 위함 (예전엔 채널에 직접 "누구나 보임"
+  // overwrite를 박아놔서 카테고리 설정과 어긋났었음). 판매자 본인에게만 보기+쓰기를 추가로 준다.
+  const channelId = await createGuildTextChannel(guildId, buildStoreChannelName(seller.storeName), settings.sellerCategoryId);
   if (channelId) {
-    // 쇼룸은 누구나 볼 수 있어야 하지만 글은 판매자 본인만 쓸 수 있어야 한다.
     await setChannelMemberOverwrite(channelId, seller.discordUserId, SELLER_CHANNEL_ACTIVE_ALLOW, 0);
   }
   // 관리 패널 채널은 별도 카테고리를 안 만들고 쇼룸과 같은 카테고리(sellerCategoryId)
