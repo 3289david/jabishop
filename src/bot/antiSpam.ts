@@ -117,6 +117,17 @@ export async function handleAntiSpamMessage(message: Message) {
   if (!settings?.antiSpamEnabled) return;
   if (await isWhitelisted(message, settings)) return;
 
+  // 이 카테고리 밑 채널은 안티스팸 검사를 아예 건너뛴다 (파트너/배너 공지처럼 @everyone·
+  // 반복 게시가 정상적으로 일어나는 채널용 - 아래의 미디어 전용 예외와는 별개).
+  const fullyExemptCategoryIds = (settings.antiSpamExemptCategoryIds ?? "")
+    .split(/[\s,]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (fullyExemptCategoryIds.length > 0) {
+    const categoryId = getCategoryId(message.channel);
+    if (categoryId && fullyExemptCategoryIds.includes(categoryId)) return;
+  }
+
   const guildId = message.guild.id;
   const key = `${guildId}:${message.author.id}`;
   const content = message.content ?? "";
