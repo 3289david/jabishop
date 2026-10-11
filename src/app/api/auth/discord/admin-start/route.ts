@@ -33,7 +33,6 @@ export async function GET() {
   url.searchParams.set("response_type", "code");
   url.searchParams.set("scope", "identify");
   url.searchParams.set("state", state);
-  url.searchParams.set("prompt", "consent");
 
   return NextResponse.redirect(url);
 }
