@@ -1,5 +1,6 @@
 import {
   ActionRowBuilder,
+  AuditLogEvent,
   ButtonBuilder,
   ButtonStyle,
   PermissionFlagsBits,
@@ -386,11 +387,49 @@ function isSimilarUsername(a: string, b: string): boolean {
   return levenshtein(na, nb) <= 1;
 }
 
+const RECENTLY_REMOVED_WINDOW_MS = 14 * 24 * 60 * 60 * 1000; // 최근 14일 내 추방/차단만 비교 대상으로 본다
+
 /**
- * 새 멤버가 서버에 들어왔을 때 부계정(알트) 여부를 의심한다 - (1) 계정 생성일이
- * 너무 최근이거나 (2) 기존 멤버와 닉네임/유저명이 너무 비슷하면 의심 신호로 본다.
- * 둘 다 겹치면 바로 추방하고, 하나만 겹치면 관리자 로그에 "추방" 버튼과 함께 올려
- * 사람이 판단하게 한다 (신규 가입자를 오탐으로 잘못 추방하는 걸 막기 위함).
+ * "최근에 이 서버에서 나간(추방/차단당한) 사람" 목록만 비교 대상으로 삼는다 - 기존에는
+ * 서버에 있는 모든 멤버와 비교해서, 그냥 우연히 이름이 비슷한 전혀 무관한 신규 가입자를
+ * "부계정"으로 오판하는 문제가 있었다. 밴/추방 평가은 "누군가 쫓겨났는데 비슷한 이름이
+ * 다시 들어왔다"는 게 실제로 의미 있는 신호이지, "서버에 있는 아무 멤버와 비슷하다"는
+ * 건 멤버가 많을수록 우연히 걸릴 확률만 높아지는 약한 신호였다.
+ */
+async function getRecentlyRemovedUsers(guild: Guild): Promise<{ tag: string; username: string }[]> {
+  const result: { tag: string; username: string }[] = [];
+  const cutoff = Date.now() - RECENTLY_REMOVED_WINDOW_MS;
+
+  try {
+    const bans = await guild.bans.fetch();
+    for (const ban of bans.values()) {
+      result.push({ tag: ban.user.tag, username: ban.user.username });
+    }
+  } catch {
+    // 봇에 BAN_MEMBERS 권한이 없을 수도 있음 - 무시하고 킥 로그만 본다.
+  }
+
+  try {
+    const auditLog = await guild.fetchAuditLogs({ type: AuditLogEvent.MemberKick, limit: 50 });
+    for (const entry of auditLog.entries.values()) {
+      if (!entry.target || !("tag" in entry.target)) continue;
+      if (entry.createdTimestamp < cutoff) continue;
+      if (!entry.target.tag || !entry.target.username) continue;
+      result.push({ tag: entry.target.tag, username: entry.target.username });
+    }
+  } catch {
+    // VIEW_AUDIT_LOG 권한이 없을 수도 있음 - 밴 목록만으로도 동작은 한다.
+  }
+
+  return result;
+}
+
+/**
+ * 새 멤버가 서버에 들어왔을 때 부계정(알트) 여부를 의심한다 - (1) 계정 생성일이 너무
+ * 최근이거나 (2) 최근 14일 안에 추방/차단된 사람과 닉네임/유저명이 너무 비슷하면
+ * 의심 신호로 본다. (2)는 그 자체로 이미 "쫓겨난 사람이 비슷한 이름으로 재입장"이라는
+ * 강한 증거라 단독으로도 즉시 추방하고, (1)만 단독으로 걸리면(그냥 새 계정인 신규
+ * 가입자일 수 있음) 관리자 로그에 "추방" 버튼과 함께 올려 사람이 판단하게 한다.
  */
 export async function handleAntiSpamMemberJoin(member: GuildMember) {
   if (member.user.bot) return;
@@ -403,14 +442,11 @@ export async function handleAntiSpamMemberJoin(member: GuildMember) {
 
   let similarTo: string | null = null;
   if (settings.antiSpamSimilarNameCheck) {
-    const members = await member.guild.members.fetch().catch(() => null);
-    if (members) {
-      for (const [id, m] of members) {
-        if (id === member.id || m.user.bot) continue;
-        if (isSimilarUsername(member.user.username, m.user.username) || isSimilarUsername(member.displayName, m.displayName)) {
-          similarTo = m.user.tag;
-          break;
-        }
+    const removed = await getRecentlyRemovedUsers(member.guild);
+    for (const u of removed) {
+      if (isSimilarUsername(member.user.username, u.username) || isSimilarUsername(member.displayName, u.username)) {
+        similarTo = u.tag;
+        break;
       }
     }
   }
@@ -419,12 +455,13 @@ export async function handleAntiSpamMemberJoin(member: GuildMember) {
 
   const reasonParts = [
     tooNew ? `계정 생성 ${ageDays.toFixed(1)}일 전 (기준 ${settings.antiSpamAltAccountMinAgeDays}일 미만)` : null,
-    similarTo ? `기존 멤버 "${similarTo}"와 유사한 이름` : null,
+    similarTo ? `최근 추방/차단된 "${similarTo}"와 유사한 이름` : null,
   ].filter((v): v is string => !!v);
   const reason = reasonParts.join(" · ");
 
-  if (tooNew && similarTo) {
-    // 두 신호가 겹치면 부계정일 확률이 높다고 보고 즉시 추방한다.
+  // 최근 추방/차단된 사람과 이름이 겹치면 그 자체로 강한 증거라 단독으로도 즉시 추방한다.
+  const autoKick = !!similarTo;
+  if (autoKick) {
     await member.kick(`안티스팸: 부계정 의심 (${reason})`).catch(() => {});
   }
 
@@ -432,20 +469,16 @@ export async function handleAntiSpamMemberJoin(member: GuildMember) {
   const logChannel = await member.guild.channels.fetch(settings.antiSpamLogChannelId).catch(() => null);
   if (!logChannel?.isTextBased()) return;
 
-  const row =
-    tooNew && similarTo
-      ? undefined
-      : new ActionRowBuilder<ButtonBuilder>().addComponents(
-          new ButtonBuilder()
-            .setCustomId(`antispam:kick:${member.id}`)
-            .setLabel("🚫 추방")
-            .setStyle(ButtonStyle.Danger)
-        );
+  const row = autoKick
+    ? undefined
+    : new ActionRowBuilder<ButtonBuilder>().addComponents(
+        new ButtonBuilder().setCustomId(`antispam:kick:${member.id}`).setLabel("🚫 추방").setStyle(ButtonStyle.Danger)
+      );
 
   await (logChannel as TextChannel)
     .send(
       buildPanel({
-        title: tooNew && similarTo ? "🚫 부계정 의심 - 자동 추방됨" : "⚠️ 부계정 의심 - 확인 필요",
+        title: autoKick ? "🚫 부계정 의심 - 자동 추방됨" : "⚠️ 부계정 의심 - 확인 필요",
         accentColor: ERROR_ACCENT_COLOR,
         fields: [
           { name: "대상", value: `<@${member.id}> (${member.user.tag})` },
