@@ -154,10 +154,17 @@ export async function handleAntiSpamMessage(message: Message) {
   const channelCategoryId = getCategoryId(message.channel);
   const mediaExempt = !!channelCategoryId && exemptCategoryIds.includes(channelCategoryId);
 
+  // 사진만 예외로 허용하는 채널 (영상은 이 예외와 무관하게 여전히 금지된다).
+  const imageOnlyExemptChannelIds = (settings.antiSpamImageOnlyExemptChannelIds ?? "")
+    .split(/[\s,]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const imageOnlyExempt = imageOnlyExemptChannelIds.includes(message.channelId);
+
   if (!mediaExempt && (settings.antiSpamBlockImages || settings.antiSpamBlockVideos) && message.attachments.size > 0) {
     for (const attachment of message.attachments.values()) {
       const kind = classifyAttachmentKind(attachment.contentType, attachment.name);
-      if (kind === "image" && settings.antiSpamBlockImages) {
+      if (kind === "image" && settings.antiSpamBlockImages && !imageOnlyExempt) {
         violation = SPAM_VIOLATION_TYPE.IMAGE_BLOCKED;
         break;
       }

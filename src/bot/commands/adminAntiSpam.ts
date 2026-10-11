@@ -53,6 +53,11 @@ export const antiSpamCommand: BotCommand = {
           o
             .setName("전체예외카테고리")
             .setDescription("안티스팸 검사를 전부 건너뛸 카테고리 ID들 (공백/쉼표로 구분, 예: 파트너/공지)")
+        )
+        .addStringOption((o) =>
+          o
+            .setName("사진만허용채널")
+            .setDescription("사진금지의 예외 채널 ID들 (영상은 여전히 금지, 공백/쉼표로 구분)")
         ),
     )
     .addSubcommand((sc) =>
@@ -153,6 +158,14 @@ export const antiSpamCommand: BotCommand = {
           .filter(Boolean)
           .join(",")
       : null;
+    const imageOnlyExemptRaw = interaction.options.getString("사진만허용채널");
+    const imageOnlyExemptChannelIds = imageOnlyExemptRaw
+      ? imageOnlyExemptRaw
+          .split(/[\s,]+/)
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .join(",")
+      : null;
 
     const data = {
       ...(enabled != null ? { antiSpamEnabled: enabled } : {}),
@@ -168,6 +181,7 @@ export const antiSpamCommand: BotCommand = {
       ...(altAccountMinAgeDays != null ? { antiSpamAltAccountMinAgeDays: altAccountMinAgeDays } : {}),
       ...(similarNameCheck != null ? { antiSpamSimilarNameCheck: similarNameCheck } : {}),
       ...(fullExemptCategoryIds != null ? { antiSpamExemptCategoryIds: fullExemptCategoryIds } : {}),
+      ...(imageOnlyExemptChannelIds != null ? { antiSpamImageOnlyExemptChannelIds: imageOnlyExemptChannelIds } : {}),
     };
 
     await prisma.shopSetting.upsert({

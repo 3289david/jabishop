@@ -562,6 +562,9 @@ model ShopSetting {
   // 이 카테고리 밑 채널은 안티스팸 검사를 아예 전부 건너뛴다 (도배/멘션폭탄/미디어금지 등
   // 전체) - 파트너/배너 공지처럼 @everyone·반복 게시가 정상적으로 일어나는 채널용.
   antiSpamExemptCategoryIds String?
+  // 이 채널에서는 사진만 예외로 허용한다 (영상은 여전히 금지) - 위의 카테고리 단위
+  // 예외와 달리 특정 채널 하나만 지정할 때 쓴다. 쉼표로 구분한 채널 ID 목록.
+  antiSpamImageOnlyExemptChannelIds String?
 
   // 부계정(알트) 의심 감지 - 메시지가 아니라 서버 입장(GuildMemberAdd) 시점에 본다.
   // 계정 생성일이 이 일수보다 어리면 "너무 새 계정"으로 의심한다 (0=비활성).
