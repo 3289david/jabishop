@@ -1,8 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { POINT_TX_TYPE, TOPUP_STATUS } from "@/lib/constants";
 import { notifyAdminsNewPendingItem } from "@/lib/discordNotify";
+import { UserFacingError } from "@/lib/errors";
 
-export class TopUpError extends Error {}
+export class TopUpError extends UserFacingError {}
 
 export async function createTopUpRequest(userId: string, amount: number, depositorName: string) {
   const user = await prisma.user.findUnique({ where: { id: userId } });

@@ -9,8 +9,9 @@ import {
   guildMemberHasRole,
 } from "@/lib/discordNotify";
 import { buildV2Panel } from "@/lib/panelV2";
+import { UserFacingError } from "@/lib/errors";
 
-export class PromoStaffError extends Error {}
+export class PromoStaffError extends UserFacingError {}
 
 // 초대된 사람이 인증 역할(ShopSetting.verifyRoleId)을 얻어야 1명당 100원이 집계되고,
 // 그중 500원 이상 쓴 사람마다 추가로 200원 - 실제 지급은 관리자가 매주 금요일 보고

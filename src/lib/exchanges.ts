@@ -2,8 +2,9 @@ import { prisma } from "@/lib/prisma";
 import { ORDER_STATUS, EXCHANGE_STATUS } from "@/lib/constants";
 import { notifyAdminsNewPendingItem } from "@/lib/discordNotify";
 import { exchangeOrderArtwork, OrderError } from "@/lib/orders";
+import { UserFacingError } from "@/lib/errors";
 
-export class ExchangeError extends Error {}
+export class ExchangeError extends UserFacingError {}
 
 /** 구매자가 사유 + 증빙 파일과 함께 계정 교환을 신청한다. 실제 교환은 관리자 승인 후에만 이루어진다. */
 export async function requestExchange(orderId: string, userId: string, reason: string, proofFileKey: string) {

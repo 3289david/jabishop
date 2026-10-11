@@ -1,8 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { POINT_TX_TYPE, ORDER_STATUS } from "@/lib/constants";
 import type { Prisma } from "@prisma/client";
+import { UserFacingError } from "@/lib/errors";
 
-export class EventError extends Error {}
+export class EventError extends UserFacingError {}
 
 // 초대자(나) 보상은 2단계로 나뉜다: 친구가 등록하는 즉시 REGISTER_REFERRER_REWARD,
 // 그 친구가 첫 결제를 완료하면 추가로 PURCHASE_REFERRER_REWARD (합쳐서 1000P).

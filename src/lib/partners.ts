@@ -7,8 +7,9 @@ import {
   sendDiscordDM,
 } from "@/lib/discordNotify";
 import { buildV2Panel, V2_ERROR_COLOR, V2_SUCCESS_COLOR } from "@/lib/panelV2";
+import { UserFacingError } from "@/lib/errors";
 
-export class PartnerError extends Error {}
+export class PartnerError extends UserFacingError {}
 
 const DEFAULT_PARTNER_EMOJI = "🤝";
 

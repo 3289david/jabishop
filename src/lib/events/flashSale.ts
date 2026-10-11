@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
+import { UserFacingError } from "@/lib/errors";
 
-export class EventError extends Error {}
+export class EventError extends UserFacingError {}
 
 export async function createFlashSale(params: {
   tierId: string;

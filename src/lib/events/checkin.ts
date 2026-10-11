@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { POINT_TX_TYPE } from "@/lib/constants";
+import { UserFacingError } from "@/lib/errors";
 
-export class EventError extends Error {}
+export class EventError extends UserFacingError {}
 
 const BASE_REWARD = 7; // 1일차 보상
 const STREAK_BONUS_PER_DAY = 5;

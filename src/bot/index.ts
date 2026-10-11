@@ -28,6 +28,7 @@ import { SELLER_EDIT_INFO_MODAL_ID, handleSellerEditInfoModalSubmit } from "@/bo
 import { handleButtonInteraction } from "@/bot/interactions/buttons";
 import { handleSelectMenuInteraction } from "@/bot/interactions/selects";
 import { panelError, ephemeral } from "@/bot/ui";
+import { UserFacingError } from "@/lib/errors";
 import { startStatsChannelLoop } from "@/bot/statsChannels";
 import { handleAutoDeleteMessage } from "@/bot/autoDeleteChannel";
 import { handleAntiSpamMessage, handleAntiSpamMemberJoin } from "@/bot/antiSpam";
@@ -212,7 +213,7 @@ async function handleInteraction(interaction: Interaction) {
     }
   } catch (err) {
     console.error(`인터랙션 처리 중 오류 (${interaction.type}):`, err);
-    const message = err instanceof Error ? err.message : "처리 중 오류가 발생했습니다.";
+    const message = err instanceof UserFacingError ? err.message : "일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
 
     if (interaction.isRepliable()) {
       if (interaction.deferred || interaction.replied) {

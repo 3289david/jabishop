@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { generateOrderNo } from "@/lib/orderNo";
+import { UserFacingError } from "@/lib/errors";
 import { computeDiscount, maybeGrantLuckyCoupon, CouponError } from "@/lib/coupon";
 import { getFlashSaleDiscount } from "@/lib/events/flashSale";
 import { maybeRewardReferral } from "@/lib/events/referral";
@@ -96,7 +97,7 @@ async function tryGrantBuyOneGetOneBonus(userId: string, tier: Tier, forOrderId:
   }
 }
 
-export class OrderError extends Error {
+export class OrderError extends UserFacingError {
   code: string;
   constructor(code: string, message: string) {
     super(message);

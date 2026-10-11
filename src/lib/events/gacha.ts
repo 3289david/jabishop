@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { POINT_TX_TYPE } from "@/lib/constants";
+import { UserFacingError } from "@/lib/errors";
 
-export class EventError extends Error {}
+export class EventError extends UserFacingError {}
 
 type GachaPrize =
   | { kind: "NONE"; label: string; weight: number }

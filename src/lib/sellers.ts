@@ -12,8 +12,9 @@ import {
   setChannelMemberOverwrite,
 } from "@/lib/discordNotify";
 import { buildV2Panel, V2_ACCENT_COLOR, V2_ERROR_COLOR, V2_SUCCESS_COLOR } from "@/lib/panelV2";
+import { UserFacingError } from "@/lib/errors";
 
-export class SellerError extends Error {}
+export class SellerError extends UserFacingError {}
 
 // VIEW_CHANNEL | SEND_MESSAGES | READ_MESSAGE_HISTORY
 const SELLER_CHANNEL_ACTIVE_ALLOW = 1024 | 2048 | 65536;

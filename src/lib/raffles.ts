@@ -2,8 +2,9 @@ import { prisma } from "@/lib/prisma";
 import { RAFFLE_STATUS } from "@/lib/constants";
 import { grantArtworkToUser, OrderError } from "@/lib/orders";
 import { getOrCreateShopUser } from "@/bot/discordAuth";
+import { UserFacingError } from "@/lib/errors";
 
-export class RaffleError extends Error {}
+export class RaffleError extends UserFacingError {}
 
 export async function createRaffleEvent(params: {
   title: string;

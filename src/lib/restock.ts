@@ -2,8 +2,9 @@ import { prisma } from "@/lib/prisma";
 import { ARTWORK_STATUS } from "@/lib/constants";
 import { sendDiscordDM } from "@/lib/discordNotify";
 import { buildV2Panel } from "@/lib/panelV2";
+import { UserFacingError } from "@/lib/errors";
 
-export class RestockError extends Error {}
+export class RestockError extends UserFacingError {}
 
 export async function subscribeRestock(userId: string, tierId: string) {
   const tier = await prisma.tier.findUnique({ where: { id: tierId } });

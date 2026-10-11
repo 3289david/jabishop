@@ -1,8 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { POINT_TX_TYPE } from "@/lib/constants";
 import { teardownShopInfra } from "@/lib/provisionShop";
+import { UserFacingError } from "@/lib/errors";
 
-export class ShopPurchaseError extends Error {}
+export class ShopPurchaseError extends UserFacingError {}
 
 const BILLING_PERIOD_MS = 30 * 24 * 60 * 60 * 1000;
 

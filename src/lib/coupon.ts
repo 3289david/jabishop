@@ -1,7 +1,8 @@
 import type { Coupon, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { UserFacingError } from "@/lib/errors";
 
-export class CouponError extends Error {}
+export class CouponError extends UserFacingError {}
 
 export function computeDiscount(coupon: Coupon, baseAmount: number, tierId: string): number {
   const now = new Date();

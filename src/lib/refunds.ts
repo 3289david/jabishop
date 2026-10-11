@@ -1,8 +1,9 @@
 import { prisma } from "@/lib/prisma";
 import { ORDER_STATUS, REFUND_STATUS, ARTWORK_STATUS, POINT_TX_TYPE } from "@/lib/constants";
 import { notifyAdminsNewPendingItem } from "@/lib/discordNotify";
+import { UserFacingError } from "@/lib/errors";
 
-export class RefundError extends Error {}
+export class RefundError extends UserFacingError {}
 
 export async function requestRefund(orderId: string, userId: string, reason: string) {
   const order = await prisma.order.findUnique({ where: { id: orderId }, include: { user: true, tier: true } });
