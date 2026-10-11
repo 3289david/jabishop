@@ -130,10 +130,22 @@ export async function verifyPanelPayload() {
   const row = new ActionRowBuilder<ButtonBuilder>().addComponents(
     new ButtonBuilder().setLabel("인증하기").setStyle(ButtonStyle.Link).setURL(`${getAppOrigin()}/api/auth/discord/verify-start`)
   );
+  const fields: APIEmbedField[] = [];
+  if (settings?.verifyRoleId) {
+    fields.push({ name: "역할", value: `인증을 하시면 <@&${settings.verifyRoleId}> 역할이 부여돼요` });
+  }
+  // 모바일 디스코드 앱 내부 브라우저가 디스코드 자체 Cloudflare 보호에 막혀
+  // "internal network error (code: 40333)"를 띄우는 경우가 있음 (디스코드 측 알려진
+  // 이슈, 우리 서버와는 무관 - 서버 로그에 전혀 남지 않음). 외부 브라우저로 열면 해결됨.
+  fields.push({
+    name: "❗ 버튼을 눌렀을 때 오류가 뜬다면",
+    value:
+      "디스코드 앱 내부 브라우저의 알려진 문제예요. 버튼을 길게 눌러 **'브라우저에서 열기'**를 선택하거나,\n디스코드 설정 → 고급 → **'링크를 기본 브라우저에서 열기'**를 켜고 다시 시도해주세요.",
+  });
   return buildPanel({
     title: "💕 인증 채널 💕",
     description: "인증을 하시려면 아래 버튼을 클릭해 주세요",
-    fields: settings?.verifyRoleId ? [{ name: "역할", value: `인증을 하시면 <@&${settings.verifyRoleId}> 역할이 부여돼요` }] : undefined,
+    fields,
     rows: [row],
   });
 }
