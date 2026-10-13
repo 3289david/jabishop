@@ -11,7 +11,7 @@ export const adminPanelCommand: BotCommand = {
     .setName("관리자패널")
     .setDescription("[관리자] 버튼으로 이용하는 관리자 패널을 이 채널 맨 아래에 고정합니다."),
   async execute(interaction) {
-    const admin = await requireLinkedAdmin(interaction.user.id);
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
     await interaction.deferReply({ ephemeral: true });
 
     const channel = interaction.channel;

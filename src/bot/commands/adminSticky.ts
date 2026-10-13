@@ -20,7 +20,7 @@ export const stickySetCommand: BotCommand = {
     .addStringOption((o) => o.setName("이미지url").setDescription("고정 메시지에 넣을 이미지 URL (선택)"))
     .addStringOption((o) => o.setName("색상").setDescription("패널 강조색 hex, 예: #5865F2 (선택, 비우면 기본 보라색)")),
   async execute(interaction) {
-    const admin = await requireLinkedAdmin(interaction.user.id);
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
     await interaction.deferReply({ ephemeral: true });
 
     const channelOption = interaction.options.getChannel("채널", true);
@@ -70,7 +70,7 @@ export const stickyClearCommand: BotCommand = {
       o.setName("채널").setDescription("고정 메시지를 해제할 채널").setRequired(true).addChannelTypes(ChannelType.GuildText)
     ),
   async execute(interaction) {
-    const admin = await requireLinkedAdmin(interaction.user.id);
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
     await interaction.deferReply({ ephemeral: true });
 
     const channelOption = interaction.options.getChannel("채널", true);

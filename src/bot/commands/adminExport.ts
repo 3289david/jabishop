@@ -19,7 +19,7 @@ export const salesExportCommand: BotCommand = {
     .addStringOption((o) => o.setName("시작일").setDescription("YYYY-MM-DD (비우면 전체 기간)"))
     .addStringOption((o) => o.setName("종료일").setDescription("YYYY-MM-DD (비우면 오늘까지)")),
   async execute(interaction) {
-    const admin = await requireLinkedAdmin(interaction.user.id);
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
     requireSuperRole(admin.role);
     await interaction.deferReply({ ephemeral: true });
 

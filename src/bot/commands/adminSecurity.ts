@@ -7,7 +7,7 @@ import type { BotCommand } from "@/bot/types";
 export const loginLogsCommand: BotCommand = {
   data: new SlashCommandBuilder().setName("로그인기록").setDescription("[관리자] 최근 관리자 로그인 기록을 봅니다."),
   async execute(interaction) {
-    await requireLinkedAdmin(interaction.user.id);
+    await requireLinkedAdmin(interaction.user.id, interaction.guild);
     const logs = await prisma.adminLoginLog.findMany({ orderBy: { createdAt: "desc" }, take: 15 });
     await interaction.reply(
       ephemeral(
@@ -26,7 +26,7 @@ export const loginLogsCommand: BotCommand = {
 export const activityLogsCommand: BotCommand = {
   data: new SlashCommandBuilder().setName("활동로그").setDescription("[관리자] 최근 관리자 활동 로그를 봅니다."),
   async execute(interaction) {
-    await requireLinkedAdmin(interaction.user.id);
+    await requireLinkedAdmin(interaction.user.id, interaction.guild);
     const logs = await prisma.adminActivityLog.findMany({
       include: { admin: true },
       orderBy: { createdAt: "desc" },

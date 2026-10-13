@@ -14,7 +14,7 @@ export const sellerSetupCommand: BotCommand = {
     .setName("판매자시스템설치")
     .setDescription("[관리자/SUPER] 판매자 시스템에 필요한 채널/역할을 자동으로 만듭니다 (최초 1회)."),
   async execute(interaction) {
-    const admin = await requireLinkedAdmin(interaction.user.id);
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
     requireSuperRole(admin.role);
     const guildId = interaction.guildId;
     if (!guildId) return interaction.reply(ephemeral(panelError("서버 안에서만 사용할 수 있습니다.")));

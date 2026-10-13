@@ -12,7 +12,7 @@ export const memberViewCommand: BotCommand = {
     .setDescription("[관리자] 디스코드 사용자의 쇼핑몰 회원 정보를 봅니다.")
     .addUserOption((o) => o.setName("대상").setDescription("조회할 디스코드 사용자").setRequired(true)),
   async execute(interaction) {
-    await requireLinkedAdmin(interaction.user.id);
+    await requireLinkedAdmin(interaction.user.id, interaction.guild);
     const target = interaction.options.getUser("대상", true);
     const user = await prisma.user.findUnique({ where: { discordId: target.id }, include: { _count: { select: { orders: true } } } });
     if (!user) return interaction.reply(ephemeral(panelError("아직 봇을 사용한 적 없는 사용자입니다.")));
@@ -47,7 +47,7 @@ export const memberStatusCommand: BotCommand = {
     )
     .addStringOption((o) => o.setName("사유").setDescription("정지 사유 (선택)")),
   async execute(interaction) {
-    const admin = await requireLinkedAdmin(interaction.user.id);
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
     const target = interaction.options.getUser("대상", true);
     const status = interaction.options.getString("상태", true);
     const reason = interaction.options.getString("사유");
@@ -69,7 +69,7 @@ export const memberPointAdjustCommand: BotCommand = {
     .addIntegerOption((o) => o.setName("금액").setDescription("증감 포인트 (음수 가능)").setRequired(true))
     .addStringOption((o) => o.setName("사유").setDescription("조정 사유").setRequired(true)),
   async execute(interaction) {
-    const admin = await requireLinkedAdmin(interaction.user.id);
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
     const target = interaction.options.getUser("대상", true);
     const amount = interaction.options.getInteger("금액", true);
     const memo = interaction.options.getString("사유", true);

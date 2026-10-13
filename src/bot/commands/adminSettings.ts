@@ -8,7 +8,7 @@ import type { BotCommand } from "@/bot/types";
 export const settingsViewCommand: BotCommand = {
   data: new SlashCommandBuilder().setName("설정보기").setDescription("[관리자] 현재 쇼핑몰 설정을 봅니다."),
   async execute(interaction) {
-    await requireLinkedAdmin(interaction.user.id);
+    await requireLinkedAdmin(interaction.user.id, interaction.guild);
     const s = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
     const fields = [
       { name: "쇼핑몰 이름", value: s?.shopName ?? "-" },
@@ -116,7 +116,7 @@ export const settingsUpdateCommand: BotCommand = {
       o.setName("원플러스원이벤트").setDescription("전역 스위치 - 켜면 /등급수정에서 원플러스원적용된 등급들이 실제로 동작함")
     ),
   async execute(interaction) {
-    const admin = await requireLinkedAdmin(interaction.user.id);
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
     requireSuperRole(admin.role);
 
     const shopName = interaction.options.getString("샵이름");
@@ -214,7 +214,7 @@ export const purgeSeedDataCommand: BotCommand = {
     .setDescription("[관리자/SUPER] 시드 스크립트가 만든 테스트 회원/계정을 전부 삭제합니다.")
     .addStringOption((o) => o.setName("확인").setDescription('정말 삭제하려면 "삭제"를 입력하세요').setRequired(true)),
   async execute(interaction) {
-    const admin = await requireLinkedAdmin(interaction.user.id);
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
     requireSuperRole(admin.role);
     const confirm = interaction.options.getString("확인", true);
     if (confirm !== "삭제") {

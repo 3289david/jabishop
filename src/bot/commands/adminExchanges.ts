@@ -8,7 +8,7 @@ import type { BotCommand } from "@/bot/types";
 export const exchangeListCommand: BotCommand = {
   data: new SlashCommandBuilder().setName("교환목록").setDescription("[관리자] 대기 중인 교환 요청을 봅니다."),
   async execute(interaction) {
-    await requireLinkedAdmin(interaction.user.id);
+    await requireLinkedAdmin(interaction.user.id, interaction.guild);
     const exchanges = await prisma.exchangeRequest.findMany({
       where: { status: "PENDING" },
       include: { user: true, order: { include: { tier: true, artwork: true } } },
@@ -36,7 +36,7 @@ export const exchangeApproveCommand: BotCommand = {
     .setDescription("[관리자] 교환 요청을 승인합니다 (즉시 다른 재고로 교환됨).")
     .addStringOption((o) => o.setName("교환id").setDescription("/교환목록에서 확인한 ID").setRequired(true)),
   async execute(interaction) {
-    const admin = await requireLinkedAdmin(interaction.user.id);
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
     const id = interaction.options.getString("교환id", true);
     let result;
     try {
@@ -58,7 +58,7 @@ export const exchangeRejectCommand: BotCommand = {
     .addStringOption((o) => o.setName("교환id").setDescription("/교환목록에서 확인한 ID").setRequired(true))
     .addStringOption((o) => o.setName("사유").setDescription("거절 사유")),
   async execute(interaction) {
-    const admin = await requireLinkedAdmin(interaction.user.id);
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
     const id = interaction.options.getString("교환id", true);
     const note = interaction.options.getString("사유") ?? undefined;
     try {

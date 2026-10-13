@@ -19,7 +19,7 @@ function slugify(input: string) {
 export const tierListCommand: BotCommand = {
   data: new SlashCommandBuilder().setName("등급목록").setDescription("[관리자] 전체 등급 목록을 봅니다."),
   async execute(interaction) {
-    await requireLinkedAdmin(interaction.user.id);
+    await requireLinkedAdmin(interaction.user.id, interaction.guild);
     const tiers = await prisma.tier.findMany({
       orderBy: { sortOrder: "asc" },
       include: { _count: { select: { artworks: true } } },
@@ -53,7 +53,7 @@ export const tierCreateCommand: BotCommand = {
     .addStringOption((o) => o.setName("카테고리").setDescription("구매하기 패널에서 묶일 카테고리 (비우면 기타)"))
     .addIntegerOption((o) => o.setName("원가").setDescription("계정 1개당 원가 (순이익/적자 계산용, 비우면 0)")),
   async execute(interaction) {
-    const admin = await requireLinkedAdmin(interaction.user.id);
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
     const name = interaction.options.getString("이름", true);
     const price = interaction.options.getInteger("가격", true);
     const description = interaction.options.getString("설명");
@@ -93,7 +93,7 @@ export const tierUpdateCommand: BotCommand = {
     ),
   autocomplete: tierAutocomplete,
   async execute(interaction) {
-    const admin = await requireLinkedAdmin(interaction.user.id);
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
     const slug = interaction.options.getString("등급", true);
     const tier = await prisma.tier.findUnique({ where: { slug } });
     if (!tier) return interaction.reply(ephemeral(panelError("존재하지 않는 등급입니다.")));
@@ -130,7 +130,7 @@ export const tierDeleteCommand: BotCommand = {
     .addStringOption((o) => o.setName("등급").setDescription("삭제할 등급").setRequired(true).setAutocomplete(true)),
   autocomplete: tierAutocomplete,
   async execute(interaction) {
-    const admin = await requireLinkedAdmin(interaction.user.id);
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
     const slug = interaction.options.getString("등급", true);
     const tier = await prisma.tier.findUnique({ where: { slug } });
     if (!tier) return interaction.reply(ephemeral(panelError("존재하지 않는 등급입니다.")));

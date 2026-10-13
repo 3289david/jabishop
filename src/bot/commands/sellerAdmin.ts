@@ -108,7 +108,7 @@ export const sellerManageCommand: BotCommand = {
     const sub = interaction.options.getSubcommand();
 
     if (sub === "신청목록") {
-      await requireLinkedAdmin(interaction.user.id);
+      await requireLinkedAdmin(interaction.user.id, interaction.guild);
       const pending = await prisma.seller.findMany({ where: { status: SELLER_STATUS.PENDING }, orderBy: { createdAt: "asc" }, take: 25 });
       return interaction.reply(
         ephemeral(
@@ -125,7 +125,7 @@ export const sellerManageCommand: BotCommand = {
     }
 
     if (sub === "현황") {
-      await requireLinkedAdmin(interaction.user.id);
+      await requireLinkedAdmin(interaction.user.id, interaction.guild);
       const [total, active, pending, expiringSoon, reportsPending, settings] = await Promise.all([
         prisma.seller.count(),
         prisma.seller.count({ where: { status: SELLER_STATUS.ACTIVE } }),
@@ -155,7 +155,7 @@ export const sellerManageCommand: BotCommand = {
     }
 
     if (sub === "공지") {
-      const admin = await requireLinkedAdmin(interaction.user.id);
+      const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
       const content = interaction.options.getString("내용", true);
       await interaction.deferReply({ ephemeral: true });
       const sellers = await prisma.seller.findMany({ where: { status: SELLER_STATUS.ACTIVE } });
@@ -167,7 +167,7 @@ export const sellerManageCommand: BotCommand = {
     }
 
     if (sub === "정보") {
-      await requireLinkedAdmin(interaction.user.id);
+      await requireLinkedAdmin(interaction.user.id, interaction.guild);
       const sellerId = interaction.options.getString("판매자", true);
       const seller = await prisma.seller.findUnique({ where: { id: sellerId } });
       if (!seller) return interaction.reply(ephemeral(panelError("존재하지 않는 판매자입니다.")));
@@ -175,7 +175,7 @@ export const sellerManageCommand: BotCommand = {
     }
 
     if (sub === "경고") {
-      const admin = await requireLinkedAdmin(interaction.user.id);
+      const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
       const sellerId = interaction.options.getString("판매자", true);
       const reason = interaction.options.getString("사유", true);
       await interaction.deferReply({ ephemeral: true });
@@ -190,7 +190,7 @@ export const sellerManageCommand: BotCommand = {
     }
 
     // 아래는 전부 서버의 guildId가 필요한(채널/역할 변경) 액션들.
-    const admin = await requireLinkedAdmin(interaction.user.id);
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
     const guildId = interaction.guildId;
     if (!guildId) return interaction.reply(ephemeral(panelError("서버 안에서만 사용할 수 있습니다.")));
     const sellerId = interaction.options.getString("판매자", true);

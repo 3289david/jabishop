@@ -71,7 +71,7 @@ export const antiSpamCommand: BotCommand = {
     const sub = interaction.options.getSubcommand();
 
     if (sub === "통계") {
-      await requireLinkedAdmin(interaction.user.id);
+      await requireLinkedAdmin(interaction.user.id, interaction.guild);
       const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000);
       const [total24h, byType, topUsers, topChannels] = await Promise.all([
         prisma.spamViolation.count({ where: { createdAt: { gte: since24h } } }),
@@ -117,7 +117,7 @@ export const antiSpamCommand: BotCommand = {
     }
 
     if (sub === "화이트리스트") {
-      const admin = await requireLinkedAdmin(interaction.user.id);
+      const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
       requireSuperRole(admin.role);
       const role = interaction.options.getRole("역할", true);
       await prisma.shopSetting.upsert({
@@ -129,7 +129,7 @@ export const antiSpamCommand: BotCommand = {
     }
 
     // 설정
-    const admin = await requireLinkedAdmin(interaction.user.id);
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
     requireSuperRole(admin.role);
     const enabled = interaction.options.getBoolean("활성화");
     const logChannel = interaction.options.getChannel("로그채널");

@@ -10,7 +10,7 @@ export const partnerPanelCommand: BotCommand = {
     .setName("파트너패널")
     .setDescription("[관리자] 버튼으로 파트너 신청/관리를 할 수 있는 안내 패널을 엽니다."),
   async execute(interaction) {
-    await requireLinkedAdmin(interaction.user.id);
+    await requireLinkedAdmin(interaction.user.id, interaction.guild);
     await interaction.reply(partnerPanelPayload());
   },
 };

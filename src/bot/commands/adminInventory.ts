@@ -19,7 +19,7 @@ export const artworkCreateCommand: BotCommand = {
   autocomplete: tierAutocomplete,
   async execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
-    const admin = await requireLinkedAdmin(interaction.user.id);
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
     const slug = interaction.options.getString("등급", true);
     const code = interaction.options.getString("코드", true);
     const title = interaction.options.getString("제목", true);
@@ -69,7 +69,7 @@ export const artworkListCommand: BotCommand = {
     ),
   autocomplete: tierAutocomplete,
   async execute(interaction) {
-    await requireLinkedAdmin(interaction.user.id);
+    await requireLinkedAdmin(interaction.user.id, interaction.guild);
     const slug = interaction.options.getString("등급");
     const status = interaction.options.getString("상태");
 
@@ -109,7 +109,7 @@ export const artworkStatusCommand: BotCommand = {
         .addChoices({ name: "판매가능", value: "AVAILABLE" }, { name: "숨김", value: "HIDDEN" })
     ),
   async execute(interaction) {
-    const admin = await requireLinkedAdmin(interaction.user.id);
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
     const code = interaction.options.getString("코드", true);
     const status = interaction.options.getString("상태", true);
 
@@ -131,7 +131,7 @@ export const artworkDeleteCommand: BotCommand = {
     .setDescription("[관리자] 특정 계정 재고를 삭제합니다.")
     .addStringOption((o) => o.setName("코드").setDescription("삭제할 재고 코드").setRequired(true)),
   async execute(interaction) {
-    const admin = await requireLinkedAdmin(interaction.user.id);
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
     const code = interaction.options.getString("코드", true);
 
     const artwork = await prisma.artwork.findUnique({ where: { code } });
@@ -168,7 +168,7 @@ export const artworkGrantCommand: BotCommand = {
   autocomplete: tierAutocomplete,
   async execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
-    const admin = await requireLinkedAdmin(interaction.user.id);
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
     const slug = interaction.options.getString("등급", true);
     const target = interaction.options.getUser("대상", true);
     const quantity = interaction.options.getInteger("수량") ?? 1;
@@ -228,7 +228,7 @@ export const artworkBulkDeleteCommand: BotCommand = {
     .addStringOption((o) => o.setName("확인").setDescription('정말 삭제하려면 "삭제"를 입력하세요').setRequired(true)),
   autocomplete: tierAutocomplete,
   async execute(interaction) {
-    const admin = await requireLinkedAdmin(interaction.user.id);
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
     const slug = interaction.options.getString("등급", true);
     const confirm = interaction.options.getString("확인", true);
     if (confirm !== "삭제") {

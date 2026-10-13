@@ -29,7 +29,7 @@ export const refundManageCommand: BotCommand = {
     const sub = interaction.options.getSubcommand();
 
     if (sub === "목록") {
-      await requireLinkedAdmin(interaction.user.id);
+      await requireLinkedAdmin(interaction.user.id, interaction.guild);
       const refunds = await prisma.refundRequest.findMany({
         where: { status: "PENDING" },
         include: { user: true, order: { include: { tier: true } } },
@@ -51,7 +51,7 @@ export const refundManageCommand: BotCommand = {
     }
 
     if (sub === "승인") {
-      const admin = await requireLinkedAdmin(interaction.user.id);
+      const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
       const id = interaction.options.getString("환불id", true);
       try {
         await approveRefund(id, admin.id);
@@ -63,7 +63,7 @@ export const refundManageCommand: BotCommand = {
     }
 
     // 거절
-    const admin = await requireLinkedAdmin(interaction.user.id);
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
     const id = interaction.options.getString("환불id", true);
     const note = interaction.options.getString("사유") ?? undefined;
     try {

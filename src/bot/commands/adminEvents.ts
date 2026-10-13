@@ -24,7 +24,7 @@ export const eventCreateCommand: BotCommand = {
     .addStringOption((o) => o.setName("설명").setDescription("이벤트 설명")),
   autocomplete: tierAutocomplete,
   async execute(interaction) {
-    const admin = await requireLinkedAdmin(interaction.user.id);
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
     await interaction.deferReply({ ephemeral: true });
 
     const title = interaction.options.getString("제목", true);
@@ -73,7 +73,7 @@ export const eventDrawCommand: BotCommand = {
     .addStringOption((o) => o.setName("이벤트").setDescription("마감할 이벤트").setRequired(true).setAutocomplete(true)),
   autocomplete: openRaffleAutocomplete,
   async execute(interaction) {
-    const admin = await requireLinkedAdmin(interaction.user.id);
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
     await interaction.deferReply({ ephemeral: true });
 
     const raffleId = interaction.options.getString("이벤트", true);

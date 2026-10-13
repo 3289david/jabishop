@@ -15,7 +15,7 @@ export const flashSaleCreateCommand: BotCommand = {
     .addIntegerOption((o) => o.setName("지속시간분").setDescription("지금부터 몇 분 동안 진행할지").setRequired(true).setMinValue(1)),
   autocomplete: tierAutocomplete,
   async execute(interaction) {
-    const admin = await requireLinkedAdmin(interaction.user.id);
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
     const slug = interaction.options.getString("등급", true);
     const discountPercent = interaction.options.getInteger("할인율", true);
     const durationMinutes = interaction.options.getInteger("지속시간분", true);
@@ -48,7 +48,7 @@ export const flashSaleCancelCommand: BotCommand = {
     .addStringOption((o) => o.setName("등급").setDescription("취소할 등급").setRequired(true).setAutocomplete(true)),
   autocomplete: tierAutocomplete,
   async execute(interaction) {
-    const admin = await requireLinkedAdmin(interaction.user.id);
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
     const slug = interaction.options.getString("등급", true);
     await interaction.deferReply({ ephemeral: true });
 

@@ -8,7 +8,7 @@ import type { BotCommand } from "@/bot/types";
 export const topUpListCommand: BotCommand = {
   data: new SlashCommandBuilder().setName("충전목록").setDescription("[관리자] 대기 중인 포인트 충전 신청을 봅니다."),
   async execute(interaction) {
-    await requireLinkedAdmin(interaction.user.id);
+    await requireLinkedAdmin(interaction.user.id, interaction.guild);
     const requests = await prisma.pointTopUpRequest.findMany({
       where: { status: "PENDING" },
       include: { user: true },
@@ -36,7 +36,7 @@ export const topUpConfirmCommand: BotCommand = {
     .setDescription("[관리자] 입금을 확인하고 포인트를 지급합니다.")
     .addStringOption((o) => o.setName("충전id").setDescription("/충전목록에서 확인한 ID").setRequired(true)),
   async execute(interaction) {
-    const admin = await requireLinkedAdmin(interaction.user.id);
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
     const id = interaction.options.getString("충전id", true);
     try {
       await confirmTopUp(id, admin.id);
@@ -55,7 +55,7 @@ export const topUpRejectCommand: BotCommand = {
     .addStringOption((o) => o.setName("충전id").setDescription("/충전목록에서 확인한 ID").setRequired(true))
     .addStringOption((o) => o.setName("사유").setDescription("거절 사유")),
   async execute(interaction) {
-    const admin = await requireLinkedAdmin(interaction.user.id);
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
     const id = interaction.options.getString("충전id", true);
     const note = interaction.options.getString("사유") ?? undefined;
     try {

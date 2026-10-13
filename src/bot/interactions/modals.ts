@@ -75,7 +75,7 @@ export async function handleAnswerModalSubmit(interaction: ModalSubmitInteractio
   const answer = interaction.fields.getTextInputValue("answer").trim();
   await interaction.deferReply({ ephemeral: true });
 
-  const admin = await requireLinkedAdmin(interaction.user.id);
+  const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
   const inquiry = await prisma.inquiry.findUnique({ where: { id: inquiryId } });
   if (!inquiry) return interaction.editReply(panelError("존재하지 않는 문의입니다."));
 

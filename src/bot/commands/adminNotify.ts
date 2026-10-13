@@ -11,7 +11,7 @@ export const broadcastCommand: BotCommand = {
     .addStringOption((o) => o.setName("제목").setDescription("공지 제목").setRequired(true))
     .addStringOption((o) => o.setName("내용").setDescription("공지 내용").setRequired(true).setMaxLength(1500)),
   async execute(interaction) {
-    const admin = await requireLinkedAdmin(interaction.user.id);
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
     const title = interaction.options.getString("제목", true);
     const message = interaction.options.getString("내용", true);
 
@@ -35,7 +35,7 @@ export const channelAnnounceCommand: BotCommand = {
     .addStringOption((o) => o.setName("이미지url").setDescription("공지에 넣을 이미지 URL (선택)"))
     .addStringOption((o) => o.setName("색상").setDescription("패널 강조색 hex, 예: #5865F2 (선택, 비우면 기본 보라색)")),
   async execute(interaction) {
-    const admin = await requireLinkedAdmin(interaction.user.id);
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
     await interaction.deferReply({ ephemeral: true });
 
     const channelOption = interaction.options.getChannel("채널", true);

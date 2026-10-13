@@ -10,7 +10,8 @@ import { prisma } from "@/lib/prisma";
 import { verifyPassword } from "@/lib/password";
 import { verifyTotp } from "@/lib/totp";
 import { ADMIN_STATUS } from "@/lib/constants";
-import { panelError, panelSuccess } from "@/bot/ui";
+import { requireLinkedAdmin, requireSuperRole } from "@/bot/discordAuth";
+import { panelError, panelSuccess, ephemeral } from "@/bot/ui";
 import type { BotCommand } from "@/bot/types";
 
 export const ADMIN_LINK_MODAL_ID = "admin_link_modal";
@@ -79,3 +80,49 @@ export async function handleAdminLinkModalSubmit(interaction: ModalSubmitInterac
 
   await interaction.editReply(panelSuccess(`${admin.loginId} 관리자 계정과 연동되었습니다. 이제 관리자 명령어를 사용할 수 있습니다.`));
 }
+
+export const autoAdminRoleCommand: BotCommand = {
+  data: new SlashCommandBuilder()
+    .setName("관리자자동지정역할")
+    .setDescription("[SUPER] 이 역할을 가진 사람이 명령어를 처음 쓸 때 자동으로 관리자가 되게 설정합니다.")
+    .addStringOption((o) =>
+      o
+        .setName("역할id목록")
+        .setDescription("자동으로 관리자가 될 역할 ID들 (공백/쉼표로 구분, 비우면 현재 설정을 비움)")
+    ),
+  async execute(interaction) {
+    // 서버 소유자는 어차피 항상 자동으로 SUPER가 되므로, 이 명령어 자체는 서버
+    // 소유자(최초 1회) 또는 이미 지정된 다른 SUPER가 실행하면 된다.
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
+    requireSuperRole(admin.role);
+
+    const raw = interaction.options.getString("역할id목록");
+    const roleIds = raw
+      ? raw
+          .split(/[\s,]+/)
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .join(",")
+      : "";
+
+    await prisma.shopSetting.upsert({
+      where: { id: "singleton" },
+      update: { autoAdminRoleIds: roleIds },
+      create: { id: "singleton", bankName: "", bankAccountNumber: "", bankAccountHolder: "", autoAdminRoleIds: roleIds },
+    });
+    await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "AUTO_ADMIN_ROLE_UPDATE", detail: roleIds || "(비움)" } });
+
+    await interaction.reply(
+      ephemeral(
+        panelSuccess(
+          roleIds
+            ? `이 역할(들)을 가진 사람은 명령어를 처음 쓸 때 자동으로 관리자(MANAGER)가 됩니다: ${roleIds
+                .split(",")
+                .map((id) => `<@&${id}>`)
+                .join(", ")}`
+            : "관리자 자동 지정 역할을 비웠습니다."
+        )
+      )
+    );
+  },
+};

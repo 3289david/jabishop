@@ -351,7 +351,7 @@ async function revertEmergencyMode(guild: Guild) {
 
 /** 관리자 로그 패널의 "🔓 제재 해제" 버튼 - 오탐 처리 + 걸려있던 타임아웃도 실제로 해제한다. */
 export async function handleAntiSpamLift(interaction: ButtonInteraction, violationId: string) {
-  const admin = await requireLinkedAdmin(interaction.user.id);
+  const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
   const violation = await prisma.spamViolation.findUnique({ where: { id: violationId } });
   if (!violation) return interaction.reply(ephemeral(panelError("존재하지 않는 제재 기록입니다.")));
   if (violation.lifted) return interaction.reply(ephemeral(panelError("이미 해제된 제재입니다.")));
@@ -510,7 +510,7 @@ export async function handleAntiSpamMemberJoin(member: GuildMember) {
 
 /** 부계정 의심 로그의 "🚫 추방" 버튼. */
 export async function handleAntiSpamKick(interaction: ButtonInteraction, userId: string) {
-  await requireLinkedAdmin(interaction.user.id);
+  await requireLinkedAdmin(interaction.user.id, interaction.guild);
   const guild = interaction.guild;
   if (!guild) return interaction.reply(ephemeral(panelError("서버 안에서만 사용할 수 있습니다.")));
 

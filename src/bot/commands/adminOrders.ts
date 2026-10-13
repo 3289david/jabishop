@@ -12,7 +12,7 @@ export const orderExchangeCommand: BotCommand = {
     .addStringOption((o) => o.setName("주문번호").setDescription("예: 20260905000001").setRequired(true)),
   async execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
-    const admin = await requireLinkedAdmin(interaction.user.id);
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
     const orderNo = interaction.options.getString("주문번호", true).replace(/^#/, "");
 
     const order = await prisma.order.findUnique({ where: { orderNo } });

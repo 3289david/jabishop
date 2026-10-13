@@ -46,9 +46,13 @@ export const shopClaimCommand: BotCommand = {
     // 한 번에 처리한다 (이게 있어야 관리자 권한 확인·구매 등급 역할·파트너 채널 생성
     // 등이 자비샵이 아니라 이 서버를 기준으로 동작한다).
     await applyShopGuildId(shop.slug, guildId);
+    const isOwner = interaction.guild?.ownerId === interaction.user.id;
+    const adminNote = isOwner
+      ? "이 서버의 소유자시니, 관리자 명령어(`/패널` 등)도 처음 쓰는 순간 자동으로 관리자가 되어 바로 사용할 수 있습니다."
+      : "⚠️ 서버 소유자가 아니라 관리자 명령어는 아직 안 열려있습니다 - 서버 소유자가 명령어를 한 번 쓰거나 `/관리자자동지정역할`로 지정해줘야 합니다.";
     await interaction.editReply(
       panelSuccess(
-        `이 서버가 "${shop.name}"(${shop.slug}) 샵과 연동되었습니다.\n이제 이 서버에서 상품 구매/쿠폰/장바구니 등 일반 기능을 사용할 수 있습니다.\n(웹사이트 프로세스가 10~20초 정도 재시작됩니다.)\n\n⚠️ 관리자 명령어(\`/패널\` 등)는 아직 안 열려있습니다. \`/샵봇설정\` → 웹사이트 \`/admin/login\`에서 "Discord로 로그인"으로 최초 관리자 계정을 먼저 만들어주세요 (\`/자판기안내채널\`에 자세히 안내되어 있습니다).`
+        `이 서버가 "${shop.name}"(${shop.slug}) 샵과 연동되었습니다.\n이제 이 서버에서 상품 구매/쿠폰/장바구니 등 일반 기능을 사용할 수 있습니다.\n(웹사이트 프로세스가 10~20초 정도 재시작됩니다.)\n\n${adminNote} 자세한 안내는 \`/자판기안내채널\`에서 확인할 수 있습니다.`
       )
     );
   },

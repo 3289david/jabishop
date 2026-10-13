@@ -7,7 +7,7 @@ import type { BotCommand } from "@/bot/types";
 export const reportListAdminCommand: BotCommand = {
   data: new SlashCommandBuilder().setName("신고목록").setDescription("[관리자] 처리 대기 중인 신고를 봅니다."),
   async execute(interaction) {
-    await requireLinkedAdmin(interaction.user.id);
+    await requireLinkedAdmin(interaction.user.id, interaction.guild);
     const reports = await prisma.report.findMany({
       where: { status: "PENDING" },
       include: { reporter: true },
@@ -36,7 +36,7 @@ export const reportResolveCommand: BotCommand = {
     .addStringOption((o) => o.setName("신고id").setDescription("/신고목록에서 확인한 ID").setRequired(true))
     .addStringOption((o) => o.setName("처리내용").setDescription("처리 내용")),
   async execute(interaction) {
-    const admin = await requireLinkedAdmin(interaction.user.id);
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
     const id = interaction.options.getString("신고id", true);
     const processResult = interaction.options.getString("처리내용") ?? null;
 

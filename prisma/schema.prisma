@@ -456,6 +456,10 @@ model ShopSetting {
   // 서버의 외부 인증 사이트 URL+역할 ID가 하드코딩되어 있었는데, 테넌트 샵마다
   // 다를 수밖에 없어서 샵별로 설정하게 바꿨다.
   verifyRoleId               String?
+  // 이 역할들 중 하나라도 가진 사람은 디스코드에서 처음 관리자 명령어를 쓰는 순간
+  // 자동으로 관리자(MANAGER) 계정이 발급된다 (쉼표/공백 구분 역할 ID 목록). 서버
+  // 소유자는 이 설정과 무관하게 항상 자동으로 SUPER 관리자가 된다.
+  autoAdminRoleIds           String?
   bankName                   String  @default("")
   bankAccountNumber          String  @default("")
   bankAccountHolder          String  @default("")

@@ -13,7 +13,7 @@ export const eventPanelCommand: BotCommand = {
     .setName("이벤트패널")
     .setDescription("[관리자] 버튼으로 이벤트(출석체크/친구초대/룰렛)에 참여할 수 있는 패널을 엽니다."),
   async execute(interaction) {
-    await requireLinkedAdmin(interaction.user.id);
+    await requireLinkedAdmin(interaction.user.id, interaction.guild);
     await interaction.reply(await eventPanelPayload());
   },
 };
@@ -26,7 +26,7 @@ export const eventPromoCommand: BotCommand = {
       o.setName("채널").setDescription("홍보 공지를 올릴 채널").setRequired(true).addChannelTypes(ChannelType.GuildText)
     ),
   async execute(interaction) {
-    const admin = await requireLinkedAdmin(interaction.user.id);
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
     const channelOption = interaction.options.getChannel("채널", true);
     await interaction.deferReply({ ephemeral: true });
 

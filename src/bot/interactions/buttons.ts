@@ -446,7 +446,7 @@ async function runCartCheckout(
 }
 
 async function handleAdminSection(interaction: ButtonInteraction, section: string) {
-  await requireLinkedAdmin(interaction.user.id);
+  await requireLinkedAdmin(interaction.user.id, interaction.guild);
   // 관리자 패널이 이제 채널에 고정되어 모두에게 보이는 메시지라, 여기서 editReply로
   // 원본을 고쳐버리면 다른 관리자들이 보는 패널까지 함께 바뀐다. 그래서 클릭한
   // 관리자에게만 보이는 새 ephemeral 응답으로 대신한다 (패널 자체는 그대로 유지).
@@ -471,7 +471,7 @@ async function handleAdminSection(interaction: ButtonInteraction, section: strin
 }
 
 async function handleTopUpAction(interaction: ButtonInteraction, action: "approve" | "reject", id: string) {
-  const admin = await requireLinkedAdmin(interaction.user.id);
+  const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
   try {
     if (action === "approve") await confirmTopUp(id, admin.id);
     else await rejectTopUp(id, admin.id);
@@ -483,7 +483,7 @@ async function handleTopUpAction(interaction: ButtonInteraction, action: "approv
 }
 
 async function handleRefundAction(interaction: ButtonInteraction, action: "approve" | "reject", id: string) {
-  const admin = await requireLinkedAdmin(interaction.user.id);
+  const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
   try {
     if (action === "approve") await approveRefund(id, admin.id);
     else await rejectRefund(id, admin.id);

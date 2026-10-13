@@ -23,7 +23,7 @@ export const couponCreateCommand: BotCommand = {
     .addIntegerOption((o) => o.setName("최소주문금액").setDescription("최소 주문 금액"))
     .addIntegerOption((o) => o.setName("전체사용제한").setDescription("전체 사용 가능 횟수")),
   async execute(interaction) {
-    const admin = await requireLinkedAdmin(interaction.user.id);
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
     const code = interaction.options.getString("코드", true).toUpperCase();
     const name = interaction.options.getString("이름", true);
     const discountType = interaction.options.getString("할인유형", true);
@@ -50,7 +50,7 @@ export const couponCreateCommand: BotCommand = {
 export const couponListAdminCommand: BotCommand = {
   data: new SlashCommandBuilder().setName("쿠폰목록").setDescription("[관리자] 전체 쿠폰 목록을 봅니다."),
   async execute(interaction) {
-    await requireLinkedAdmin(interaction.user.id);
+    await requireLinkedAdmin(interaction.user.id, interaction.guild);
     const coupons = await prisma.coupon.findMany({ orderBy: { createdAt: "desc" }, take: 25, include: { _count: { select: { usages: true } } } });
     await interaction.reply(
       ephemeral(
@@ -77,7 +77,7 @@ export const couponIssueCommand: BotCommand = {
     .addUserOption((o) => o.setName("대상").setDescription("지급받을 디스코드 사용자 (전체 지급 시 생략)"))
     .addBooleanOption((o) => o.setName("전체").setDescription("모든 회원에게 지급할지 여부")),
   async execute(interaction) {
-    const admin = await requireLinkedAdmin(interaction.user.id);
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
     const code = interaction.options.getString("코드", true).toUpperCase();
     const target = interaction.options.getUser("대상");
     const toAll = interaction.options.getBoolean("전체") ?? false;

@@ -8,7 +8,7 @@ import type { BotCommand } from "@/bot/types";
 export const partnerListCommand: BotCommand = {
   data: new SlashCommandBuilder().setName("파트너목록").setDescription("[관리자] 대기 중인 파트너 신청을 봅니다."),
   async execute(interaction) {
-    await requireLinkedAdmin(interaction.user.id);
+    await requireLinkedAdmin(interaction.user.id, interaction.guild);
     const partners = await prisma.partner.findMany({
       where: { status: "PENDING" },
       orderBy: { createdAt: "asc" },
@@ -39,7 +39,7 @@ export const partnerCreateCommand: BotCommand = {
     .addStringOption((o) => o.setName("소개").setDescription("간단한 소개"))
     .addStringOption((o) => o.setName("웹훅url").setDescription("파트너 웹훅 URL (선택 - 나중에 파트너가 직접 등록해도 됨)")),
   async execute(interaction) {
-    const admin = await requireLinkedAdmin(interaction.user.id);
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
     const target = interaction.options.getUser("대상", true);
     const name = interaction.options.getString("이름", true);
     const emoji = interaction.options.getString("이모지") ?? undefined;
@@ -80,7 +80,7 @@ export const partnerApproveCommand: BotCommand = {
     .setDescription("[관리자] 파트너 신청을 승인합니다 (채널 생성 + 역할 지급).")
     .addStringOption((o) => o.setName("파트너id").setDescription("/파트너목록에서 확인한 ID").setRequired(true)),
   async execute(interaction) {
-    const admin = await requireLinkedAdmin(interaction.user.id);
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
     const id = interaction.options.getString("파트너id", true);
     await interaction.deferReply({ ephemeral: true });
 
@@ -106,7 +106,7 @@ export const partnerRejectCommand: BotCommand = {
     .addStringOption((o) => o.setName("파트너id").setDescription("/파트너목록에서 확인한 ID").setRequired(true))
     .addStringOption((o) => o.setName("사유").setDescription("거절 사유")),
   async execute(interaction) {
-    const admin = await requireLinkedAdmin(interaction.user.id);
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
     const id = interaction.options.getString("파트너id", true);
     const note = interaction.options.getString("사유") ?? undefined;
     try {

@@ -9,7 +9,7 @@ import { reviewCreateCommand } from "@/bot/commands/reviews";
 import { reportCreateCommand } from "@/bot/commands/reports";
 import { notificationsCommand } from "@/bot/commands/notifications";
 import { partnerRequestCommand, partnerPanelCommand } from "@/bot/commands/partners";
-import { adminLinkCommand } from "@/bot/commands/adminLink";
+import { adminLinkCommand, autoAdminRoleCommand } from "@/bot/commands/adminLink";
 import { adminUnlinkCommand } from "@/bot/commands/adminUnlink";
 import { tierListCommand, tierCreateCommand, tierUpdateCommand, tierDeleteCommand } from "@/bot/commands/adminProducts";
 import {
@@ -96,6 +96,7 @@ export const commands: BotCommand[] = [
   promoStaffCommand,
   // 관리자 연동
   adminLinkCommand,
+  autoAdminRoleCommand,
   adminUnlinkCommand,
   // 관리자 기능
   tierListCommand,

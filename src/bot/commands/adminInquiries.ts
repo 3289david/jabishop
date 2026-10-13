@@ -7,7 +7,7 @@ import type { BotCommand } from "@/bot/types";
 export const inquiryListAdminCommand: BotCommand = {
   data: new SlashCommandBuilder().setName("문의목록").setDescription("[관리자] 답변 대기 중인 문의를 봅니다."),
   async execute(interaction) {
-    await requireLinkedAdmin(interaction.user.id);
+    await requireLinkedAdmin(interaction.user.id, interaction.guild);
     const inquiries = await prisma.inquiry.findMany({
       where: { status: "WAITING" },
       include: { user: true },
@@ -33,7 +33,7 @@ export const inquiryAnswerCommand: BotCommand = {
     .addStringOption((o) => o.setName("문의id").setDescription("/문의목록에서 확인한 ID").setRequired(true))
     .addStringOption((o) => o.setName("답변").setDescription("답변 내용").setRequired(true).setMaxLength(2000)),
   async execute(interaction) {
-    const admin = await requireLinkedAdmin(interaction.user.id);
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
     const id = interaction.options.getString("문의id", true);
     const answer = interaction.options.getString("답변", true);
 

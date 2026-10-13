@@ -67,7 +67,7 @@ export async function statsPayload() {
 export const statsCommand: BotCommand = {
   data: new SlashCommandBuilder().setName("통계").setDescription("[관리자] 오늘의 매출/주문 통계를 봅니다."),
   async execute(interaction) {
-    await requireLinkedAdmin(interaction.user.id);
+    await requireLinkedAdmin(interaction.user.id, interaction.guild);
     await interaction.reply(ephemeral(await statsPayload()));
   },
 };
@@ -80,7 +80,7 @@ export const publicStatsPanelCommand: BotCommand = {
       o.setName("채널").setDescription("패널을 게시할 채널").setRequired(true).addChannelTypes(ChannelType.GuildText)
     ),
   async execute(interaction) {
-    const admin = await requireLinkedAdmin(interaction.user.id);
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
     await interaction.deferReply({ ephemeral: true });
 
     const channelOption = interaction.options.getChannel("채널", true);
@@ -117,7 +117,7 @@ export const revenueAddCommand: BotCommand = {
     .addIntegerOption((o) => o.setName("금액").setDescription("더할 금액(원). 취소하려면 음수 입력").setRequired(true))
     .addStringOption((o) => o.setName("메모").setDescription("어떤 이익인지 메모 (선택)")),
   async execute(interaction) {
-    const admin = await requireLinkedAdmin(interaction.user.id);
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
     const amount = interaction.options.getInteger("금액", true);
     const memo = interaction.options.getString("메모") ?? undefined;
     await interaction.deferReply({ ephemeral: true });
@@ -144,7 +144,7 @@ export const costAddCommand: BotCommand = {
     .addIntegerOption((o) => o.setName("금액").setDescription("더할 원가(원). 취소하려면 음수 입력").setRequired(true))
     .addStringOption((o) => o.setName("메모").setDescription("어떤 원가인지 메모 (선택)")),
   async execute(interaction) {
-    const admin = await requireLinkedAdmin(interaction.user.id);
+    const admin = await requireLinkedAdmin(interaction.user.id, interaction.guild);
     const amount = interaction.options.getInteger("금액", true);
     const memo = interaction.options.getString("메모") ?? undefined;
     await interaction.deferReply({ ephemeral: true });
