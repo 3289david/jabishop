@@ -30,7 +30,7 @@ import { handleSelectMenuInteraction } from "@/bot/interactions/selects";
 import { panelError, ephemeral } from "@/bot/ui";
 import { startStatsChannelLoop } from "@/bot/statsChannels";
 import { handleAutoDeleteMessage } from "@/bot/autoDeleteChannel";
-import { handleAntiSpamMessage, handleAntiSpamMemberJoin } from "@/bot/antiSpam";
+import { handleAntiSpamMessage, handleAntiSpamMemberJoin, handleAntiSpamMemberUpdate } from "@/bot/antiSpam";
 import { handleStickyMessage } from "@/bot/stickyMessage";
 import { startPartnerBroadcastLoop } from "@/bot/partnerBroadcast";
 import { startDailyStatsBroadcastLoop } from "@/bot/dailyStatsBroadcast";
@@ -101,6 +101,12 @@ client.on(Events.MessageCreate, (message) => {
 client.on(Events.GuildMemberAdd, (member) => {
   runForGuild(member.guild.id, () => handleAntiSpamMemberJoin(member)).catch((e) =>
     console.error("안티스팸 부계정 감지 중 오류:", e)
+  );
+});
+
+client.on(Events.GuildMemberUpdate, (_oldMember, newMember) => {
+  runForGuild(newMember.guild.id, () => handleAntiSpamMemberUpdate(newMember)).catch((e) =>
+    console.error("안티스팸 닉네임 변경 감지 중 오류:", e)
   );
 });
 

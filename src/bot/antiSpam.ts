@@ -405,6 +405,50 @@ function isSimilarUsername(a: string, b: string): boolean {
   return levenshtein(na, nb) <= 1;
 }
 
+/** 설정에 등록된 차단 이름 목록(줄바꿈/쉼표 구분) 중 하나라도 정확히 일치하면 그 이름을 돌려준다. */
+function matchBannedUsername(settings: ShopSetting, ...candidates: (string | null | undefined)[]): string | null {
+  const banned = (settings.antiSpamBannedUsernames ?? "")
+    .split(/[\n,]+/)
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  if (banned.length === 0) return null;
+
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    const normalized = candidate.trim().toLowerCase();
+    if (banned.includes(normalized)) return normalized;
+  }
+  return null;
+}
+
+/** 등록된 차단 이름에 걸리면 즉시 추방+차단한다. 걸렸으면 true. */
+async function enforceBannedUsername(member: GuildMember, settings: ShopSetting, trigger: "입장" | "닉네임 변경"): Promise<boolean> {
+  const matched = matchBannedUsername(settings, member.user.username, member.user.globalName, member.nickname);
+  if (!matched) return false;
+
+  await member.ban({ reason: `안티스팸: 차단 이름 목록(${trigger}) - "${matched}"` }).catch(() => {});
+
+  if (settings.antiSpamLogChannelId) {
+    const logChannel = await member.guild.channels.fetch(settings.antiSpamLogChannelId).catch(() => null);
+    if (logChannel?.isTextBased()) {
+      await (logChannel as TextChannel)
+        .send(
+          buildPanel({
+            title: "🚫 차단 이름 목록 - 자동 추방+차단됨",
+            accentColor: ERROR_ACCENT_COLOR,
+            fields: [
+              { name: "대상", value: `${member.user.tag} (${member.id})` },
+              { name: "감지 시점", value: trigger },
+              { name: "일치한 이름", value: matched },
+            ],
+          })
+        )
+        .catch(() => {});
+    }
+  }
+  return true;
+}
+
 const RECENTLY_REMOVED_WINDOW_MS = 14 * 24 * 60 * 60 * 1000; // 최근 14일 내 추방/차단만 비교 대상으로 본다
 
 /**
@@ -453,6 +497,7 @@ export async function handleAntiSpamMemberJoin(member: GuildMember) {
   if (member.user.bot) return;
   const settings = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
   if (!settings?.antiSpamEnabled) return;
+  if (await enforceBannedUsername(member, settings, "입장")) return;
   if (settings.antiSpamWhitelistRoleId && member.roles.cache.has(settings.antiSpamWhitelistRoleId)) return;
 
   const ageDays = (Date.now() - member.user.createdTimestamp) / (24 * 60 * 60 * 1000);
@@ -519,4 +564,12 @@ export async function handleAntiSpamKick(interaction: ButtonInteraction, userId:
 
   await member.kick("안티스팸: 관리자가 부계정 의심으로 추방").catch(() => {});
   await interaction.reply(ephemeral(panelSuccess(`${member.user.tag}님을 추방했습니다.`)));
+}
+
+/** 이미 서버에 있는 사람이 닉네임/유저명을 차단 목록에 있는 이름으로 바꿨을 때도 잡아낸다. */
+export async function handleAntiSpamMemberUpdate(member: GuildMember) {
+  if (member.user.bot) return;
+  const settings = await prisma.shopSetting.findUnique({ where: { id: "singleton" } });
+  if (!settings?.antiSpamEnabled) return;
+  await enforceBannedUsername(member, settings, "닉네임 변경");
 }

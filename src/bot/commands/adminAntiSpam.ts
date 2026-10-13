@@ -58,6 +58,11 @@ export const antiSpamCommand: BotCommand = {
           o
             .setName("사진만허용채널")
             .setDescription("사진금지의 예외 채널 ID들 (영상은 여전히 금지, 공백/쉼표로 구분)")
+        )
+        .addStringOption((o) =>
+          o
+            .setName("차단할이름")
+            .setDescription("이 이름(유저명/표시이름/닉네임)과 정확히 일치하면 보자마자 추방+차단 (쉼표/줄바꿈으로 구분)")
         ),
     )
     .addSubcommand((sc) =>
@@ -166,6 +171,14 @@ export const antiSpamCommand: BotCommand = {
           .filter(Boolean)
           .join(",")
       : null;
+    const bannedUsernamesRaw = interaction.options.getString("차단할이름");
+    const bannedUsernames = bannedUsernamesRaw
+      ? bannedUsernamesRaw
+          .split(/[\n,]+/)
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .join(",")
+      : null;
 
     const data = {
       ...(enabled != null ? { antiSpamEnabled: enabled } : {}),
@@ -182,6 +195,7 @@ export const antiSpamCommand: BotCommand = {
       ...(similarNameCheck != null ? { antiSpamSimilarNameCheck: similarNameCheck } : {}),
       ...(fullExemptCategoryIds != null ? { antiSpamExemptCategoryIds: fullExemptCategoryIds } : {}),
       ...(imageOnlyExemptChannelIds != null ? { antiSpamImageOnlyExemptChannelIds: imageOnlyExemptChannelIds } : {}),
+      ...(bannedUsernames != null ? { antiSpamBannedUsernames: bannedUsernames } : {}),
     };
 
     await prisma.shopSetting.upsert({
