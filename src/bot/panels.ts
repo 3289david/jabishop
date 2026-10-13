@@ -91,9 +91,10 @@ export async function eventPanelPayload() {
 }
 
 /** 이벤트 패널과는 별개로, 채널에 게시하는 화려한 홍보용 공지 (버튼 없음). */
-export function eventPromoPayload() {
+export async function eventPromoPayload() {
+  const shopName = await getShopName();
   return buildPanel({
-    title: "🎉🎊 자비샵 신규 이벤트 4종 오픈! 🎊🎉",
+    title: `🎉🎊 ${shopName} 신규 이벤트 4종 오픈! 🎊🎉`,
     banner: true,
     description:
       "가만히 있어도, 친구를 데려와도, 운이 좋으면 대박까지! 지금 바로 참여해보세요 ✨\n(각 이벤트 진행 여부는 아래 패널에서 실시간으로 확인할 수 있어요)",

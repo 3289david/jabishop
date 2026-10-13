@@ -1,4 +1,4 @@
-import { Client, GatewayIntentBits, Events, PermissionFlagsBits, type Interaction } from "discord.js";
+import { Client, GatewayIntentBits, Events, PermissionFlagsBits, DiscordAPIError, HTTPError, type Interaction } from "discord.js";
 import { BOT_TOKEN } from "@/bot/env";
 import { commandsByName } from "@/bot/commandRegistry";
 import { ADMIN_LINK_MODAL_ID, handleAdminLinkModalSubmit } from "@/bot/commands/adminLink";
@@ -28,7 +28,6 @@ import { SELLER_EDIT_INFO_MODAL_ID, handleSellerEditInfoModalSubmit } from "@/bo
 import { handleButtonInteraction } from "@/bot/interactions/buttons";
 import { handleSelectMenuInteraction } from "@/bot/interactions/selects";
 import { panelError, ephemeral } from "@/bot/ui";
-import { UserFacingError } from "@/lib/errors";
 import { startStatsChannelLoop } from "@/bot/statsChannels";
 import { handleAutoDeleteMessage } from "@/bot/autoDeleteChannel";
 import { handleAntiSpamMessage, handleAntiSpamMemberJoin } from "@/bot/antiSpam";
@@ -213,7 +212,14 @@ async function handleInteraction(interaction: Interaction) {
     }
   } catch (err) {
     console.error(`인터랙션 처리 중 오류 (${interaction.type}):`, err);
-    const message = err instanceof UserFacingError ? err.message : "일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
+    // UserFacingError(비즈니스 로직) + 코드 안에서 직접 throw new Error(친절한 한국어 문구)로
+    // 던진 것들은 전부 .message를 그대로 보여준다. 디스코드 자체 API/네트워크 에러
+    // (DiscordAPIError/HTTPError, 예: "internal network error" code 40333)만 걸러서
+    // 일반적인 안내 문구로 바꾼다 - 처음엔 UserFacingError만 허용해서 그 외 모든
+    // Error(요청 검증/권한 체크 등 곳곳의 평범한 throw new Error 포함)까지 묻혀버리는
+    // 회귀가 있었음.
+    const isRawDiscordError = err instanceof DiscordAPIError || err instanceof HTTPError;
+    const message = !isRawDiscordError && err instanceof Error ? err.message : "일시적인 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
 
     if (interaction.isRepliable()) {
       if (interaction.deferred || interaction.replied) {

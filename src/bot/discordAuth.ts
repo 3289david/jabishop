@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { USER_STATUS, ADMIN_STATUS } from "@/lib/constants";
+import { getAppOrigin } from "@/lib/appUrl";
 
 /**
  * 디스코드 사용자는 별도 회원가입 없이 봇 명령어를 처음 사용하는 순간
@@ -43,6 +44,17 @@ export async function getLinkedAdmin(discordId: string) {
 export async function requireLinkedAdmin(discordId: string) {
   const admin = await getLinkedAdmin(discordId);
   if (!admin) {
+    // "자판기(샵)"를 막 산 테넌트는 이 DB에 관리자 계정이 아예 하나도 없는 상태다 -
+    // `/관리자연동`은 ID/비번으로 "기존 계정"에 로그인하는 명령어라 여기선 쓸 수 없고
+    // (로그인 시도해도 그 자체로 실패), 웹사이트 /admin/login의 "Discord로 로그인"이
+    // 최초 1회에 한해 "이 서버의 Discord 관리자 권한"을 확인해서 SUPER 계정을 자동
+    // 발급해준다 - 그게 유일한 부트스트랩 경로이므로 안내를 구분해서 보여준다.
+    const adminCount = await prisma.adminUser.count();
+    if (adminCount === 0) {
+      throw new Error(
+        `아직 이 샵에 관리자 계정이 없습니다. 먼저 ${getAppOrigin()}/admin/login 에서 "Discord로 로그인"을 눌러 최초 관리자 계정을 만들어주세요 (이 서버의 Discord 관리자 권한이 있어야 합니다).`
+      );
+    }
     throw new Error("관리자 계정과 연동되어 있지 않습니다. `/관리자연동` 명령어로 먼저 연동해주세요.");
   }
   return admin;

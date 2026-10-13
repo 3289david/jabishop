@@ -35,7 +35,7 @@ export const eventPromoCommand: BotCommand = {
       return interaction.editReply(panelError("텍스트 채널만 선택할 수 있습니다."));
     }
 
-    await (channel as TextChannel).send(eventPromoPayload());
+    await (channel as TextChannel).send(await eventPromoPayload());
     await interaction.editReply(panelSuccess(`<#${channel.id}> 채널에 이벤트 홍보 공지를 올렸습니다.`));
   },
 };

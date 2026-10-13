@@ -18,7 +18,7 @@ export const ADMIN_LINK_MODAL_ID = "admin_link_modal";
 export const adminLinkCommand: BotCommand = {
   data: new SlashCommandBuilder()
     .setName("관리자연동")
-    .setDescription("자비샵 관리자 계정을 이 디스코드 계정과 연동합니다."),
+    .setDescription("관리자 계정을 이 디스코드 계정과 연동합니다."),
   async execute(interaction) {
     const modal = new ModalBuilder().setCustomId(ADMIN_LINK_MODAL_ID).setTitle("관리자 계정 연동");
 

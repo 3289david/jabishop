@@ -21,7 +21,7 @@ export const partnerRequestCommand: BotCommand = {
     .setDescription("서버/채널 상호 홍보 파트너를 신청합니다.")
     .addStringOption((o) => o.setName("이름").setDescription("파트너로 등록할 서버/채널 이름").setRequired(true))
     .addStringOption((o) =>
-      o.setName("웹훅url").setDescription("자비샵 홍보 문구를 받을 디스코드 웹훅 URL (필수)").setRequired(true)
+      o.setName("웹훅url").setDescription("이 샵 홍보 문구를 받을 디스코드 웹훅 URL (필수)").setRequired(true)
     )
     .addStringOption((o) => o.setName("이모지").setDescription("생성될 채널명 앞에 붙일 이모지 (비우면 기본 🤝)"))
     .addStringOption((o) => o.setName("소개").setDescription("간단한 소개")),

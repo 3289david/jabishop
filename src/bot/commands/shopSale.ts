@@ -48,7 +48,7 @@ export const shopClaimCommand: BotCommand = {
     await applyShopGuildId(shop.slug, guildId);
     await interaction.editReply(
       panelSuccess(
-        `이 서버가 "${shop.name}"(${shop.slug}) 샵과 연동되었습니다.\n이제 이 서버에서 상품 구매/쿠폰/장바구니/관리자 패널 등 모든 기능을 사용할 수 있습니다.\n(웹사이트 프로세스가 10~20초 정도 재시작됩니다.)`
+        `이 서버가 "${shop.name}"(${shop.slug}) 샵과 연동되었습니다.\n이제 이 서버에서 상품 구매/쿠폰/장바구니 등 일반 기능을 사용할 수 있습니다.\n(웹사이트 프로세스가 10~20초 정도 재시작됩니다.)\n\n⚠️ 관리자 명령어(\`/패널\` 등)는 아직 안 열려있습니다. \`/샵봇설정\` → 웹사이트 \`/admin/login\`에서 "Discord로 로그인"으로 최초 관리자 계정을 먼저 만들어주세요 (\`/자판기안내채널\`에 자세히 안내되어 있습니다).`
       )
     );
   },
