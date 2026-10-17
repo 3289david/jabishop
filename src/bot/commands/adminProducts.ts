@@ -90,6 +90,9 @@ export const tierUpdateCommand: BotCommand = {
     .addIntegerOption((o) => o.setName("원가").setDescription("계정 1개당 원가 (순이익/적자 계산용)"))
     .addBooleanOption((o) =>
       o.setName("원플러스원적용").setDescription("켜면 이 등급은 구매할 때마다 재고가 있으면 하나 더 공짜로 지급 (전역 스위치도 켜야 동작)")
+    )
+    .addBooleanOption((o) =>
+      o.setName("할인모드제외").setDescription("켜면 '한섭 '으로 시작하는 등급이어도 할인 모드 on/off에 영향받지 않고 가격이 고정됨")
     ),
   autocomplete: tierAutocomplete,
   async execute(interaction) {
@@ -105,6 +108,7 @@ export const tierUpdateCommand: BotCommand = {
     const category = interaction.options.getString("카테고리");
     const costPrice = interaction.options.getInteger("원가");
     const buyOneGetOneEnabled = interaction.options.getBoolean("원플러스원적용");
+    const excludeFromDiscountMode = interaction.options.getBoolean("할인모드제외");
 
     await prisma.tier.update({
       where: { id: tier.id },
@@ -116,6 +120,7 @@ export const tierUpdateCommand: BotCommand = {
         ...(category != null ? { category: category === "" ? null : category } : {}),
         ...(costPrice != null ? { costPrice } : {}),
         ...(buyOneGetOneEnabled != null ? { buyOneGetOneEnabled } : {}),
+        ...(excludeFromDiscountMode != null ? { excludeFromDiscountMode } : {}),
       },
     });
     await prisma.adminActivityLog.create({ data: { adminId: admin.id, action: "TIER_UPDATE", target: tier.id } });

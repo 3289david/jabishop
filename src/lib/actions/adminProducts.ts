@@ -138,7 +138,9 @@ export async function setDiscountModeAction(formData: FormData) {
   let affected = 0;
 
   if (enabled) {
-    const targets = tiers.filter((t) => t.name.startsWith(DUPLICATE_PREFIX) && t.originalPrice == null);
+    const targets = tiers.filter(
+      (t) => t.name.startsWith(DUPLICATE_PREFIX) && t.originalPrice == null && !t.excludeFromDiscountMode
+    );
     if (targets.length > 0) {
       const prices = targets.map((t) => t.price);
       const min = Math.min(...prices);
